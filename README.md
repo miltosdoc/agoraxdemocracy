@@ -216,41 +216,50 @@ The following features are part of the AgoraX platform infrastructure:
 - [x] Relations, insert schemas, type exports
 - [x] Drizzle migration generated
 
-### Phase 2: Backend — Storage & Routes
-- [ ] Extend `IStorage` interface with community/proposal/sortition methods
-- [ ] Implement `PostgresStorage` methods for all new tables
-- [ ] Community CRUD routes (`/api/communities`)
-- [ ] Proposal submission & lifecycle routes (`/api/communities/:id/proposals`)
-- [ ] Sortition creation & scoring routes (`/api/sortition`)
-- [ ] Amendment routes (`/api/proposals/:id/amendments`)
-- [ ] Debate argument routes (`/api/proposals/:id/arguments`)
-- [ ] Proposal support routes (`/api/proposals/:id/support`)
+### Phase 2: Backend — Storage & Routes ✅ DONE
+- [x] Extend `IStorage` interface with community/proposal/sortition methods (~30 methods)
+- [x] Implement `PostgresStorage` methods for all new tables
+- [x] Community CRUD routes (`/api/communities`)
+- [x] Proposal submission & lifecycle routes (`/api/communities/:id/proposals`)
+- [x] Sortition creation & scoring routes (`/api/sortition`)
+- [x] Amendment routes (`/api/proposals/:id/amendments`)
+- [x] Debate argument routes (`/api/proposals/:id/arguments`)
+- [x] Proposal support routes (`/api/proposals/:id/support`)
+- [x] Democracy score routes (`/api/communities/:id/democracy-score`)
+- [x] State transition routes (`/api/proposals/:id/transition`)
 
-### Phase 3: LLM Validation Service
-- [ ] Create `server/utils/llm-validator.ts`
-- [ ] Implement tiered scoring logic (&lt;20%, 20-90%, &gt;90%)
+### Phase 3: LLM Structuring Service ✅ DONE
+- [x] Create `server/utils/proposal-structuring.ts` (extracts problem/solution/evidence)
+- [x] LLM as structurer/assistant only — never auto-rejects proposals
+- [ ] Implement tiered scoring logic (&lt;20%, 20-90%, &gt;90%) — deferred to Phase 3.1
 - [ ] Greek-language prompt design for proposal evaluation
 - [ ] Configurable LLM backend (Ollama, OpenRouter, Anthropic)
 - [ ] Async validation with status updates
 - [ ] Appeal mechanism implementation
 
-### Phase 4: State Machine & Workflow
-- [ ] Create `server/utils/proposal-state-machine.ts`
-- [ ] Implement valid state transitions
-- [ ] Side effects per transition (trigger LLM, create sortition, etc.)
-- [ ] Sortition selection algorithm (random, activity-weighted)
+### Phase 4: State Machine & Workflow ✅ DONE
+- [x] Create `server/utils/proposal-state-machine.ts` (5-state lifecycle)
+- [x] Implement valid state transitions (draft → review → deliberation → voting → decided)
+- [x] Sortition selection algorithm (`server/utils/sortition.ts` — cryptographically secure)
+- [x] Democracy score calculator (`server/utils/democracy-score.ts` — 0-100 scale, 5 factors)
+- [x] Job queue (`server/utils/job-queue.ts` — Postgres-based async task manager)
+- [ ] Side effects per transition (trigger LLM, create sortition, etc.) — wired to job queue
 - [ ] Sortition timeout & replacement logic
 - [ ] Amendment merge/reject workflow with author veto
 
-### Phase 5: Frontend Pages
-- [ ] Community Dashboard (`/communities/:id`)
-- [ ] Proposal Submission Form (`/communities/:id/proposals/new`)
+### Phase 5: Frontend Pages ⏳ IN PROGRESS
+- [x] Community list component (`client/src/components/community/community-list.tsx`)
+- [x] Proposal form component (`client/src/components/proposal/proposal-form.tsx`)
+- [x] Debate arguments component (`client/src/components/debate/debate-arguments.tsx`)
+- [ ] Community Dashboard page (`/communities/:id`)
+- [ ] Proposal Submission Form page (`/communities/:id/proposals/new`)
 - [ ] Proposal Detail Page (`/proposals/:id`) with state machine visualization
 - [ ] Sortition Scoring Interface (`/sortition/:bodyId`)
-- [ ] Debate View with structured arguments
 - [ ] Navigation updates (App.tsx routes + bottom-nav)
 
-### Phase 6: Integration & Polish
+### Phase 6: Integration & Polish ⏳ PENDING
+- [ ] Integration tests for state machine transitions
+- [ ] Admin action logging table for democracy score accuracy
 - [ ] Migration from `groups` → `communities` (backward compatibility)
 - [ ] Link existing polls to communities
 - [ ] Notification system for sortition assignments
@@ -262,10 +271,18 @@ The following features are part of the AgoraX platform infrastructure:
 - [ ] AI-assisted proposal merging (detect similar proposals)
 - [ ] Live debate mode (real-time argument exchange)
 - [ ] Video debate integration
-- [ ] Democracy score computation algorithm
+- [x] Democracy score computation algorithm ✅ (`server/utils/democracy-score.ts`)
 - [ ] Community verification (prove you represent a real institution)
 - [ ] Crypto token for participation incentives
 - [ ] Multi-language support (Greek/English/Swedish)
+
+### Phase 8: Cryptographic Voting (Future)
+- [ ] Helios/ElectionGuard-based cryptographic tallying
+- [ ] Distributed trustees for high-stakes votes
+- [ ] Benaloh challenge implementation
+- [ ] Verifiable receipt-freeness
+- [ ] Multi-community federation
+- [ ] Legal status of outcomes (advisory vs. binding)
 
 ---
 
