@@ -338,6 +338,23 @@ export const proposalSupport = pgTable("proposal_support", {
   proposalSupportUnique: uniqueIndex('proposal_support_unique').on(table.proposalId, table.userId, table.type),
 }));
 
+// ─── Job Queue ──────────────────────────────────────────────────────────────
+
+export const jobs = pgTable("jobs", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(), // 'structure_proposal' | 'send_notification' | 'create_sortition' | 'recalculate_score' | 'cleanup_expired'
+  payload: jsonb("payload").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  priority: text("priority").notNull().default("normal"), // 'low' | 'normal' | 'high'
+  result: jsonb("result"),
+  error: text("error"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   polls: many(polls),
