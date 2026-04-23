@@ -903,9 +903,9 @@ router.post(
 
 Before Phase 2 implementation begins, the project must formally decide:
 
-1. **gov.gr integration status:** Is the MoU with Ministry of Digital Governance in progress? Signed? What is the timeline?
-2. **DPIA status:** Has the Data Protection Impact Assessment been commissioned? When will it complete?
-3. **Exclusion policy:** Formal decisions on non-citizens, Greeks abroad, minors, digitally excluded.
+1. ~~**gov.gr integration status:** Is the MoU with Ministry of Digital Governance in progress? Signed? What is the timeline?** — **RESOLVED:** Fully implemented. Uses existing gov.gr docs.gov.gr PAdES signing service. No MoU required — users upload Solemn Declaration PDFs which are validated against government signing certificates. One-time verification sets `govgr_verified` flag; voter hash (SHA256(AFM+SALT)) prevents duplicate identities. Production-ready.~~
+2. ~~**DPIA status:** Has the Data Protection Impact Assessment been commissioned? When will it complete?** — **PARTIALLY RESOLVED:** Privacy policy in place (`/privacy` page) with GDPR-compliant language covering data collection, usage, security, and user rights. Formal DPIA document not yet commissioned — should be addressed before public launch.~~
+3. ~~**Exclusion policy:** Formal decisions on non-citizens, Greeks abroad, minors, digitally excluded.** — **PARTIALLY RESOLVED:** Implicit policy: gov.gr verified = eligible to vote. No explicit age/citizenship checks in schema (relies on gov.gr verification). Geofencing supports location-based eligibility. No explicit handling for Greeks abroad, minors, or digitally excluded — these are Phase 3/4 considerations. Current approach: if you can get a gov.gr signed PDF, you're eligible.~~
 4. **Community founding model:** Who can create a community? Open self-service, admin-approved, or tied to administrative geography (municipalities)?
 5. **Community admin authority:** What can admins do beyond moderation? Can they override sortition timeouts? Block proposals?
 6. **Proposal eligibility:** Any community member can submit? Or must meet participation threshold (e.g., 30 days membership)?
