@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, jsonb, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -190,12 +190,166 @@ export const pollUserResponses = pgTable("poll_user_responses", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Demopolis: Communities (Κοινότητες) ─────────────────────────────────────
+
+export const communities = pgTable("communities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("autonomous"), // 'autonomous' | 'managed'
+  governanceModel: text("governance_model").default("no_admin"), // 'no_admin' | 'admin_team' | 'hybrid'
+  creatorId: integer("creator_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  // Deliberation parameters (per-community config)
+  maxConcurrentVotes: integer("max_concurrent_votes").default(-1), // -1 = unlimited
+  minParticipationPct: numeric("min_participation_pct").default("0"),
+  sortitionSize: integer("sortition_size").default(20),
+  sortitionMode: text("sortition_mode").default("absolute"), // 'absolute' | 'percentage'
+  sortitionResponseHours: integer("sortition_response_hours").default(72),
+
+  // Verification settings
+  requireGovgrVerification: boolean("require_govgr_verification").default(false),
+
+  // Democracy score (computed, shows how democratic the community governance is)
+  democracyScore: numeric("democracy_score"),
+});
+
+export const communityMembers = pgTable("community_members", {
+  id: serial("id").primaryKey(),
+  communityId: integer("community_id").notNull().references(() => communities.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").default("member"), // 'member' | 'admin' | 'founder'
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+}, (table) => ({
+  communityMemberUnique: uniqueIndex('community_member_unique').on(table.communityId, table.userId),
+}));
+
+// ─── Demopolis: Proposals (Προβουλεύματα) ────────────────────────────────────
+
+export const proposals = pgTable("proposals", {
+  id: serial("id").primaryKey(),
+  communityId: integer("community_id").notNull().references(() => communities.id),
+  authorId: integer("author_id").notNull().references(() => users.id),
+
+  // Core content (Προβούλευμα = question + solution)
+  question: text("question").notNull(),       // Το Ερώτημα
+  solution: text("solution").notNull(),       // Η Απάντηση/Λύση
+
+  // State machine
+  status: text("status").notNull().default("submitted"),
+  // 'submitted' → 'validating' → 'valid' | 'returned' | 'rejected'
+  //   → 'scoring' → 'under_review' → 'amendments' → 'debate' → 'voting' → 'resolved'
+
+  // LLM validation
+  llmScore: numeric("llm_score"),              // 0-100 score from LLM validation
+  llmFeedback: text("llm_feedback"),            // Explanation for low scores
+  llmValidatedAt: timestamp("llm_validated_at"),
+  llmValidationRound: integer("llm_validation_round").default(1), // for appeals
+
+  // Sortition scoring
+  sortitionAvgScore: numeric("sortition_avg_score"), // weighted avg from sortition body
+  sortitionRank: integer("sortition_rank"),       // rank among proposals in same cycle
+
+  // Metadata
+  category: text("category"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ─── Demopolis: Amendments (Αντιπροτάσεις & Βελτιώσεις) ──────────────────────
+
+export const proposalAmendments = pgTable("proposal_amendments", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+
+  type: text("type").notNull(), // 'improvement' (βελτίωση) | 'counter_proposal' (αντιπρόταση)
+
+  // Content
+  text: text("text").notNull(),
+
+  // Status
+  status: text("status").default("pending"), // 'pending' | 'accepted' | 'rejected' | 'under_review'
+  authorVeto: boolean("author_veto").default(false), // original author vetoed this amendment
+
+  // LLM validation
+  llmScore: numeric("llm_score"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Demopolis: Sortition Bodies (Κληρωτά Σώματα) ────────────────────────────
+
+export const sortitionBodies = pgTable("sortition_bodies", {
+  id: serial("id").primaryKey(),
+  communityId: integer("community_id").notNull().references(() => communities.id),
+  purpose: text("purpose").notNull(), // 'validity_check' | 'scoring' | 'conflict_resolution' | 'vote_promotion'
+  proposalId: integer("proposal_id").references(() => proposals.id), // NULL if not tied to specific proposal
+
+  size: integer("size").notNull(),           // target number of members
+  responseHours: integer("response_hours").default(72),
+
+  status: text("status").default("selecting"), // 'selecting' | 'active' | 'completed' | 'timeout'
+
+  selectedAt: timestamp("selected_at"),
+  completedAt: timestamp("completed_at"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const sortitionMembers = pgTable("sortition_members", {
+  id: serial("id").primaryKey(),
+  bodyId: integer("body_id").notNull().references(() => sortitionBodies.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  responded: boolean("responded").default(false),
+  score: numeric("score"),                    // individual score (0-10 or 0-100)
+  scoredAt: timestamp("scored_at"),
+}, (table) => ({
+  sortitionMemberUnique: uniqueIndex('sortition_member_unique').on(table.bodyId, table.userId),
+}));
+
+// ─── Demopolis: Debate Arguments (Διάλογος) ──────────────────────────────────
+
+export const debateArguments = pgTable("debate_arguments", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+
+  side: text("side").notNull(),   // 'for' | 'against'
+  text: text("text").notNull(),
+
+  // Support mechanism (likes/dislikes from consultation.md)
+  supportCount: integer("support_count").default(0),
+  oppositionCount: integer("opposition_count").default(0),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Demopolis: Proposal Support (Συγκέντρωση Υποστήριξης) ───────────────────
+
+export const proposalSupport = pgTable("proposal_support", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // 'support' | 'oppose'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  proposalSupportUnique: uniqueIndex('proposal_support_unique').on(table.proposalId, table.userId, table.type),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   polls: many(polls),
   votes: many(votes),
   comments: many(comments),
   accountActivity: many(accountActivity),
+  communityMemberships: many(communityMembers),
+  proposals: many(proposals),
+  proposalAmendments: many(proposalAmendments),
+  debateArguments: many(debateArguments),
+  proposalSupport: many(proposalSupport),
+  sortitionMemberships: many(sortitionMembers),
 }));
 
 export const pollsRelations = relations(polls, ({ one, many }) => ({
@@ -338,6 +492,100 @@ export const pollUserResponsesRelations = relations(pollUserResponses, ({ one })
   }),
 }));
 
+// ─── Demopolis Relations ─────────────────────────────────────────────────────
+
+export const communitiesRelations = relations(communities, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [communities.creatorId],
+    references: [users.id],
+  }),
+  members: many(communityMembers),
+  proposals: many(proposals),
+  sortitionBodies: many(sortitionBodies),
+}));
+
+export const communityMembersRelations = relations(communityMembers, ({ one }) => ({
+  community: one(communities, {
+    fields: [communityMembers.communityId],
+    references: [communities.id],
+  }),
+  user: one(users, {
+    fields: [communityMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const proposalsRelations = relations(proposals, ({ one, many }) => ({
+  community: one(communities, {
+    fields: [proposals.communityId],
+    references: [communities.id],
+  }),
+  author: one(users, {
+    fields: [proposals.authorId],
+    references: [users.id],
+  }),
+  amendments: many(proposalAmendments),
+  debateArguments: many(debateArguments),
+  support: many(proposalSupport),
+  sortitionBodies: many(sortitionBodies),
+}));
+
+export const proposalAmendmentsRelations = relations(proposalAmendments, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalAmendments.proposalId],
+    references: [proposals.id],
+  }),
+  author: one(users, {
+    fields: [proposalAmendments.authorId],
+    references: [users.id],
+  }),
+}));
+
+export const sortitionBodiesRelations = relations(sortitionBodies, ({ one, many }) => ({
+  community: one(communities, {
+    fields: [sortitionBodies.communityId],
+    references: [communities.id],
+  }),
+  proposal: one(proposals, {
+    fields: [sortitionBodies.proposalId],
+    references: [proposals.id],
+  }),
+  members: many(sortitionMembers),
+}));
+
+export const sortitionMembersRelations = relations(sortitionMembers, ({ one }) => ({
+  body: one(sortitionBodies, {
+    fields: [sortitionMembers.bodyId],
+    references: [sortitionBodies.id],
+  }),
+  user: one(users, {
+    fields: [sortitionMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const debateArgumentsRelations = relations(debateArguments, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [debateArguments.proposalId],
+    references: [proposals.id],
+  }),
+  author: one(users, {
+    fields: [debateArguments.authorId],
+    references: [users.id],
+  }),
+}));
+
+export const proposalSupportRelations = relations(proposalSupport, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalSupport.proposalId],
+    references: [proposals.id],
+  }),
+  user: one(users, {
+    fields: [proposalSupport.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
@@ -388,6 +636,16 @@ export const rankingVoteSchema = z.object({
 export const insertPollQuestionSchema = createInsertSchema(pollQuestions).omit({ id: true });
 export const insertPollAnswerSchema = createInsertSchema(pollAnswers).omit({ id: true });
 export const insertPollUserResponseSchema = createInsertSchema(pollUserResponses).omit({ id: true, createdAt: true });
+
+// Demopolis Insert Schemas
+export const insertCommunitySchema = createInsertSchema(communities).omit({ id: true, createdAt: true });
+export const insertCommunityMemberSchema = createInsertSchema(communityMembers).omit({ id: true, joinedAt: true });
+export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProposalAmendmentSchema = createInsertSchema(proposalAmendments).omit({ id: true, createdAt: true });
+export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omit({ id: true, createdAt: true });
+export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
+export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
+export const insertProposalSupportSchema = createInsertSchema(proposalSupport).omit({ id: true, createdAt: true });
 
 // Poll with options schema for creation
 export const createPollSchema = z.object({
@@ -542,6 +800,26 @@ export type PollAnswer = typeof pollAnswers.$inferSelect;
 export type PollUserResponse = typeof pollUserResponses.$inferSelect;
 export type BallotVote = typeof ballotVotes.$inferSelect;
 
+// Demopolis Types
+export type Community = typeof communities.$inferSelect;
+export type CommunityMember = typeof communityMembers.$inferSelect;
+export type Proposal = typeof proposals.$inferSelect;
+export type ProposalAmendment = typeof proposalAmendments.$inferSelect;
+export type SortitionBody = typeof sortitionBodies.$inferSelect;
+export type SortitionMember = typeof sortitionMembers.$inferSelect;
+export type DebateArgument = typeof debateArguments.$inferSelect;
+export type ProposalSupport = typeof proposalSupport.$inferSelect;
+
+// Demopolis Insert Types
+export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
+export type InsertCommunityMember = z.infer<typeof insertCommunityMemberSchema>;
+export type InsertProposal = z.infer<typeof insertProposalSchema>;
+export type InsertProposalAmendment = z.infer<typeof insertProposalAmendmentSchema>;
+export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
+export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
+export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
+export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
+
 // Safe user type without sensitive fields (password, providerId, provider, etc.)
 export type SafeUser = Pick<User, 'id' | 'username' | 'name' | 'email' | 'profilePicture'>;
 
@@ -572,6 +850,22 @@ export type PollWithQuestions = Poll & {
   voteCount: number;
   userVoted?: boolean;
   group?: Group;
+};
+
+// Demopolis extended types
+export type CommunityWithMembers = Community & {
+  members: (CommunityMember & { user: SafeUser })[];
+  creator: SafeUser;
+  memberCount: number;
+};
+
+export type ProposalDetail = Proposal & {
+  author: SafeUser;
+  community: Community;
+  amendments: ProposalAmendment[];
+  debateArguments: DebateArgument[];
+  supportCount: number;
+  opposeCount: number;
 };
 
 // Interface for ranking poll results
