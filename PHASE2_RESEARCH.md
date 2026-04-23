@@ -952,6 +952,7 @@ Before Phase 2 implementation begins, the project must formally decide:
 
 ## 16. References
 
+- **MERGE_PLAN.md** — Full Demopolis→AgorX merge strategy (schema, storage, routes, LLM, frontend)
 - **Helios Voting System** — https://github.com/benadida/helios-server
 - **Benaloh, J. (2006)** "Simple Verifiable Elections" — USENIX EVT
 - **Decidim** — https://github.com/decidim/decidim
