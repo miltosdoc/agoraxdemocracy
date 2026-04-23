@@ -903,7 +903,7 @@ router.post(
 
 Before Phase 2 implementation begins, the project must formally decide:
 
-1. ~~**gov.gr integration status:** Is the MoU with Ministry of Digital Governance in progress? Signed? What is the timeline?** — **RESOLVED:** Fully implemented. Uses existing gov.gr docs.gov.gr PAdES signing service. No MoU required — users upload Solemn Declaration PDFs which are validated against government signing certificates. One-time verification sets `govgr_verified` flag; voter hash (SHA256(AFM+SALT)) prevents duplicate identities. Production-ready.~~
+1. ~~**gov.gr integration status:** Is the MoU with Ministry of Digital Gov...[truncated]
 2. ~~**DPIA status:** Has the Data Protection Impact Assessment been commissioned? When will it complete?** — **PARTIALLY RESOLVED:** Privacy policy in place (`/privacy` page) with GDPR-compliant language covering data collection, usage, security, and user rights. Formal DPIA document not yet commissioned — should be addressed before public launch.~~
 3. ~~**Exclusion policy:** Formal decisions on non-citizens, Greeks abroad, minors, digitally excluded.** — **PARTIALLY RESOLVED:** Implicit policy: gov.gr verified = eligible to vote. No explicit age/citizenship checks in schema (relies on gov.gr verification). Geofencing supports location-based eligibility. No explicit handling for Greeks abroad, minors, or digitally excluded — these are Phase 3/4 considerations. Current approach: if you can get a gov.gr signed PDF, you're eligible.~~
 4. **Community founding model:** Who can create a community? Open self-service, admin-approved, or tied to administrative geography (municipalities)?
@@ -913,6 +913,12 @@ Before Phase 2 implementation begins, the project must formally decide:
 8. **Trustee selection for high-stakes votes:** Which universities, civil society organizations, international observers? Formal agreements?
 9. **Legal status of outcomes:** Are these decisions advisory to municipalities? Binding in any context? Requires legislative work.
 10. **Funding and sustainability model:** Public funding, municipal contracts, philanthropic, hybrid?
+
+**Q4-7 DECISIONS (2026-04-23):**
+- **Q4:** Open self-service. Any registered user can create a community. No admin approval needed — lowers friction for early adoption.
+- **Q5:** Admins can moderate (delete comments, ban users), manage membership, and override sortition timeouts. Cannot block proposals or override voting results. Admin actions logged and visible to community members. Democracy score tracks admin power usage.
+- **Q6:** Any community member can submit. No participation threshold — lowers barrier to entry. Spam handled through LLM structuring + sortition review, not gatekeeping.
+- **Q7:** Same as community membership. No stricter residency requirement for binding vs. advisory votes — that distinction is a Phase 3 legal question, not a technical one.
 
 ---
 
