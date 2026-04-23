@@ -2146,6 +2146,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Demopolis: State Machine Routes ───────────────────────────────────────
+
+  // Transition proposal state (author/admin only)
+  app.post("/api/proposals/:id/transition", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const { newState } = req.body;
+      if (!newState) {
+        return res.status(400).json({ message: "New state is required" });
+      }
+
+      // Import state machine
+      const { transitionProposal, canTransition, getNextStates } = await import('./utils/proposal-state-machine');
+
+      // Validate transition
+      if (!canTransition(proposal.status, newState)) {
+        const valid = getNextStates(proposal.status);
+        return res.status(409).json({
+          message: `Invalid transition: ${proposal.status} → ${newState}`,
+          valid_transitions: valid,
+        });
+      }
+
+      // Check permissions
+      if (proposal.authorId !== req.user.id) {
+        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        if (role !== 'admin' && role !== 'founder') {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+
+      const { storage: storageInstance } = await import('./storage');
+      const updated = await transitionProposal(proposal, newState, storageInstance);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error transitioning proposal:", error);
+      res.status(500).json({ message: "Failed to transition proposal" });
+    }
+  });
+
+  // ─── Demopolis: Sortition Routes ──────────────────────────────────────────
+
+  // Create sortition body (admin/founder only)
+  app.post("/api/communities/:id/sortition", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const { size } = req.body;
+      const panelSize = size || 7;
+
+      const { createSortitionBody } = await import('./utils/sortition');
+      const result = await createSortitionBody(communityId, panelSize, storage);
+
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating sortition body:", error);
+      res.status(500).json({ message: "Failed to create sortition body" });
+    }
+  });
+
+  // Preview sortition selection (any community member)
+  app.get("/api/communities/:id/sortition/preview", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const isMember = await storage.isCommunityMember(communityId, req.user.id);
+
+      if (!isMember) {
+        return res.status(403).json({ message: "Must be a community member" });
+      }
+
+      const { previewSortition } = await import('./utils/sortition');
+      const { size } = req.query;
+      const panelSize = parseInt(size as string) || 7;
+
+      const result = await previewSortition(communityId, panelSize, storage);
+      res.json(result);
+    } catch (error) {
+      console.error("Error previewing sortition:", error);
+      res.status(500).json({ message: "Failed to preview sortition" });
+    }
+  });
+
+  // ─── Demopolis: Democracy Score Routes ────────────────────────────────────
+
+  // Get democracy score for a community (public)
+  app.get("/api/communities/:id/democracy-score", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const community = await storage.getCommunity(communityId);
+
+      if (!community) {
+        return res.status(404).json({ message: "Community not found" });
+      }
+
+      const { calculateDemocracyScore, getDemocracyGrade } = await import('./utils/democracy-score');
+      const result = await calculateDemocracyScore(communityId, storage);
+
+      res.json({
+        ...result,
+        grade: getDemocracyGrade(result.score),
+      });
+    } catch (error) {
+      console.error("Error calculating democracy score:", error);
+      res.status(500).json({ message: "Failed to calculate democracy score" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
