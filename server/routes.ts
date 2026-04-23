@@ -1787,6 +1787,365 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Demopolis: Community Routes ────────────────────────────────────────────
+
+  // List communities (public)
+  app.get("/api/communities", async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const communities = await storage.getCommunities(userId);
+      res.json(communities);
+    } catch (error) {
+      console.error("Error fetching communities:", error);
+      res.status(500).json({ message: "Failed to fetch communities" });
+    }
+  });
+
+  // Create community (authenticated)
+  app.post("/api/communities", requireAuth, async (req: any, res) => {
+    try {
+      const { name, description, type, governanceModel } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const community = await storage.createCommunity({
+        name,
+        description,
+        type: type || 'autonomous',
+        governanceModel: governanceModel || 'no_admin',
+        creatorId: req.user.id,
+      });
+
+      // Auto-add creator as founder
+      await storage.addCommunityMember(community.id, req.user.id, 'founder');
+
+      res.status(201).json(community);
+    } catch (error) {
+      console.error("Error creating community:", error);
+      res.status(500).json({ message: "Failed to create community" });
+    }
+  });
+
+  // Get community details
+  app.get("/api/communities/:id", async (req, res) => {
+    try {
+      const community = await storage.getCommunity(parseInt(req.params.id));
+      if (!community) return res.status(404).json({ message: "Community not found" });
+      res.json(community);
+    } catch (error) {
+      console.error("Error fetching community:", error);
+      res.status(500).json({ message: "Failed to fetch community" });
+    }
+  });
+
+  // Update community (admin/founder only)
+  app.patch("/api/communities/:id", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+      
+      if (!role || (role !== 'admin' && role !== 'founder')) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const community = await storage.updateCommunity(communityId, req.body);
+      res.json(community);
+    } catch (error) {
+      console.error("Error updating community:", error);
+      res.status(500).json({ message: "Failed to update community" });
+    }
+  });
+
+  // Get community members
+  app.get("/api/communities/:id/members", async (req, res) => {
+    try {
+      const members = await storage.getCommunityMembers(parseInt(req.params.id));
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
+  // Join community (authenticated)
+  app.post("/api/communities/:id/members", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if already a member
+      const isMember = await storage.isCommunityMember(communityId, userId);
+      if (isMember) {
+        return res.status(409).json({ message: "Already a member" });
+      }
+
+      const member = await storage.addCommunityMember(communityId, userId);
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error joining community:", error);
+      res.status(500).json({ message: "Failed to join community" });
+    }
+  });
+
+  // Leave community (authenticated)
+  app.delete("/api/communities/:id/members", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      await storage.removeCommunityMember(communityId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error leaving community:", error);
+      res.status(500).json({ message: "Failed to leave community" });
+    }
+  });
+
+  // ─── Demopolis: Proposal Routes ────────────────────────────────────────────
+
+  // List proposals for a community
+  app.get("/api/communities/:communityId/proposals", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const { status, category } = req.query;
+      
+      const proposals = await storage.getProposals(communityId, {
+        status: status as string,
+        category: category as string,
+      });
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+
+  // Create proposal (authenticated, must be community member)
+  app.post("/api/communities/:communityId/proposals", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const userId = req.user.id;
+
+      // Check membership
+      const isMember = await storage.isCommunityMember(communityId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Must be a community member to submit proposals" });
+      }
+
+      const { question, solution, category } = req.body;
+
+      if (!question || !solution) {
+        return res.status(400).json({ message: "Question and solution are required" });
+      }
+
+      const proposal = await storage.createProposal({
+        communityId,
+        authorId: userId,
+        question,
+        solution,
+        category,
+        status: 'draft',
+      });
+
+      res.status(201).json(proposal);
+    } catch (error) {
+      console.error("Error creating proposal:", error);
+      res.status(500).json({ message: "Failed to create proposal" });
+    }
+  });
+
+  // Get proposal details
+  app.get("/api/proposals/:id", async (req, res) => {
+    try {
+      const proposal = await storage.getProposal(parseInt(req.params.id));
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      res.json(proposal);
+    } catch (error) {
+      console.error("Error fetching proposal:", error);
+      res.status(500).json({ message: "Failed to fetch proposal" });
+    }
+  });
+
+  // Update proposal (author only, draft only)
+  app.patch("/api/proposals/:id", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Can only edit drafts" });
+
+      const updated = await storage.updateProposal(proposalId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating proposal:", error);
+      res.status(500).json({ message: "Failed to update proposal" });
+    }
+  });
+
+  // Submit proposal for review (author only)
+  app.post("/api/proposals/:id/submit", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
+
+      const updated = await storage.transitionProposalState(proposalId, 'review');
+      res.json(updated);
+    } catch (error) {
+      console.error("Error submitting proposal:", error);
+      res.status(500).json({ message: "Failed to submit proposal" });
+    }
+  });
+
+  // ─── Demopolis: Amendment Routes ───────────────────────────────────────────
+
+  // List amendments for a proposal
+  app.get("/api/proposals/:id/amendments", async (req, res) => {
+    try {
+      const amendments = await storage.getAmendments(parseInt(req.params.id));
+      res.json(amendments);
+    } catch (error) {
+      console.error("Error fetching amendments:", error);
+      res.status(500).json({ message: "Failed to fetch amendments" });
+    }
+  });
+
+  // Create amendment (authenticated, must be community member)
+  app.post("/api/proposals/:id/amendments", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      const { type, text } = req.body;
+
+      if (!type || !text) {
+        return res.status(400).json({ message: "Type and text are required" });
+      }
+
+      const amendment = await storage.createAmendment({
+        proposalId,
+        authorId: req.user.id,
+        type,
+        text,
+        status: 'pending',
+      });
+
+      res.status(201).json(amendment);
+    } catch (error) {
+      console.error("Error creating amendment:", error);
+      res.status(500).json({ message: "Failed to create amendment" });
+    }
+  });
+
+  // ─── Demopolis: Debate Routes ──────────────────────────────────────────────
+
+  // List debate arguments for a proposal
+  app.get("/api/proposals/:id/arguments", async (req, res) => {
+    try {
+      const arguments_ = await storage.getDebateArguments(parseInt(req.params.id));
+      res.json(arguments_);
+    } catch (error) {
+      console.error("Error fetching arguments:", error);
+      res.status(500).json({ message: "Failed to fetch arguments" });
+    }
+  });
+
+  // Create debate argument (authenticated, must be community member)
+  app.post("/api/proposals/:id/arguments", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      const { side, text } = req.body;
+
+      if (!side || !text) {
+        return res.status(400).json({ message: "Side and text are required" });
+      }
+
+      const argument = await storage.createDebateArgument({
+        proposalId,
+        authorId: req.user.id,
+        side,
+        text,
+      });
+
+      res.status(201).json(argument);
+    } catch (error) {
+      console.error("Error creating argument:", error);
+      res.status(500).json({ message: "Failed to create argument" });
+    }
+  });
+
+  // Support an argument
+  app.post("/api/arguments/:id/support", requireAuth, async (req: any, res) => {
+    try {
+      const argument = await storage.supportDebateArgument(parseInt(req.params.id), req.user.id);
+      res.json(argument);
+    } catch (error) {
+      console.error("Error supporting argument:", error);
+      res.status(500).json({ message: "Failed to support argument" });
+    }
+  });
+
+  // Oppose an argument
+  app.post("/api/arguments/:id/oppose", requireAuth, async (req: any, res) => {
+    try {
+      const argument = await storage.opposeDebateArgument(parseInt(req.params.id), req.user.id);
+      res.json(argument);
+    } catch (error) {
+      console.error("Error opposing argument:", error);
+      res.status(500).json({ message: "Failed to oppose argument" });
+    }
+  });
+
+  // ─── Demopolis: Proposal Support Routes ────────────────────────────────────
+
+  // Support/oppose a proposal
+  app.post("/api/proposals/:id/support", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { type } = req.body; // 'support' or 'oppose'
+
+      if (!type || !['support', 'oppose'].includes(type)) {
+        return res.status(400).json({ message: "Type must be 'support' or 'oppose'" });
+      }
+
+      const support = await storage.createProposalSupport(proposalId, req.user.id, type);
+      res.status(201).json(support);
+    } catch (error) {
+      console.error("Error creating support:", error);
+      res.status(500).json({ message: "Failed to create support" });
+    }
+  });
+
+  // Get proposal support counts
+  app.get("/api/proposals/:id/support", async (req, res) => {
+    try {
+      const support = await storage.getProposalSupport(parseInt(req.params.id));
+      res.json(support);
+    } catch (error) {
+      console.error("Error fetching support:", error);
+      res.status(500).json({ message: "Failed to fetch support" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
