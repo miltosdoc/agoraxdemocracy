@@ -922,6 +922,29 @@ Before Phase 2 implementation begins, the project must formally decide:
 
 ---
 
+## 15.5 Phase 2.0 Implementation Status (2026-04-23)
+
+**COMPLETED:**
+- ✅ Storage layer: ~30 Demopolis methods (communities, proposals, amendments, sortition, debate, support)
+- ✅ API routes: 16 endpoints for community/proposal/debate management
+- ✅ State machine: 5-state proposal lifecycle (draft → review → deliberation → voting → decided)
+- ✅ Sortition algorithm: Cryptographically secure random selection with verifiable seed
+- ✅ Democracy score: 0-100 scale with 5 factors (admin intervention, sortition usage, participation, transparency, deliberation)
+- ✅ Design decisions documented (Q4-7)
+
+**REMAINING FOR PHASE 2:**
+- ⏳ LLM proposal structuring service (extract problem/solution/evidence)
+- ⏳ Job queue for async tasks (LLM processing, notifications)
+- ⏳ Frontend components for communities, proposals, debate
+- ⏳ Integration tests for state machine transitions
+- ⏳ Admin action logging table for democracy score accuracy
+
+**DEFERRED TO PHASE 3:**
+- 🔜 Cryptographic voting tallying (Helios/ElectionGuard)
+- 🔜 Distributed trustees for high-stakes votes
+- 🔜 Multi-community federation
+- 🔜 Legal status of outcomes (advisory vs. binding)
+
 ## 16. References
 
 - **Helios Voting System** — https://github.com/benadida/helios-server
