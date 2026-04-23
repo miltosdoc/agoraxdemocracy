@@ -8,9 +8,9 @@ Compiled: 2026-04-23
 
 ### D1. Community Verification
 **Source:** `community-types.md`
-**Question:** How do we verify that a community claiming to represent a real institution (e.g., "Citizens of Kalamaria Municipality", "Thessaloniki University Students Association") actually does?
-**Implications:** Without verification, anyone can create a fake "municipality" community and claim legitimacy. With verification, we need a process (document upload, gov.gr integration for institutions, manual review).
-**Status:** Unresolved. Current schema has no verification field.
+**Question:** How do we verify a community claiming to represent a real institution (e.g., "Citizens of Kalamaria Municipality", "Thessaloniki University Students Association") actually does?
+**Decision (2026-04-23):** Use OpenStreetMap (or similar geospatial data) to pre-populate standard communities per Greek administrative divisions (cities, municipalities, regions). Custom communities still allowed on top. Eliminates manual verification for geographic entities.
+**Status:** ✅ DECIDED — OSM-based pre-population.
 
 ### D2. Initial Governance Model
 **Source:** `community-types.md`
@@ -176,12 +176,11 @@ Compiled: 2026-04-23
 
 | Category | Count | Resolved | Partially Resolved | Unresolved |
 |----------|-------|----------|---------------------|------------|
-| Design/Technical | 18 | 0 | 3 | 15 |
+| Design/Technical | 18 | 1 | 3 | 14 |
 | Political/Governance | 12 | 0 | 2 | 10 |
-| **Total** | **30** | **0** | **5** | **25** |
+| **Total** | **30** | **1** | **5** | **24** |
 
 **Highest Priority (blocks launch):**
-- D1 (Community verification)
 - D9 (Small community threshold)
 - P1 (Exclusion policy)
 - P6 (DPIA)
