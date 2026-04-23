@@ -933,11 +933,16 @@ Before Phase 2 implementation begins, the project must formally decide:
 - ✅ Design decisions documented (Q4-7)
 
 **REMAINING FOR PHASE 2:**
-- ⏳ LLM proposal structuring service (extract problem/solution/evidence)
-- ⏳ Job queue for async tasks (LLM processing, notifications)
-- ⏳ Frontend components for communities, proposals, debate
 - ⏳ Integration tests for state machine transitions
 - ⏳ Admin action logging table for democracy score accuracy
+- ⏳ Additional frontend pages (community detail, proposal detail, sortition management)
+- ⏳ E2E tests for proposal lifecycle
+
+**COMPLETED (2026-04-23):**
+- ✅ LLM proposal structuring service (extract problem/solution/evidence)
+- ✅ Job queue for async tasks (LLM processing, notifications)
+- ✅ Frontend components for communities, proposals, debate
+- ✅ Jobs table migration (0001_add_jobs_table.sql)
 
 **DEFERRED TO PHASE 3:**
 - 🔜 Cryptographic voting tallying (Helios/ElectionGuard)
