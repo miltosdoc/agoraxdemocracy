@@ -2,32 +2,113 @@
   <img src="./logo.png" alt="AgoraX Logo" width="200" height="200" />
   <h1>AgoraX — Digital Democracy Platform</h1>
   <p>Participatory deliberation &amp; voting for Greek communities</p>
+  <p><strong>Powered by the Demopolis working group specifications</strong></p>
 </div>
 
 ---
 
-AgoraX is a digital democracy platform built for Greek citizens to participate in transparent, reliable deliberation and voting processes. The platform combines structured deliberation cycles — proposal submission, LLM-assisted validation, sortition-based evaluation, debate, and final voting — with modern web technologies and location-based features.
+AgoraX is a digital democracy platform built for Greek citizens to participate in transparent, reliable deliberation and voting processes. The platform implements the **Demopolis** deliberation framework — a structured pipeline of proposal submission, LLM-assisted validation, sortition-based evaluation, debate, and final voting — combined with modern web technologies and location-based features.
 
-Built by the **Demopolis** working group. Specifications in Greek docs at `~/.hermes/demopolis/Draft/docs/`.
-
----
-
-## Vision
-
-AgoraX implements a **multi-stage deliberation cycle** inspired by ancient Athenian democracy and modern sortition-based governance:
-
-1. **Proposal Submission** — Any community member submits a proposal (question + solution)
-2. **LLM Validation** — AI scores proposals on relevance, clarity, and appropriateness
-3. **Sortition Evaluation** — Randomly selected citizens evaluate borderline proposals
-4. **Amendments** — Community members propose improvements; original author has veto
-5. **Debate** — Structured arguments for/against with community support tracking
-6. **Voting** — Final decision through ranked-choice or single-choice polls
-
-This replaces simple polling with a **structured deliberation pipeline** that reduces noise, amplifies quality proposals, and ensures fair participation through random selection.
+**Built by the Demopolis working group.** All deliberation mechanics, governance models, and procedural specifications come from the Demopolis design documents maintained by the working group.
 
 ---
 
-## Current Features
+## Demopolis Integrations
+
+The following features are direct implementations of Demopolis specifications:
+
+### 1. Communities (Κοινότητες)
+**Source:** [`concepts/community-types.md`](~/.hermes/demopolis/Draft/docs/concepts/community-types.md)
+
+- **Autonomous Communities** (Αυτόνομες Κοινότητες) — Horizontal governance, no admins required
+- **Managed Communities** (Διαχειριζόμενες Κοινότητες) — Admin team with defined, revocable powers
+- **Hybrid Model** (Υβριδικό Μοντέλο) — Member-driven with administrative guidance
+- Per-community deliberation parameters (sortition size, minimum participation, concurrent vote limits)
+- Democracy score — computed metric showing how democratic the community governance is
+- Admin rights restrictions: admins cannot delete content published by other members
+
+### 2. Proposals (Προβουλεύματα)
+**Source:** [`procedures/proposals.md`](~/.hermes/demopolis/Draft/docs/procedures/proposals.md), [`procedures/consultation.md`](~/.hermes/demopolis/Draft/docs/procedures/consultation.md)
+
+- **Question + Solution format** (Το Ερώτημα + Η Απάντηση/Λύση) — every proposal defines a specific action
+- Full state machine: `submitted → validating → valid/returned/rejected → scoring → under_review → amendments → debate → voting → resolved`
+- **LLM Tiered Validation** (from `features/ai.md`):
+  - **&lt;20%**: Returned to author for revision with feedback
+  - **20-90%**: Sent to sortition body for human review
+  - **&gt;90%**: Auto-approved, advances to scoring
+- Author appeal mechanism — any LLM decision can be appealed to a sortition body
+- Similar proposal detection & merge workflow (AI-assisted, author confirms)
+
+### 3. Sortition Bodies (Κληρωτά Σώματα)
+**Source:** [`procedures/sortition.md`](~/.hermes/demopolis/Draft/docs/procedures/sortition.md)
+
+- Random citizen selection for evaluation tasks — ensures fair participation, prevents power concentration
+- Configurable size (absolute number or percentage of community)
+- Multiple purposes:
+  - **Validity checks** — review proposals in the 20-90% LLM score range
+  - **Proposal scoring** — larger body (e.g., 200 members) scores quality + significance
+  - **Conflict resolution** — resolve merge disputes between similar proposals
+  - **Vote promotion** — approve advancement from deliberation to voting
+- Timeout handling with replacement members
+- Self-exclusion option for selected members
+- Scoring methods: simple majority, enhanced majority, or graded scoring (0-10)
+
+### 4. Amendments (Αντιπροτάσεις & Βελτιώσεις)
+**Source:** [`procedures/proposals.md`](~/.hermes/demopolis/Draft/docs/procedures/proposals.md), [`00_Πληρης_Τεκμηριωση.md`](~/.hermes/demopolis/Draft/docs/00_Πληρης_Τεκμηριωση.md)
+
+- **Improvements** (Βελτιώσεις): Minor text changes to existing proposals
+- **Counter-proposals** (Αντιπροτάσεις): Same problem, different solution
+- Original author has **veto power** over amendments (preserves proposal coherence)
+- LLM validation for amendments follows same tiered logic as proposals
+- AI-assisted merge of similar amendments
+
+### 5. Debate (Διάλογος)
+**Source:** [`procedures/dialogue.md`](~/.hermes/demopolis/Draft/docs/procedures/dialogue.md)
+
+- Structured arguments for/against proposals
+- Support/opposition tracking (likes/dislikes from community members)
+- Group discussions for large communities (randomly assigned or self-selected)
+- Central debate featuring proposal authors
+- Text, audio, or video debate formats
+- AI-assisted argument summarization
+
+### 6. Proposal Support (Συγκέντρωση Υποστήριξης)
+**Source:** [`procedures/consultation.md`](~/.hermes/demopolis/Draft/docs/procedures/consultation.md)
+
+- Community members can support or oppose proposals during deliberation
+- Support thresholds configurable per community
+- Used to determine which proposals advance to voting
+- Minimum participation percentage for valid votes (configurable per community)
+
+### 7. Voting (Ψηφοφορία)
+**Source:** [`procedures/voting.md`](~/.hermes/demopolis/Draft/docs/procedures/voting.md)
+
+- Multiple voting types: single choice, multiple choice, ranked preferences, sequential rounds
+- Minimum participation threshold for validity (configurable per community)
+- Secret ballot with verifiable integrity
+- Maximum concurrent active votes limit (configurable per community)
+
+### 8. AI Assistance (Τεχνητή Νοημοσύνη)
+**Source:** [`features/ai.md`](~/.hermes/demopolis/Draft/docs/features/ai.md)
+
+- AI as a **support tool only** — never makes final decisions
+- Uses: validity checking, similar proposal detection, organization/categorization, debate summarization
+- Transparent usage — members know when AI is used
+- Results can be reviewed and challenged
+- Final decisions always belong to sortition bodies or the full membership
+
+### 9. Governance Parameters (Παράμετροι Διαβούλευσης)
+**Source:** [`procedures/consultation.md`](~/.hermes/demopolis/Draft/docs/procedures/consultation.md)
+
+- Per-community configuration of all deliberation rules
+- Parameters include: sortition size, response time, minimum participation, voting type, concurrent vote limits
+- Communities can evolve governance over time (only toward more autonomy, never less)
+
+---
+
+## AgoraX Platform Features
+
+The following features are part of the AgoraX platform infrastructure:
 
 ### Poll Management
 - **Standard Polls**: Simple voting with multiple choice options and ranking support
@@ -66,50 +147,6 @@ This replaces simple polling with a **structured deliberation pipeline** that re
 - User engagement tracking and statistics
 - Poll popularity and participation metrics
 - Activity trend analysis with visual charts
-
----
-
-## Demopolis Features (In Development)
-
-### Communities (Κοινότητες)
-- **Autonomous Communities** — Horizontal governance, no admins required
-- **Managed Communities** — Admin team with defined powers, revocable by members
-- **Hybrid Model** — Member-driven with administrative guidance
-- Per-community deliberation parameters (sortition size, minimum participation, etc.)
-- Democracy score — computed metric showing how democratic the community governance is
-
-### Proposals (Προβουλεύματα)
-- Question + Solution format (Το Ερώτημα + Η Απάντηση/Λύση)
-- Full state machine: `submitted → validating → valid/returned/rejected → scoring → under_review → amendments → debate → voting → resolved`
-- LLM tiered validation:
-  - **&lt;20%**: Returned to author for revision
-  - **20-90%**: Sent to sortition body for human review
-  - **&gt;90%**: Auto-approved, advances to scoring
-- Author appeal mechanism — any LLM decision can be appealed to a sortition body
-
-### Sortition Bodies (Κληρωτά Σώματα)
-- Random citizen selection for evaluation tasks
-- Configurable size (absolute number or percentage of community)
-- Multiple purposes: validity checks, proposal scoring, conflict resolution, vote promotion
-- Timeout handling with replacement members
-- Self-exclusion option for selected members
-
-### Amendments (Αντιπροτάσεις & Βελτιώσεις)
-- **Improvements** (Βελτιώσεις): Minor text changes to existing proposals
-- **Counter-proposals** (Αντιπροτάσεις): Same problem, different solution
-- Original author has **veto power** over amendments (preserves proposal coherence)
-- LLM validation for amendments follows same tiered logic
-
-### Debate (Διάλογος)
-- Structured arguments for/against proposals
-- Support/opposition tracking (likes/dislikes)
-- Group discussions for large communities
-- Central debate featuring proposal authors
-
-### Proposal Support (Συγκέντρωση Υποστήριξης)
-- Community members can support or oppose proposals during deliberation
-- Support thresholds configurable per community
-- Used to determine which proposals advance to voting
 
 ---
 
@@ -160,7 +197,7 @@ This replaces simple polling with a **structured deliberation pipeline** that re
 
 **Core:** `users`, `polls`, `poll_options`, `votes`, `comments`, `poll_questions`, `poll_answers`, `poll_user_responses`
 
-**Demopolis (New):** `communities`, `community_members`, `proposals`, `proposal_amendments`, `sortition_bodies`, `sortition_members`, `debate_arguments`, `proposal_support`
+**Demopolis:** `communities`, `community_members`, `proposals`, `proposal_amendments`, `sortition_bodies`, `sortition_members`, `debate_arguments`, `proposal_support`
 
 **Supporting:** `groups`, `group_members`, `poll_notifications`, `account_activity`, `ballot_votes`
 
@@ -295,51 +332,50 @@ agoraxdemo/
 ├── ballot_service/            # Python FastAPI for Gov.gr verification
 ├── migrations/                # Drizzle SQL migrations
 ├── MERGE_PLAN.md              # Demopolis → AgoraX merge plan
-└── README.md                  # This file
+├── README.md                  # This file
+├── CONTRIBUTING.md            # Contribution guidelines
+└── LICENSE                    # MIT License
 ```
 
 ---
 
 ## Demopolis Specifications
 
-The Demopolis working group maintains detailed design documents in Greek:
+The Demopolis working group maintains detailed design documents in Greek. All deliberation features in AgoraX are implemented from these specifications:
 
-- **`00_Πληρης_Τεκμηριωση.md`** — Complete specification (187 lines)
-- **`concepts/community-types.md`** — Autonomous vs managed communities
-- **`concepts/core-features.md`** — Platform capabilities
-- **`concepts/members.md`** — Membership & verification
-- **`procedures/proposals.md`** — Proposal lifecycle
-- **`procedures/sortition.md`** — Sortition body mechanics
-- **`procedures/consultation.md`** — Deliberation parameters
-- **`procedures/dialogue.md`** — Structured debate
-- **`procedures/voting.md`** — Voting types & validity
-- **`features/ai.md`** — LLM usage guidelines
-- **`governance/statutes_proposal.md`** — Platform governance rules
+| Document | Description |
+|----------|-------------|
+| [`00_Πληρης_Τεκμηριωση.md`](~/.hermes/demopolis/Draft/docs/00_Πληρης_Τεκμηριωση.md) | Complete specification (187 lines) — proposal flow, LLM validation, sortition |
+| [`concepts/community-types.md`](~/.hermes/demopolis/Draft/docs/concepts/community-types.md) | Autonomous vs managed communities, governance models |
+| [`concepts/core-features.md`](~/.hermes/demopolis/Draft/docs/concepts/core-features.md) | Platform capabilities overview |
+| [`concepts/members.md`](~/.hermes/demopolis/Draft/docs/concepts/members.md) | Membership, registration, Gov.gr verification |
+| [`concepts/terminology.md`](~/.hermes/demopolis/Draft/docs/concepts/terminology.md) | Glossary of terms |
+| [`procedures/proposals.md`](~/.hermes/demopolis/Draft/docs/procedures/proposals.md) | Proposal lifecycle, validation, merging |
+| [`procedures/sortition.md`](~/.hermes/demopolis/Draft/docs/procedures/sortition.md) | Sortition body mechanics, selection, scoring |
+| [`procedures/consultation.md`](~/.hermes/demopolis/Draft/docs/procedures/consultation.md) | Deliberation parameters, support thresholds |
+| [`procedures/dialogue.md`](~/.hermes/demopolis/Draft/docs/procedures/dialogue.md) | Structured debate, argument groups |
+| [`procedures/voting.md`](~/.hermes/demopolis/Draft/docs/procedures/voting.md) | Voting types, validity, transparency |
+| [`features/ai.md`](~/.hermes/demopolis/Draft/docs/features/ai.md) | LLM usage guidelines, tiered validation |
+| [`features/security.md`](~/.hermes/demopolis/Draft/docs/features/security.md) | Security requirements |
+| [`governance/statutes_proposal.md`](~/.hermes/demopolis/Draft/docs/governance/statutes_proposal.md) | Platform governance rules |
+| [`decisions/Platform-gorvernance.md`](~/.hermes/demopolis/Draft/docs/decisions/Platform-gorvernance.md) | Governance decisions |
+| [`introduction/vision.md`](~/.hermes/demopolis/Draft/docs/introduction/vision.md) | Platform vision |
+| [`introduction/bootstrap.md`](~/.hermes/demopolis/Draft/docs/introduction/bootstrap.md) | Initial growth strategy |
 
 ---
 
 ## License
 
-Open source — see LICENSE file.
+MIT License — Copyright (c) 2024-2026 Demopolis Working Group &amp; Miltos Triantafyllou
 
 ---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes, add tests
-4. Run `npm run check` to verify TypeScript
-5. Run `npx drizzle-kit generate` if schema changes
-6. Submit a pull request
-
-For schema changes, always run the full test suite before pushing:
-```bash
-scripts/run_tests.sh
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ---
 
 ## Contact
 
-Built by the Demopolis working group. For questions, contact the maintainers.
+Built by the **Demopolis working group**. For questions, contact the maintainers.
