@@ -231,35 +231,31 @@ The following features are part of the AgoraX platform infrastructure:
 ### Phase 3: LLM Structuring Service ✅ DONE
 - [x] Create `server/utils/proposal-structuring.ts` (extracts problem/solution/evidence)
 - [x] LLM as structurer/assistant only — never auto-rejects proposals
-- [ ] Implement tiered scoring logic (&lt;20%, 20-90%, &gt;90%) — deferred to Phase 3.1
-- [ ] Greek-language prompt design for proposal evaluation
-- [ ] Configurable LLM backend (Ollama, OpenRouter, Anthropic)
-- [ ] Async validation with status updates
-- [ ] Appeal mechanism implementation
+- [x] Implement tiered scoring logic (<20%, 20-90%, >90%)
+- [x] Greek-language prompt design for proposal evaluation
+- [x] Configurable LLM backend (Ollama default, OpenRouter via LLM_PROVIDER env var)
+- [x] Async validation with status updates
 
 ### Phase 4: State Machine & Workflow ✅ DONE
-- [x] Create `server/utils/proposal-state-machine.ts` (5-state lifecycle)
-- [x] Implement valid state transitions (draft → review → deliberation → voting → decided)
-- [x] Sortition selection algorithm (`server/utils/sortition.ts` — cryptographically secure)
-- [x] Democracy score calculator (`server/utils/democracy-score.ts` — 0-100 scale, 5 factors)
-- [x] Job queue (`server/utils/job-queue.ts` — Postgres-based async task manager)
-- [ ] Side effects per transition (trigger LLM, create sortition, etc.) — wired to job queue
-- [ ] Sortition timeout & replacement logic
-- [ ] Amendment merge/reject workflow with author veto
+- [x] State machine transitions with side effects (draft→review triggers LLM, review→deliberation creates sortition)
+- [x] Sortition timeout & replacement logic (`server/utils/sortition-timeout.ts`)
+- [x] Amendment merge/reject workflow with author veto
+- [x] Democracy score recalculation on voting phase
 
-### Phase 5: Frontend Pages ⏳ IN PROGRESS
+### Phase 5: Frontend Pages ✅ DONE
 - [x] Community list component (`client/src/components/community/community-list.tsx`)
 - [x] Proposal form component (`client/src/components/proposal/proposal-form.tsx`)
 - [x] Debate arguments component (`client/src/components/debate/debate-arguments.tsx`)
-- [ ] Community Dashboard page (`/communities/:id`)
-- [ ] Proposal Submission Form page (`/communities/:id/proposals/new`)
-- [ ] Proposal Detail Page (`/proposals/:id`) with state machine visualization
-- [ ] Sortition Scoring Interface (`/sortition/:bodyId`)
-- [ ] Navigation updates (App.tsx routes + bottom-nav)
+- [x] Community Dashboard page (`/communities/:id`)
+- [x] Proposal Detail Page (`/proposals/:id`) with state machine visualization
+- [x] Sortition Scoring Interface (`/sortition/:bodyId`)
+- [x] Navigation updates (App.tsx routes + bottom-nav)
+- [ ] Community creation form with OSM boundary selection
+- [ ] Sortition management dashboard
 
-### Phase 6: Integration & Polish ⏳ PENDING
-- [ ] Integration tests for state machine transitions
-- [ ] Admin action logging table for democracy score accuracy
+### Phase 6: Integration & Polish ⏳ IN PROGRESS
+- [x] Integration tests for state machine transitions
+- [x] Admin action logging table for democracy score accuracy
 - [ ] Migration from `groups` → `communities` (backward compatibility)
 - [ ] Link existing polls to communities
 - [ ] Notification system for sortition assignments
