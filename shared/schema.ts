@@ -338,6 +338,18 @@ export const proposalSupport = pgTable("proposal_support", {
   proposalSupportUnique: uniqueIndex('proposal_support_unique').on(table.proposalId, table.userId, table.type),
 }));
 
+// ─── Admin Action Log ───────────────────────────────────────────────────────
+
+export const adminActions = pgTable("admin_actions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  communityId: integer("community_id").references(() => communities.id),
+  actionType: text("action_type").notNull(), // 'delete_comment' | 'ban_user' | 'override_sortition_timeout' | 'manage_membership' | 'moderate_proposal'
+  targetId: integer("target_id"),
+  details: jsonb("details"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
 // ─── Job Queue ──────────────────────────────────────────────────────────────
 
 export const jobs = pgTable("jobs", {
@@ -367,6 +379,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   debateArguments: many(debateArguments),
   proposalSupport: many(proposalSupport),
   sortitionMemberships: many(sortitionMembers),
+  adminActions: many(adminActions),
 }));
 
 export const pollsRelations = relations(polls, ({ one, many }) => ({
@@ -519,6 +532,7 @@ export const communitiesRelations = relations(communities, ({ one, many }) => ({
   members: many(communityMembers),
   proposals: many(proposals),
   sortitionBodies: many(sortitionBodies),
+  adminActions: many(adminActions),
 }));
 
 export const communityMembersRelations = relations(communityMembers, ({ one }) => ({
@@ -603,6 +617,17 @@ export const proposalSupportRelations = relations(proposalSupport, ({ one }) => 
   }),
 }));
 
+export const adminActionsRelations = relations(adminActions, ({ one }) => ({
+  user: one(users, {
+    fields: [adminActions.userId],
+    references: [users.id],
+  }),
+  community: one(communities, {
+    fields: [adminActions.communityId],
+    references: [communities.id],
+  }),
+}));
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
@@ -663,6 +688,7 @@ export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omi
 export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
 export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
 export const insertProposalSupportSchema = createInsertSchema(proposalSupport).omit({ id: true, createdAt: true });
+export const insertAdminActionSchema = createInsertSchema(adminActions).omit({ id: true, timestamp: true });
 
 // Poll with options schema for creation
 export const createPollSchema = z.object({
@@ -826,6 +852,7 @@ export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
 export type DebateArgument = typeof debateArguments.$inferSelect;
 export type ProposalSupport = typeof proposalSupport.$inferSelect;
+export type AdminAction = typeof adminActions.$inferSelect;
 
 // Demopolis Insert Types
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
@@ -836,6 +863,7 @@ export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
 export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
 export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
 export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
+export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 
 // Safe user type without sensitive fields (password, providerId, provider, etc.)
 export type SafeUser = Pick<User, 'id' | 'username' | 'name' | 'email' | 'profilePicture'>;

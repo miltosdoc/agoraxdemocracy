@@ -176,9 +176,9 @@ Compiled: 2026-04-23
 
 | Category | Count | Resolved | Partially Resolved | Unresolved |
 |----------|-------|----------|---------------------|------------|
-| Design/Technical | 18 | 1 | 3 | 14 |
+| Design/Technical | 18 | 4 | 3 | 11 |
 | Political/Governance | 12 | 0 | 2 | 10 |
-| **Total** | **30** | **1** | **5** | **24** |
+| **Total** | **30** | **4** | **5** | **21** |
 
 **Highest Priority (blocks launch):**
 - D9 (Small community threshold)

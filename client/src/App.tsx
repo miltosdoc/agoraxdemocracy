@@ -18,6 +18,9 @@ import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import AnalyticsDashboard from "@/pages/analytics-dashboard";
 import AdminAccountsPage from "@/pages/admin-accounts";
+import CommunityDashboardPage from "@/pages/community-dashboard";
+import ProposalDetailPage from "@/pages/proposal-detail";
+import SortitionScoringPage from "@/pages/sortition-scoring";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 import BottomNav from "@/components/layout/bottom-nav";
@@ -41,6 +44,9 @@ function Router() {
         <ProtectedRoute path="/admin/accounts" component={AdminAccountsPage} />
         <ProtectedRoute path="/profile" component={ProfilePage} />
         <ProtectedRoute path="/groups" component={GroupsPage} />
+        <ProtectedRoute path="/communities/:id" component={CommunityDashboardPage} />
+        <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />
+        <ProtectedRoute path="/sortition/:id" component={SortitionScoringPage} />
         <Route path="/polls/:id" component={PollDetailsPage} />
         <Route path="/how-it-works" component={HowItWorksPage} />
         <Route path="/faq" component={FAQPage} />

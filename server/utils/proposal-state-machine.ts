@@ -12,6 +12,9 @@
 
 import type { Proposal, InsertProposal } from '@shared/schema';
 import type { IStorage } from '../storage';
+import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
+import { validateProposal } from './proposal-structuring';
+import { createSortitionBody } from './sortition';
 
 // ─── State Definitions ──────────────────────────────────────────────────────
 
@@ -159,6 +162,51 @@ export function canDebate(state: ProposalState): boolean {
  */
 export function isVoting(state: ProposalState): boolean {
   return state === 'voting';
+}
+
+// ─── Side Effects ───────────────────────────────────────────────────────────
+
+/**
+ * Trigger side effects for a state transition.
+ * 
+ * Each transition can trigger background jobs:
+ * - draft → review: LLM validation job
+ * - review → deliberation: create sortition body for scoring
+ * - review → draft: notify author of return
+ * - deliberation → voting: open voting phase
+ */
+export async function triggerSideEffects(
+  fromState: ProposalState,
+  toState: ProposalState,
+  proposal: Proposal,
+): Promise<void> {
+  const transition = `${fromState}->${toState}`;
+  
+  switch (transition) {
+    case 'draft->review':
+      // Queue LLM validation job
+      await enqueueStructureProposal(proposal.id, proposal.question, proposal.solution);
+      break;
+    
+    case 'review->deliberation':
+      // Create sortition body for scoring (use community's default size)
+      await enqueueCreateSortition(proposal.communityId, 20);
+      break;
+    
+    case 'review->draft':
+      // Notify author that proposal was returned for revision
+      await enqueueNotification(proposal.authorId, 'proposal_returned', 'Your proposal has been returned for revision');
+      break;
+    
+    case 'deliberation->voting':
+      // Recalculate democracy score when voting opens
+      await enqueueRecalculateScore(proposal.communityId);
+      break;
+    
+    default:
+      // No side effects for other transitions
+      break;
+  }
 }
 
 export { VALID_TRANSITIONS };
