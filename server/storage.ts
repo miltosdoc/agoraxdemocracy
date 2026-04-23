@@ -39,7 +39,31 @@ import {
   PollUserResponse,
   SelectAccountActivity,
   PollWithQuestions,
-  PollQuestionWithAnswers
+  PollQuestionWithAnswers,
+  Community,
+  InsertCommunity,
+  CommunityMember,
+  InsertCommunityMember,
+  Proposal,
+  InsertProposal,
+  ProposalAmendment,
+  InsertProposalAmendment,
+  SortitionBody,
+  InsertSortitionBody,
+  SortitionMember,
+  InsertSortitionMember,
+  DebateArgument,
+  InsertDebateArgument,
+  ProposalSupport,
+  InsertProposalSupport,
+  communities,
+  communityMembers,
+  proposals,
+  proposalAmendments,
+  sortitionBodies,
+  sortitionMembers,
+  debateArguments,
+  proposalSupport
 } from "@shared/schema";
 import { deriveGeoRegion, normalizeRegionName } from "./utils/geo-region-detector";
 import { reverseGeocode } from "./utils/reverse-geocoding";
@@ -203,6 +227,51 @@ export interface IStorage {
   getUserAccountActivity(userId: number): Promise<SelectAccountActivity[]>;
   getAllUsersWithAccountInfo(filters?: { status?: string, search?: string }): Promise<User[]>;
   updateAccountStatus(userId: number, status: string): Promise<User>;
+
+  // ─── Demopolis: Community methods ──────────────────────────────────────────
+  createCommunity(community: InsertCommunity): Promise<Community>;
+  getCommunity(id: number): Promise<Community | undefined>;
+  getCommunities(userId?: number): Promise<Community[]>;
+  updateCommunity(id: number, updates: Partial<Community>): Promise<Community>;
+  deleteCommunity(id: number): Promise<boolean>;
+  getCommunityMembers(communityId: number): Promise<CommunityMember[]>;
+  addCommunityMember(communityId: number, userId: number, role?: string): Promise<CommunityMember>;
+  removeCommunityMember(communityId: number, userId: number): Promise<boolean>;
+  updateMemberRole(communityId: number, userId: number, role: string): Promise<CommunityMember>;
+  isCommunityMember(communityId: number, userId: number): Promise<boolean>;
+  getCommunityMemberRole(communityId: number, userId: number): Promise<string | undefined>;
+
+  // ─── Demopolis: Proposal methods ───────────────────────────────────────────
+  createProposal(proposal: InsertProposal): Promise<Proposal>;
+  getProposal(id: number): Promise<Proposal | undefined>;
+  getProposals(communityId: number, filters?: { status?: string; category?: string }): Promise<Proposal[]>;
+  updateProposal(id: number, updates: Partial<Proposal>): Promise<Proposal>;
+  transitionProposalState(id: number, newState: string): Promise<Proposal>;
+
+  // ─── Demopolis: Amendment methods ──────────────────────────────────────────
+  createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
+  getAmendments(proposalId: number): Promise<ProposalAmendment[]>;
+  updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment>;
+
+  // ─── Demopolis: Sortition methods ──────────────────────────────────────────
+  createSortitionBody(body: InsertSortitionBody): Promise<SortitionBody>;
+  getSortitionBody(id: number): Promise<SortitionBody | undefined>;
+  getSortitionMembers(bodyId: number): Promise<SortitionMember[]>;
+  addSortitionMember(bodyId: number, userId: number): Promise<SortitionMember>;
+  removeSortitionMember(bodyId: number, userId: number): Promise<boolean>;
+  updateSortitionMember(bodyId: number, userId: number, updates: Partial<SortitionMember>): Promise<SortitionMember>;
+  completeSortitionBody(id: number): Promise<SortitionBody>;
+
+  // ─── Demopolis: Debate methods ─────────────────────────────────────────────
+  createDebateArgument(argument: InsertDebateArgument): Promise<DebateArgument>;
+  getDebateArguments(proposalId: number): Promise<DebateArgument[]>;
+  supportDebateArgument(argumentId: number, userId: number): Promise<DebateArgument>;
+  opposeDebateArgument(argumentId: number, userId: number): Promise<DebateArgument>;
+
+  // ─── Demopolis: Proposal Support methods ───────────────────────────────────
+  createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport>;
+  removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
+  getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2609,6 +2678,297 @@ export class DatabaseStorage implements IStorage {
     }
 
     return user;
+  }
+
+  // ─── Demopolis: Community methods ──────────────────────────────────────────
+
+  async createCommunity(insertCommunity: InsertCommunity): Promise<Community> {
+    const [community] = await db
+      .insert(communities)
+      .values(insertCommunity)
+      .returning();
+    return community;
+  }
+
+  async getCommunity(id: number): Promise<Community | undefined> {
+    const [community] = await db.select().from(communities).where(eq(communities.id, id));
+    return community;
+  }
+
+  async getCommunities(userId?: number): Promise<Community[]> {
+    if (userId) {
+      // Get communities the user is a member of
+      const memberships = await db
+        .select({ communityId: communityMembers.communityId })
+        .from(communityMembers)
+        .where(eq(communityMembers.userId, userId));
+      
+      if (memberships.length === 0) return [];
+      
+      return await db
+        .select()
+        .from(communities)
+        .where(inArray(communities.id, memberships.map(m => m.communityId)));
+    }
+    return await db.select().from(communities);
+  }
+
+  async updateCommunity(id: number, updates: Partial<Community>): Promise<Community> {
+    const [community] = await db
+      .update(communities)
+      .set(updates)
+      .where(eq(communities.id, id))
+      .returning();
+    if (!community) throw new Error("Community not found");
+    return community;
+  }
+
+  async deleteCommunity(id: number): Promise<boolean> {
+    const result = await db.delete(communities).where(eq(communities.id, id));
+    return true;
+  }
+
+  async getCommunityMembers(communityId: number): Promise<CommunityMember[]> {
+    return await db
+      .select()
+      .from(communityMembers)
+      .where(eq(communityMembers.communityId, communityId));
+  }
+
+  async addCommunityMember(communityId: number, userId: number, role?: string): Promise<CommunityMember> {
+    const [member] = await db
+      .insert(communityMembers)
+      .values({ communityId, userId, role: role || 'member' })
+      .returning();
+    return member;
+  }
+
+  async removeCommunityMember(communityId: number, userId: number): Promise<boolean> {
+    await db
+      .delete(communityMembers)
+      .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
+    return true;
+  }
+
+  async updateMemberRole(communityId: number, userId: number, role: string): Promise<CommunityMember> {
+    const [member] = await db
+      .update(communityMembers)
+      .set({ role })
+      .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)))
+      .returning();
+    if (!member) throw new Error("Community member not found");
+    return member;
+  }
+
+  async isCommunityMember(communityId: number, userId: number): Promise<boolean> {
+    const [member] = await db
+      .select()
+      .from(communityMembers)
+      .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
+    return !!member;
+  }
+
+  async getCommunityMemberRole(communityId: number, userId: number): Promise<string | undefined> {
+    const [member] = await db
+      .select()
+      .from(communityMembers)
+      .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
+    return member?.role;
+  }
+
+  // ─── Demopolis: Proposal methods ───────────────────────────────────────────
+
+  async createProposal(insertProposal: InsertProposal): Promise<Proposal> {
+    const [proposal] = await db
+      .insert(proposals)
+      .values(insertProposal)
+      .returning();
+    return proposal;
+  }
+
+  async getProposal(id: number): Promise<Proposal | undefined> {
+    const [proposal] = await db.select().from(proposals).where(eq(proposals.id, id));
+    return proposal;
+  }
+
+  async getProposals(communityId: number, filters?: { status?: string; category?: string }): Promise<Proposal[]> {
+    const conditions = [eq(proposals.communityId, communityId)];
+    if (filters?.status) conditions.push(eq(proposals.status, filters.status));
+    if (filters?.category) conditions.push(eq(proposals.category, filters.category));
+    
+    return await db
+      .select()
+      .from(proposals)
+      .where(and(...conditions))
+      .orderBy(desc(proposals.createdAt));
+  }
+
+  async updateProposal(id: number, updates: Partial<Proposal>): Promise<Proposal> {
+    const [proposal] = await db
+      .update(proposals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(proposals.id, id))
+      .returning();
+    if (!proposal) throw new Error("Proposal not found");
+    return proposal;
+  }
+
+  async transitionProposalState(id: number, newState: string): Promise<Proposal> {
+    return this.updateProposal(id, { status: newState });
+  }
+
+  // ─── Demopolis: Amendment methods ──────────────────────────────────────────
+
+  async createAmendment(insertAmendment: InsertProposalAmendment): Promise<ProposalAmendment> {
+    const [amendment] = await db
+      .insert(proposalAmendments)
+      .values(insertAmendment)
+      .returning();
+    return amendment;
+  }
+
+  async getAmendments(proposalId: number): Promise<ProposalAmendment[]> {
+    return await db
+      .select()
+      .from(proposalAmendments)
+      .where(eq(proposalAmendments.proposalId, proposalId));
+  }
+
+  async updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment> {
+    const [amendment] = await db
+      .update(proposalAmendments)
+      .set(updates)
+      .where(eq(proposalAmendments.id, id))
+      .returning();
+    if (!amendment) throw new Error("Amendment not found");
+    return amendment;
+  }
+
+  // ─── Demopolis: Sortition methods ──────────────────────────────────────────
+
+  async createSortitionBody(insertBody: InsertSortitionBody): Promise<SortitionBody> {
+    const [body] = await db
+      .insert(sortitionBodies)
+      .values(insertBody)
+      .returning();
+    return body;
+  }
+
+  async getSortitionBody(id: number): Promise<SortitionBody | undefined> {
+    const [body] = await db.select().from(sortitionBodies).where(eq(sortitionBodies.id, id));
+    return body;
+  }
+
+  async getSortitionMembers(bodyId: number): Promise<SortitionMember[]> {
+    return await db
+      .select()
+      .from(sortitionMembers)
+      .where(eq(sortitionMembers.bodyId, bodyId));
+  }
+
+  async addSortitionMember(bodyId: number, userId: number): Promise<SortitionMember> {
+    const [member] = await db
+      .insert(sortitionMembers)
+      .values({ bodyId, userId })
+      .returning();
+    return member;
+  }
+
+  async removeSortitionMember(bodyId: number, userId: number): Promise<boolean> {
+    await db
+      .delete(sortitionMembers)
+      .where(and(eq(sortitionMembers.bodyId, bodyId), eq(sortitionMembers.userId, userId)));
+    return true;
+  }
+
+  async updateSortitionMember(bodyId: number, userId: number, updates: Partial<SortitionMember>): Promise<SortitionMember> {
+    const [member] = await db
+      .update(sortitionMembers)
+      .set(updates)
+      .where(and(eq(sortitionMembers.bodyId, bodyId), eq(sortitionMembers.userId, userId)))
+      .returning();
+    if (!member) throw new Error("Sortition member not found");
+    return member;
+  }
+
+  async completeSortitionBody(id: number): Promise<SortitionBody> {
+    const [body] = await db
+      .update(sortitionBodies)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(sortitionBodies.id, id))
+      .returning();
+    if (!body) throw new Error("Sortition body not found");
+    return body;
+  }
+
+  // ─── Demopolis: Debate methods ─────────────────────────────────────────────
+
+  async createDebateArgument(insertArgument: InsertDebateArgument): Promise<DebateArgument> {
+    const [argument] = await db
+      .insert(debateArguments)
+      .values(insertArgument)
+      .returning();
+    return argument;
+  }
+
+  async getDebateArguments(proposalId: number): Promise<DebateArgument[]> {
+    return await db
+      .select()
+      .from(debateArguments)
+      .where(eq(debateArguments.proposalId, proposalId));
+  }
+
+  async supportDebateArgument(argumentId: number, userId: number): Promise<DebateArgument> {
+    const [argument] = await db
+      .update(debateArguments)
+      .set({ supportCount: sql`${debateArguments.supportCount} + 1` })
+      .where(eq(debateArguments.id, argumentId))
+      .returning();
+    if (!argument) throw new Error("Debate argument not found");
+    return argument;
+  }
+
+  async opposeDebateArgument(argumentId: number, userId: number): Promise<DebateArgument> {
+    const [argument] = await db
+      .update(debateArguments)
+      .set({ oppositionCount: sql`${debateArguments.oppositionCount} + 1` })
+      .where(eq(debateArguments.id, argumentId))
+      .returning();
+    if (!argument) throw new Error("Debate argument not found");
+    return argument;
+  }
+
+  // ─── Demopolis: Proposal Support methods ───────────────────────────────────
+
+  async createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport> {
+    const [support] = await db
+      .insert(proposalSupport)
+      .values({ proposalId, userId, type })
+      .returning();
+    return support;
+  }
+
+  async removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean> {
+    await db
+      .delete(proposalSupport)
+      .where(and(
+        eq(proposalSupport.proposalId, proposalId),
+        eq(proposalSupport.userId, userId),
+        eq(proposalSupport.type, type)
+      ));
+    return true;
+  }
+
+  async getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }> {
+    const supports = await db
+      .select()
+      .from(proposalSupport)
+      .where(eq(proposalSupport.proposalId, proposalId));
+    
+    return {
+      support: supports.filter(s => s.type === 'support').length,
+      oppose: supports.filter(s => s.type === 'oppose').length,
+    };
   }
 }
 
