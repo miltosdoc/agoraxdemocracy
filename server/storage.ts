@@ -252,6 +252,7 @@ export interface IStorage {
   createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
   getAmendments(proposalId: number): Promise<ProposalAmendment[]>;
   updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment>;
+  countAmendmentsForProposal(proposalId: number): Promise<number>;
 
   // ─── Demopolis: Sortition methods ──────────────────────────────────────────
   createSortitionBody(body: InsertSortitionBody): Promise<SortitionBody>;
@@ -2842,6 +2843,14 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!amendment) throw new Error("Amendment not found");
     return amendment;
+  }
+
+  async countAmendmentsForProposal(proposalId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(proposalAmendments)
+      .where(eq(proposalAmendments.proposalId, proposalId));
+    return result[0]?.count ?? 0;
   }
 
   // ─── Demopolis: Sortition methods ──────────────────────────────────────────

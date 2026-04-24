@@ -21,6 +21,9 @@ import AdminAccountsPage from "@/pages/admin-accounts";
 import CommunityDashboardPage from "@/pages/community-dashboard";
 import ProposalDetailPage from "@/pages/proposal-detail";
 import SortitionScoringPage from "@/pages/sortition-scoring";
+import SortitionSynthesisPage from "@/pages/sortition-synthesis";
+import AmendmentAuthorReview from "@/pages/amendment-author-review";
+import AmendmentCommunitySignal from "@/pages/amendment-community-signal";
 import DeliberationWalkthrough from "@/pages/deliberation-walkthrough";
 import { CommunityList } from "@/components/community/community-list";
 import { ProposalForm } from "@/components/proposal/proposal-form";
@@ -68,6 +71,9 @@ function Router() {
         <ProtectedRoute path="/proposals/new" component={ProposalFormPage} />
         <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />
         <ProtectedRoute path="/sortition/:id" component={SortitionScoringPage} />
+        <ProtectedRoute path="/proposals/:id/sortition" component={SortitionSynthesisPage} />
+        <ProtectedRoute path="/proposals/:id/amendments/review" component={AmendmentAuthorReview} />
+        <ProtectedRoute path="/proposals/:id/amendments/signals" component={AmendmentCommunitySignal} />
         <Route path="/walkthrough" component={DeliberationWalkthrough} />
         <Route path="/polls/:id" component={PollDetailsPage} />
         <Route path="/how-it-works" component={HowItWorksPage} />

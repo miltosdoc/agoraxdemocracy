@@ -2079,6 +2079,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
 
+      // Check amendment cap
+      const community = await storage.getCommunity(proposal.communityId);
+      if (community && community.maxAmendmentsPerProposal > 0) {
+        const currentCount = await storage.countAmendmentsForProposal(proposalId);
+        if (currentCount >= community.maxAmendmentsPerProposal) {
+          return res.status(400).json({ 
+            message: `Amendment limit reached (${community.maxAmendmentsPerProposal} per proposal)` 
+          });
+        }
+      }
+
       const { type, text } = req.body;
 
       if (!type || !text) {
