@@ -25,6 +25,7 @@ import SortitionSynthesisPage from "@/pages/sortition-synthesis";
 import AmendmentAuthorReview from "@/pages/amendment-author-review";
 import AmendmentCommunitySignal from "@/pages/amendment-community-signal";
 import DeliberationWalkthrough from "@/pages/deliberation-walkthrough";
+import { CommunityForm } from "@/components/community/community-form";
 import { CommunityList } from "@/components/community/community-list";
 import { ProposalForm } from "@/components/proposal/proposal-form";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
@@ -43,6 +44,14 @@ function ProposalFormPage() {
   return (
     <div className="container mx-auto py-6 px-4 max-w-3xl">
       <ProposalForm />
+    </div>
+  );
+}
+
+function CommunityFormPage() {
+  return (
+    <div className="container mx-auto py-6 px-4 max-w-3xl">
+      <CommunityForm />
     </div>
   );
 }
@@ -67,6 +76,7 @@ function Router() {
         <ProtectedRoute path="/profile" component={ProfilePage} />
         <ProtectedRoute path="/groups" component={GroupsPage} />
         <ProtectedRoute path="/communities" component={CommunitiesPage} />
+        <ProtectedRoute path="/communities/new" component={CommunityFormPage} />
         <ProtectedRoute path="/communities/:id" component={CommunityDashboardPage} />
         <ProtectedRoute path="/proposals/new" component={ProposalFormPage} />
         <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />

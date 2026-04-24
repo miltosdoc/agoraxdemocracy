@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield } from "lucide-react";
+import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Vote } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
@@ -149,6 +149,15 @@ export default function Header() {
             >
               {t("Register")}
             </Button>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/walkthrough")}
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted"
+              data-testid="button-walkthrough"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Διαδικασία</span>
+            </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
@@ -180,6 +189,15 @@ export default function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="outline"
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              onClick={() => navigate("/proposals/new")}
+              data-testid="button-new-proposal"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Νέο Προβούλευμα</span>
+            </Button>
 
             {/* Notification Bell */}
             <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
@@ -320,6 +338,30 @@ export default function Header() {
                 >
                   <Users className="mr-2 h-4 w-4" />
                   {t("Groups")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/communities")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-communities"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Κοινότητες
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/proposals/new")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-new-proposal"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Νέο Προβούλευμα
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/walkthrough")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-walkthrough"
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Διαδικασία Διαβούλευσης
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/analytics")}

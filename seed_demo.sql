@@ -209,3 +209,10 @@ INSERT INTO polls (id, title, description, category, creator_id, start_date, end
 -- 1 active poll
 -- 16 amendment rejection votes
 -- 1 sortition body with 5 members
+
+-- Reset sequences after seeding to prevent PK conflicts on new signups
+SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
+SELECT setval('communities_id_seq', (SELECT MAX(id) FROM communities));
+SELECT setval('proposals_id_seq', (SELECT MAX(id) FROM proposals));
+SELECT setval('polls_id_seq', (SELECT MAX(id) FROM polls));
+

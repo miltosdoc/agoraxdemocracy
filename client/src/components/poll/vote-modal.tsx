@@ -38,6 +38,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
   const { toast } = useToast();
   const { user } = useAuth();
   const [locationState, setLocationState] = useState<"checking" | "eligible" | "ineligible" | "needsDetection" | "needsVerification">("checking");
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
   // Location verification mutation
   const verifyLocationMutation = useMutation({
@@ -541,8 +542,6 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
       </Dialog>
     );
   }
-
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
   // When user is not Gov.gr verified
   // This is now mandatory for ALL polls as per update

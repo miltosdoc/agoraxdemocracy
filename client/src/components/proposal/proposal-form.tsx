@@ -34,6 +34,7 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const targetCommunityId = communityId || 1;  // Default to main community
   const [formData, setFormData] = useState({
     question: '',
     solution: '',
@@ -46,9 +47,10 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
     setError(null);
 
     try {
-      const res = await fetch(`/api/communities/${communityId}/proposals`, {
+      const res = await fetch(`/api/communities/${targetCommunityId}/proposals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData),
       });
 
@@ -137,7 +139,7 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
           </div>
 
           <div className="flex items-center justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
+            <Button type="button" variant="outline" onClick={() => window.history.back()}>
               Ακύρωση
             </Button>
             <Button type="submit" disabled={loading}>
