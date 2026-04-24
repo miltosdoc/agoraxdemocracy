@@ -14,7 +14,7 @@
  * Failed jobs are retried with exponential backoff (max 3 retries).
  */
 
-import { db } from './db';
+import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
 // ─── Types ──────────────────────────────────────────────────────────────────

@@ -12,7 +12,8 @@ import {
   insertGroupSchema,
   users,
   votes,
-  insertPollUserResponseSchema
+  insertPollUserResponseSchema,
+  sortitionMembers,
 } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
@@ -2234,6 +2235,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error previewing sortition:", error);
       res.status(500).json({ message: "Failed to preview sortition" });
+    }
+  });
+
+  // ─── Demopolis: Sortition Assignment Routes ────────────────────────────────
+
+  // Get sortition assignment details (for scoring page)
+  app.get("/api/sortition/assignments/:id", requireAuth, async (req: any, res) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, memberId));
+
+      if (!member.length) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      const sortMember = member[0];
+      const body = await storage.getSortitionBody(sortMember.bodyId);
+      if (!body) {
+        return res.status(404).json({ message: "Sortition body not found" });
+      }
+
+      // Get the proposal being reviewed
+      let proposal = null;
+      let similarProposals: any[] = [];
+      if (body.proposalId) {
+        proposal = await storage.getProposal(body.proposalId);
+        if (proposal) {
+          // Get similar proposals from same community
+          const allProposals = await storage.getProposals(body.communityId);
+          similarProposals = allProposals
+            .filter(p => p.id !== proposal!.id && p.status === proposal!.status)
+            .slice(0, 3)
+            .map(p => ({
+              id: p.id,
+              question: p.question,
+              state: p.status,
+            }));
+        }
+      }
+
+      res.json({
+        id: sortMember.id,
+        bodyId: sortMember.bodyId,
+        proposalId: body.proposalId,
+        proposalQuestion: proposal?.question || "",
+        proposalSolution: proposal?.solution || "",
+        responseDeadline: body.selectedAt
+          ? new Date(new Date(body.selectedAt).getTime() + (body.responseHours || 72) * 60 * 60 * 1000).toISOString()
+          : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+        similarProposals,
+        responded: sortMember.responded,
+      });
+    } catch (error) {
+      console.error("Error fetching sortition assignment:", error);
+      res.status(500).json({ message: "Failed to fetch assignment" });
+    }
+  });
+
+  // Submit sortition score
+  app.post("/api/sortition/assignments/:id/score", requireAuth, async (req: any, res) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const { score, feedback } = req.body;
+
+      const member = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, memberId));
+
+      if (!member.length) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      const sortMember = member[0];
+
+      // Verify the user is the assigned member
+      if (sortMember.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not your assignment" });
+      }
+
+      // Update the member with their score
+      const [updated] = await db
+        .update(sortitionMembers)
+        .set({
+          score: score ? String(score) : undefined,
+          responded: true,
+          scoredAt: new Date(),
+        })
+        .where(and(
+          eq(sortitionMembers.bodyId, sortMember.bodyId),
+          eq(sortitionMembers.userId, req.user.id)
+        ))
+        .returning();
+
+      res.json({ success: true, member: updated });
+    } catch (error) {
+      console.error("Error submitting sortition score:", error);
+      res.status(500).json({ message: "Failed to submit score" });
     }
   });
 

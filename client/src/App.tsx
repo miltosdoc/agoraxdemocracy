@@ -21,9 +21,27 @@ import AdminAccountsPage from "@/pages/admin-accounts";
 import CommunityDashboardPage from "@/pages/community-dashboard";
 import ProposalDetailPage from "@/pages/proposal-detail";
 import SortitionScoringPage from "@/pages/sortition-scoring";
+import { CommunityList } from "@/components/community/community-list";
+import { ProposalForm } from "@/components/proposal/proposal-form";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 import BottomNav from "@/components/layout/bottom-nav";
+
+function CommunitiesPage() {
+  return (
+    <div className="container mx-auto py-6 px-4 max-w-6xl">
+      <CommunityList />
+    </div>
+  );
+}
+
+function ProposalFormPage() {
+  return (
+    <div className="container mx-auto py-6 px-4 max-w-3xl">
+      <ProposalForm />
+    </div>
+  );
+}
 
 function Router() {
   const { user } = useAuth();
@@ -44,7 +62,9 @@ function Router() {
         <ProtectedRoute path="/admin/accounts" component={AdminAccountsPage} />
         <ProtectedRoute path="/profile" component={ProfilePage} />
         <ProtectedRoute path="/groups" component={GroupsPage} />
+        <ProtectedRoute path="/communities" component={CommunitiesPage} />
         <ProtectedRoute path="/communities/:id" component={CommunityDashboardPage} />
+        <ProtectedRoute path="/proposals/new" component={ProposalFormPage} />
         <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />
         <ProtectedRoute path="/sortition/:id" component={SortitionScoringPage} />
         <Route path="/polls/:id" component={PollDetailsPage} />

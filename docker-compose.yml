@@ -1,0 +1,77 @@
+# AgoraX - Docker Compose Configuration
+# Services: PostgreSQL, Node.js API, React frontend, Python ballot service
+
+services:
+  # ─── PostgreSQL Database ───────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: agorax_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agorax}
+      POSTGRES_USER: ${POSTGRES_USER:-agorax}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agorax} -d ${POSTGRES_DB:-agorax}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Node.js API Server ────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agorax_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-agorax}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_API_URL: ${LLM_API_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─── Python Ballot Validation Service ──────────────────────────────────────
+  # ballot-service:
+  #   build:
+  #     context: ballot-service
+  #     dockerfile: Dockerfile
+  #   container_name: agorax_ballot
+  #   restart: unless-stopped
+  #   environment:
+  #     PORT: 8000
+  #   ports:
+  #     - "${BALLOT_PORT:-8000}:8000"
+  # NOTE: ballot-service directory not yet created. Uncomment when ready.
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+# ─── Networks (optional - uncomment for isolation) ──────────────────────────
+# networks:
+#   agorax:
+#     driver: bridge

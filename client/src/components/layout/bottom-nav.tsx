@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, PlusCircle, FileText, User } from "lucide-react";
+import { Home, PlusCircle, FileText, Users, User } from "lucide-react";
 import { User as SelectUser } from "@shared/schema";
 import {
   DropdownMenu,
@@ -42,6 +42,12 @@ export default function BottomNav({ user }: BottomNavProps) {
       icon: FileText,
       path: "/my-polls",
       testId: "nav-my-polls",
+    },
+    {
+      label: t("Communities"),
+      icon: Users,
+      path: "/communities",
+      testId: "nav-communities",
     },
     {
       label: t("Profile"),
