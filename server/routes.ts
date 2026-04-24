@@ -2323,9 +2323,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get proposal support counts
-  app.get("/api/proposals/:id/support", async (req, res) => {
+  app.get("/api/proposals/:id/support", async (req: any, res) => {
     try {
-      const support = await storage.getProposalSupport(parseInt(req.params.id));
+      const userId = (req.user as any)?.id;
+      const support = await storage.getProposalSupport(parseInt(req.params.id), userId);
       res.json(support);
     } catch (error) {
       console.error("Error fetching support:", error);

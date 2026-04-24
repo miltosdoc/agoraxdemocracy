@@ -2968,16 +2968,23 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }> {
+  async getProposalSupport(proposalId: number, userId?: number): Promise<{ support: number; oppose: number; userVote?: string | null }> {
     const supports = await db
       .select()
       .from(proposalSupport)
       .where(eq(proposalSupport.proposalId, proposalId));
     
-    return {
+    const result: { support: number; oppose: number; userVote?: string | null } = {
       support: supports.filter(s => s.type === 'support').length,
       oppose: supports.filter(s => s.type === 'oppose').length,
     };
+    
+    if (userId) {
+      const userVote = supports.find(s => s.userId === userId);
+      result.userVote = userVote?.type ?? null;
+    }
+    
+    return result;
   }
 }
 
