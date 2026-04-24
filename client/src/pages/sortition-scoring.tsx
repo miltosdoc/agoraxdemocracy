@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import Footer from '@/components/layout/footer';
 import { api } from '@/lib/api';
 
 interface SortitionAssignment {
@@ -213,6 +214,7 @@ export default function SortitionScoringPage() {
           </div>
         </CardContent>
       </Card>
+      <Footer />
     </div>
   );
 }

@@ -1857,17 +1857,25 @@ export class DatabaseStorage implements IStorage {
         userId: comments.userId,
         text: comments.text,
         createdAt: comments.createdAt,
-        user: {
-          name: users.name,
-          username: users.username
-        }
+        u_name: users.name,
+        u_username: users.username
       })
       .from(comments)
       .innerJoin(users, eq(comments.userId, users.id))
       .where(eq(comments.pollId, pollId))
       .orderBy(desc(comments.createdAt));
 
-    return commentsWithUser as CommentWithUser[];
+    return commentsWithUser.map(c => ({
+      id: c.id,
+      pollId: c.pollId,
+      userId: c.userId,
+      text: c.text,
+      createdAt: c.createdAt,
+      user: {
+        name: c.u_name,
+        username: c.u_username
+      }
+    })) as CommentWithUser[];
   }
   async getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { community?: { id: number; name: string } | null } })[]> {
     // Get unread notifications with poll details
@@ -1878,38 +1886,36 @@ export class DatabaseStorage implements IStorage {
         pollId: pollNotifications.pollId,
         read: pollNotifications.read,
         createdAt: pollNotifications.createdAt,
-        poll: {
-          id: polls.id,
-          title: polls.title,
-          description: polls.description,
-          category: polls.category,
-          creatorId: polls.creatorId,
-          startDate: polls.startDate,
-          endDate: polls.endDate,
-          isActive: polls.isActive,
-          allowExtension: polls.allowExtension,
-          createdAt: polls.createdAt,
-          visibility: polls.visibility,
-          showResults: polls.showResults,
-          allowComments: polls.allowComments,
-          requireVerification: polls.requireVerification,
-          pollType: polls.pollType,
-          locationScope: polls.locationScope,
-          communityMode: polls.communityMode,
-          centerLat: polls.centerLat,
-          centerLng: polls.centerLng,
-          radiusKm: polls.radiusKm,
-          city: polls.city,
-          region: polls.region,
-          country: polls.country,
-          locationCity: polls.locationCity,
-          locationRegion: polls.locationRegion,
-          locationCountry: polls.locationCountry,
-          locationCityId: polls.locationCityId,
-          locationRegionId: polls.locationRegionId,
-          locationCountryId: polls.locationCountryId,
-          geoRegion: polls.geoRegion,
-          communityId: polls.communityId
+        p_id: polls.id,
+        p_title: polls.title,
+        p_description: polls.description,
+        p_category: polls.category,
+        p_creatorId: polls.creatorId,
+        p_startDate: polls.startDate,
+        p_endDate: polls.endDate,
+        p_isActive: polls.isActive,
+        p_allowExtension: polls.allowExtension,
+        p_createdAt: polls.createdAt,
+        p_visibility: polls.visibility,
+        p_showResults: polls.showResults,
+        p_allowComments: polls.allowComments,
+        p_requireVerification: polls.requireVerification,
+        p_pollType: polls.pollType,
+        p_locationScope: polls.locationScope,
+        p_communityMode: polls.communityMode,
+        p_centerLat: polls.centerLat,
+        p_centerLng: polls.centerLng,
+        p_radiusKm: polls.radiusKm,
+        p_city: polls.city,
+        p_region: polls.region,
+        p_country: polls.country,
+        p_locationCity: polls.locationCity,
+        p_locationRegion: polls.locationRegion,
+        p_locationCountry: polls.locationCountry,
+        p_locationCityId: polls.locationCityId,
+        p_locationRegionId: polls.locationRegionId,
+        p_locationCountryId: polls.locationCountryId,
+        p_geoRegion: polls.geoRegion
       })
       .from(pollNotifications)
       .innerJoin(polls, eq(pollNotifications.pollId, polls.id))
@@ -1926,7 +1932,36 @@ export class DatabaseStorage implements IStorage {
       read: n.read,
       createdAt: n.createdAt,
       poll: {
-        ...n.poll
+        id: n.p_id,
+        title: n.p_title,
+        description: n.p_description,
+        category: n.p_category,
+        creatorId: n.p_creatorId,
+        startDate: n.p_startDate,
+        endDate: n.p_endDate,
+        isActive: n.p_isActive,
+        allowExtension: n.p_allowExtension,
+        createdAt: n.p_createdAt,
+        visibility: n.p_visibility,
+        showResults: n.p_showResults,
+        allowComments: n.p_allowComments,
+        requireVerification: n.p_requireVerification,
+        pollType: n.p_pollType,
+        locationScope: n.p_locationScope,
+        communityMode: n.p_communityMode,
+        centerLat: n.p_centerLat,
+        centerLng: n.p_centerLng,
+        radiusKm: n.p_radiusKm,
+        city: n.p_city,
+        region: n.p_region,
+        country: n.p_country,
+        locationCity: n.p_locationCity,
+        locationRegion: n.p_locationRegion,
+        locationCountry: n.p_locationCountry,
+        locationCityId: n.p_locationCityId,
+        locationRegionId: n.p_locationRegionId,
+        locationCountryId: n.p_locationCountryId,
+        geoRegion: n.p_geoRegion
       }
     }));
   }

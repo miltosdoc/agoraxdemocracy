@@ -173,6 +173,24 @@ export const pollUserResponses = pgTable("poll_user_responses", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Groups (Ομάδες) ─────────────────────────────────────────────────────────
+
+export const groups = pgTable("groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  creatorId: integer("creator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const groupMembers = pgTable("group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+}, (table) => ({
+  groupMemberUnique: uniqueIndex("group_member_unique").on(table.groupId, table.userId),
+}));
+
 // ─── Demopolis: Communities (Κοινότητες) ─────────────────────────────────────
 
 export const communities = pgTable("communities", {
@@ -664,6 +682,8 @@ export const rankingVoteSchema = z.object({
 export const insertPollQuestionSchema = createInsertSchema(pollQuestions).omit({ id: true });
 export const insertPollAnswerSchema = createInsertSchema(pollAnswers).omit({ id: true });
 export const insertPollUserResponseSchema = createInsertSchema(pollUserResponses).omit({ id: true, createdAt: true });
+export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, joinedAt: true });
 
 // Demopolis Insert Schemas
 export const insertCommunitySchema = createInsertSchema(communities).omit({ id: true, createdAt: true });
@@ -870,7 +890,6 @@ export type PollWithQuestions = Poll & {
   creator: User;
   voteCount: number;
   userVoted?: boolean;
-  group?: Group;
 };
 
 // Demopolis extended types

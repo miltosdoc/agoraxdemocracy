@@ -1,971 +1,2588 @@
-     1|import type { Express } from "express";
-     2|import { createServer, type Server } from "http";
-     3|import { storage } from "./storage";
-     4|import { setupAuth } from "./auth";
-     5|import { updatePollLocations } from "./update-poll-locations";
-     6|import {
-     7|  createPollSchema,
-     8|  createSurveyPollSchema,
-     9|  insertVoteSchema,
-    10|  rankingVoteSchema,
-    11|  insertCommentSchema,
-    13|  users,
-    14|  votes,
-    15|  insertPollUserResponseSchema,
-    16|  sortitionMembers,
-    17|} from "@shared/schema";
-    18|import { z } from "zod";
-    19|import { db } from "./db";
-    20|import { eq, and, desc, asc, sql } from "drizzle-orm";
-    21|import {
-    22|  authorReviewAmendment,
-    23|  castRejectionVote,
-    24|  calculateCommunitySignals,
-    25|  buildSortitionInput,
-    26|  saveFinalText,
-    27|} from "./utils/amendment-processor";
-    28|
-    30|  email: z.string().email("Invalid email format")
-    31|});
-    32|
-    33|/**
-    34| * Helper function to format Zod validation errors in a more user-friendly way.
-    35| * 
-    36| * @param errors The raw Zod validation errors
-    37| * @returns A more user-friendly error object
-    38| */
-    39|function formatValidationErrors(errors: Record<string, any>): Record<string, any> {
-    40|  const formattedErrors: Record<string, any> = {};
-    41|
-    42|  // Helper function to recursively process errors
-    43|  function processErrors(obj: Record<string, any>, path: string = "") {
-    44|    for (const key in obj) {
-    45|      const fullPath = path ? `${path}.${key}` : key;
-    46|
-    47|      if (key === "_errors" && Array.isArray(obj[key])) {
-    48|        if (obj[key].length > 0) {
-    49|          // We have actual error messages here
-    50|          let location = path;
-    51|          if (location === "") {
-    52|            location = "general";
-    53|          }
-    54|
-    55|          if (!formattedErrors[location]) {
-    56|            formattedErrors[location] = [];
-    57|          }
-    58|
-    59|          // Add all error messages for this field
-    60|          for (const error of obj[key]) {
-    61|            formattedErrors[location].push(error);
-    62|          }
-    63|        }
-    64|      } else if (typeof obj[key] === "object" && obj[key] !== null) {
-    65|        // Recursively process nested objects
-    66|        processErrors(obj[key], fullPath);
-    67|      }
-    68|    }
-    69|  }
-    70|
-    71|  processErrors(errors);
-    72|
-    73|  // Special case for optionId which is often required in votes
-    74|  if (errors.optionId?._errors?.includes("Required")) {
-    75|    formattedErrors.optionId = ["Παρακαλώ επιλέξτε μια επιλογή"];
-    76|  }
-    77|
-    78|  return formattedErrors;
-    79|}
-    80|
-    81|export async function registerRoutes(app: Express): Promise<Server> {
-    82|
-    83|  // Setup authentication routes
-    84|  setupAuth(app);
-    85|
-    86|  // Consolidated route for /polls/:id with social bot detection
-    87|  app.get("/polls/:id", async (req, res, next) => {
-    88|    const userAgent = req.get('User-Agent') || '';
-    89|
-    90|    // Detect social media crawlers and preview bots
-    91|    const isSocialBot = /facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|skypeuripreview|slackbot|discordbot/i.test(userAgent);
-    92|
-    93|    if (!isSocialBot) {
-    94|      // Regular users - let frontend handle this route
-    95|      return next();
-    96|    }
-    97|
-    98|    // Social bots - serve SEO-optimized HTML with Open Graph tags
-    99|    try {
-   100|      const pollId = parseInt(req.params.id);
-   101|      const poll = await storage.getPoll(pollId);
-   102|
-   103|      if (!poll) {
-   104|        return next(); // Let frontend handle 404
-   105|      }
-   106|
-   107|      const results = await storage.getPollResults(pollId);
-   108|      const totalVotes = results.reduce((sum, result) => sum + result.voteCount, 0);
-   109|      const isActive = new Date(poll.endDate) > new Date();
-   110|
-   111|      // Clean description without HTML tags
-   112|      const cleanDescription = poll.description
-   113|        ? poll.description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-   114|        : '';
-   115|
-   116|      // Optimized description for social sharing
-   117|      const shareDescription = cleanDescription
-   118|        ? `${cleanDescription.substring(0, 150)}... 🗳️ Ψηφίστε στο AgoraX!`
-   119|        : `🗳️ Συμμετέχετε στην ψηφοφορία και εκφράστε τη γνώμη σας!`;
-   120|
-   121|      const pollUrl = `${req.protocol}://${req.get('host')}/polls/${pollId}`;
-   122|      const ogImage = `${req.protocol}://${req.get('host')}/api/og-image/${pollId}?v=3`;
-   123|
-   124|      const html = `<!DOCTYPE html>
-   125|<html lang="el">
-   126|<head>
-   127|    <meta charset="UTF-8">
-   128|    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   129|    <title>${poll.title} - AgoraX</title>
-   130|    
-   131|    <!-- Open Graph / Facebook -->
-   132|    <meta property="og:type" content="article">
-   133|    <meta property="og:url" content="${pollUrl}">
-   134|    <meta property="og:title" content="${poll.title}">
-   135|    <meta property="og:description" content="${shareDescription}">
-   136|    <meta property="og:image" content="${ogImage}">
-   137|    <meta property="og:image:width" content="1200">
-   138|    <meta property="og:image:height" content="630">
-   139|    <meta property="og:image:type" content="image/png">
-   140|    <meta property="og:site_name" content="AgoraX">
-   141|    
-   142|    <!-- Twitter -->
-   143|    <meta name="twitter:card" content="summary_large_image">
-   144|    <meta name="twitter:title" content="${poll.title}">
-   145|    <meta name="twitter:description" content="${shareDescription}">
-   146|    <meta name="twitter:image" content="${ogImage}">
-   147|    
-   148|    <meta name="description" content="${shareDescription}">
-   149|</head>
-   150|<body>
-   151|    <div style="font-family: Arial; max-width: 600px; margin: 2rem auto; padding: 2rem;">
-   152|        <h1>${poll.title}</h1>
-   153|        <p>${cleanDescription}</p>
-   154|        <p>Κατηγορία: ${poll.category} • Ψήφοι: ${totalVotes} • ${isActive ? 'Ενεργή' : 'Κλειστή'}</p>
-   155|        <a href="${pollUrl}" style="background: #2563eb; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 6px; display: inline-block;">Δείτε την ψηφοφορία</a>
-   156|    </div>
-   157|</body>
-   158|</html>`;
-   159|
-   160|      res.send(html);
-   161|    } catch (error) {
-   162|      console.error("Error generating bot HTML:", error);
-   163|      next();
-   164|    }
-   165|  });
-   166|
-   167|  // Open Graph image generation for social media previews (minimal design with logo)
-   168|  app.get("/api/og-image/:id", async (req, res) => {
-   169|    try {
-   170|      const pollId = parseInt(req.params.id);
-   171|      const poll = await storage.getPoll(pollId);
-   172|
-   173|      if (!poll) {
-   174|        return res.status(404).send("Poll not found");
-   175|      }
-   176|
-   177|      const { createCanvas, loadImage } = await import('canvas');
-   178|      const path = await import('path');
-   179|
-   180|      // Standard OpenGraph size: 1200x630
-   181|      const width = 1200;
-   182|      const height = 630;
-   183|      const canvas = createCanvas(width, height);
-   184|      const ctx = canvas.getContext('2d');
-   185|
-   186|      // Clean white background
-   187|      ctx.fillStyle = '#ffffff';
-   188|      ctx.fillRect(0, 0, width, height);
-   189|
-   190|      // Load and draw logo (centered)
-   191|      try {
-   192|        const logoPath = path.resolve(process.cwd(), 'client/public/logo-share.png');
-   193|        const logo = await loadImage(logoPath);
-   194|        const logoSize = 200;
-   195|        const logoX = (width - logoSize) / 2;
-   196|        const logoY = (height - logoSize) / 2;
-   197|        ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
-   198|      } catch (err) {
-   199|        // If logo fails to load, show AgoraX text instead
-   200|        ctx.fillStyle = '#1e293b';
-   201|        ctx.font = 'bold 64px Arial';
-   202|        ctx.textAlign = 'center';
-   203|        ctx.fillText('AgoraX', width / 2, height / 2);
-   204|      }
-   205|
-   206|      // Convert to PNG buffer
-   207|      const pngBuffer = canvas.toBuffer('image/png');
-   208|
-   209|      // Serve PNG with caching headers
-   210|      res.setHeader('Content-Type', 'image/png');
-   211|      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-   212|      res.setHeader('Access-Control-Allow-Origin', '*');
-   213|      res.setHeader('Content-Disposition', 'inline; filename="poll-preview.png"');
-   214|      res.send(pngBuffer);
-   215|
-   216|    } catch (error) {
-   217|      console.error("Error generating OG image:", error);
-   218|      res.status(500).send("Error generating image");
-   219|    }
-   220|  });
-   221|
-   222|  // Protected route middleware
-   223|  const requireAuth = (req: any, res: any, next: any) => {
-   224|    // Demo mode: bypass auth, use user 3 (maria) as demo user — author of proposal 1
-   225|    if (process.env.DEMO_MODE === 'true') {
-   226|      if (!req.user) {
-   227|        req.user = { id: 3, username: 'demo', email: 'demo@agorax.gr', name: 'Demo User', isAdmin: true };
-   228|        req.isAuthenticated = () => true;
-   229|      }
-   230|      return next();
-   231|    }
-   232|    if (!req.isAuthenticated()) {
-   233|      return res.status(401).json({ message: "Unauthorized" });
-   234|    }
-   235|    next();
-   236|  };
-   237|
-   238|  // Poll routes
-   239|  app.get("/api/polls", async (req, res) => {
-   240|    try {
-   241|      const {
-   242|        status,
-   243|        category,
-   244|        sort,
-   245|        page = "1",
-   246|        pageSize = "9",
-   247|        locationScope,
-   248|        locationCountry,
-   249|        locationRegion,
-   250|        locationCity,
-   251|        communityId
-   252|      } = req.query;
-   253|
-   254|      const filters = {
-   255|        status: status as string,
-   256|        category: category as string,
-   257|        sort: sort as string,
-   258|        page: parseInt(page as string),
-   259|        pageSize: parseInt(pageSize as string),
-   260|        userId: req.isAuthenticated() ? req.user.id : undefined,
-   261|        locationScope: locationScope as string,
-   262|        locationCountry: locationCountry as string,
-   263|        locationRegion: locationRegion as string,
-   264|        locationCity: locationCity as string,
-   265|        communityId: communityId ? parseInt(communityId as string) : undefined
-   266|      };
-   267|
-   268|      const polls = await storage.getPolls(filters);
-   269|      res.json(polls);
-   270|    } catch (error) {
-   271|      console.error("Error fetching polls:", error);
-   272|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ψηφοφοριών" });
-   273|    }
-   274|  });
-   275|
-   276|  app.get("/api/polls/my", requireAuth, async (req, res) => {
-   277|    try {
-   278|      const userId = req.user.id;
-   279|      const polls = await storage.getUserPolls(userId);
-   280|      res.json(polls);
-   281|    } catch (error) {
-   282|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των ψηφοφοριών σας" });
-   283|    }
-   284|  });
-   285|
-   286|  app.get("/api/polls/participated", requireAuth, async (req, res) => {
-   287|    try {
-   288|      const userId = req.user.id;
-   289|      const polls = await storage.getParticipatedPolls(userId);
-   290|      res.json(polls);
-   291|    } catch (error) {
-   292|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των συμμετοχών σας" });
-   293|    }
-   294|  });
-   295|
-   296|  app.get("/api/polls/:id", async (req, res) => {
-   297|    try {
-   298|      const pollId = parseInt(req.params.id);
-   299|      const userId = req.isAuthenticated() ? req.user.id : undefined;
-   300|      const poll = await storage.getPoll(pollId, userId);
-   301|
-   302|      if (!poll) {
-   303|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   304|      }
-   305|
-   306|      res.json(poll);
-   307|    } catch (error) {
-   308|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση της ψηφοφορίας" });
-   309|    }
-   310|  });
-   311|
-   312|  app.post("/api/polls", requireAuth, async (req, res) => {
-   313|    try {
-   314|      console.log("Creating poll with data:", JSON.stringify(req.body, null, 2));
-   315|
-   316|      const parsedData = createPollSchema.safeParse(req.body);
-   317|
-   318|      if (!parsedData.success) {
-   319|        console.log("Poll data validation failed:", parsedData.error.format());
-   320|        return res.status(400).json({
-   321|          message: "Λανθασμένα δεδομένα ψηφοφορίας",
-   322|          errors: parsedData.error.format()
-   323|        });
-   324|      }
-   325|
-   326|      console.log("Parsed poll data:", JSON.stringify(parsedData.data, null, 2));
-   327|      const { poll, options } = parsedData.data;
-   328|      const creatorId = req.user.id;
-   329|
-   330|      console.log("Creating poll with creator:", creatorId);
-   331|      console.log("Poll object:", JSON.stringify({ ...poll, creatorId }, null, 2));
-   332|      console.log("Options:", JSON.stringify(options, null, 2));
-   333|
-   334|      try {
-   335|        const createdPoll = await storage.createPoll({
-   336|          ...poll,
-   337|          creatorId
-   338|        }, options);
-   339|
-   340|        // Notify group members if poll is in a group
-   341|        if (createdPoll.communityId) {
-   342|          try {
-   343|            const group = await storage.getGroup(createdPoll.communityId);
-   344|            if (group && group.members) {
-   345|              // Create notifications for all group members except the creator
-   346|              const notificationPromises = group.members
-   347|                .filter(member => member.userId !== creatorId)
-   348|                .map(member =>
-   349|                  storage.createPollNotification({
-   350|                    userId: member.userId,
-   351|                    pollId: createdPoll.id
-   352|                  })
-   353|                );
-   354|
-   355|              await Promise.all(notificationPromises);
-   356|              console.log(`Created ${notificationPromises.length} notifications for poll ${createdPoll.id}`);
-   357|            }
-   358|          } catch (notificationError) {
-   359|            console.error("Error creating notifications:", notificationError);
-   360|          }
-   361|        }
-   362|
-   363|        res.status(201).json(createdPoll);
-   364|      } catch (storageError) {
-   365|        console.error("Error in storage.createPoll:", storageError);
-   366|        throw storageError;
-   367|      }
-   368|    } catch (error) {
-   369|      console.error("Error creating poll:", error);
-   370|      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία ψηφοφορίας", error: String(error) });
-   371|    }
-   372|  });
-   373|
-   374|  app.patch("/api/polls/:id", requireAuth, async (req, res) => {
-   375|    try {
-   376|      const pollId = parseInt(req.params.id);
-   377|      const userId = req.user.id;
-   378|
-   379|      console.log("Poll update request received for poll ID:", pollId);
-   380|      console.log("Update data:", JSON.stringify(req.body, null, 2));
-   381|
-   382|      // Check if user is the creator
-   383|      const poll = await storage.getPoll(pollId);
-   384|      if (!poll) {
-   385|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   386|      }
-   387|
-   388|      if (poll.creatorId !== userId) {
-   389|        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να επεξεργαστείτε αυτή την ψηφοφορία" });
-   390|      }
-   391|
-   392|      // Handle empty strings in numeric fields to avoid database errors
-   393|      const updates = { ...req.body };
-   394|
-   395|      // Remove creatorId from updates to preserve the original creator
-   396|      // This prevents foreign key constraint issues
-   397|      delete updates.creatorId;
-   398|
-   399|      // Special handling for description - must be at least empty string, not null
-   400|      if (updates.description === '' || updates.description === null) {
-   401|        updates.description = ''; // Empty string instead of null to satisfy not-null constraint
-   402|      }
-   403|
-   404|      // Fix potential issues with empty coordinate strings
-   405|      if (updates.centerLat === '') updates.centerLat = null;
-   406|      if (updates.centerLng === '') updates.centerLng = null;
-   407|      if (updates.radiusKm === '') updates.radiusKm = null;
-   408|
-   409|      // Handle empty location strings
-   410|      if (updates.locationCity === '') updates.locationCity = null;
-   411|      if (updates.locationRegion === '') updates.locationRegion = null;
-   412|      if (updates.locationCountry === '') updates.locationCountry = null;
-   413|
-   414|      // Fix date fields - convert to proper Date objects
-   415|      if (updates.startDate && typeof updates.startDate === 'string') {
-   416|        updates.startDate = new Date(updates.startDate);
-   417|      }
-   418|      if (updates.endDate && typeof updates.endDate === 'string') {
-   419|        updates.endDate = new Date(updates.endDate);
-   420|      }
-   421|
-   422|      // Clean up empty string values to avoid database errors
-   423|      // But exclude description field which needs to remain an empty string
-   424|      Object.keys(updates).forEach(key => {
-   425|        if (key !== 'description' && updates[key] === '') {
-   426|          updates[key] = null;
-   427|        }
-   428|      });
-   429|
-   430|      console.log("Processed updates:", JSON.stringify(updates, null, 2));
-   431|
-   432|      const updatedPoll = await storage.updatePoll(pollId, updates);
-   433|      res.json(updatedPoll);
-   434|    } catch (error) {
-   435|      console.error("Error updating poll:", error);
-   436|      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της ψηφοφορίας", error: error.message });
-   437|    }
-   438|  });
-   439|
-   440|  app.delete("/api/polls/:id", requireAuth, async (req, res) => {
-   441|    try {
-   442|      const pollId = parseInt(req.params.id);
-   443|      const userId = req.user.id;
-   444|
-   445|      // Check if user is the creator
-   446|      const poll = await storage.getPoll(pollId, userId);
-   447|      if (!poll) {
-   448|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   449|      }
-   450|
-   451|      if (poll.creatorId !== userId) {
-   452|        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να διαγράψετε αυτή την ψηφοφορία" });
-   453|      }
-   454|
-   455|      // Check if the poll has more than 100 participants
-   456|      const participantCount = await storage.getPollParticipantCount(pollId);
-   457|      if (participantCount > 100) {
-   458|        return res.status(403).json({
-   459|          message: "Δεν μπορείτε να διαγράψετε μια ψηφοφορία με πάνω από 100 συμμετέχοντες",
-   460|          canSetCommunity: true // Indicate that community mode is an option
-   461|        });
-   462|      }
-   463|
-   464|      const result = await storage.deletePoll(pollId);
-   465|      if (result) {
-   466|        res.json({ success: true, message: "Η ψηφοφορία διαγράφηκε επιτυχώς" });
-   467|      } else {
-   468|        res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή της ψηφοφορίας" });
-   469|      }
-   470|    } catch (error) {
-   471|      console.error("Error deleting poll:", error);
-   472|      res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή της ψηφοφορίας" });
-   473|    }
-   474|  });
-   475|
-   476|  // Endpoint to set poll to community mode (removing creator association)
-   477|  app.patch("/api/polls/:id/community", requireAuth, async (req, res) => {
-   478|    try {
-   479|      const pollId = parseInt(req.params.id);
-   480|      const userId = req.user.id;
-   481|
-   482|      // Check if user is the creator
-   483|      const poll = await storage.getPoll(pollId, userId);
-   484|      if (!poll) {
-   485|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   486|      }
-   487|
-   488|      if (poll.creatorId !== userId) {
-   489|        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να μεταφέρετε αυτή την ψηφοφορία" });
-   490|      }
-   491|
-   492|      // Update the poll to community mode
-   493|      const updatedPoll = await storage.updatePoll(pollId, { communityMode: true });
-   494|      res.json({ success: true, message: "Η ψηφοφορία μεταφέρθηκε στην κοινότητα", poll: updatedPoll });
-   495|    } catch (error) {
-   496|      console.error("Error setting poll to community mode:", error);
-   497|      res.status(500).json({ message: "Σφάλμα κατά τη μεταφορά της ψηφοφορίας" });
-   498|    }
-   499|  });
-   500|
-   501|  app.patch("/api/polls/:id/extend", requireAuth, async (req, res) => {
-   502|    try {
-   503|      const pollId = parseInt(req.params.id);
-   504|      const userId = req.user.id;
-   505|      const { newEndDate } = req.body;
-   506|
-   507|      if (!newEndDate) {
-   508|        return res.status(400).json({ message: "Απαιτείται νέα ημερομηνία λήξης" });
-   509|      }
-   510|
-   511|      // Check if user is the creator
-   512|      const poll = await storage.getPoll(pollId, userId);
-   513|      if (!poll) {
-   514|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   515|      }
-   516|
-   517|      if (poll.creatorId !== userId) {
-   518|        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να επεκτείνετε αυτή την ψηφοφορία" });
-   519|      }
-   520|
-   521|      if (!poll.allowExtension) {
-   522|        return res.status(400).json({ message: "Η επέκταση δεν επιτρέπεται για αυτή την ψηφοφορία" });
-   523|      }
-   524|
-   525|      if (!poll.isActive) {
-   526|        return res.status(400).json({ message: "Δεν μπορείτε να επεκτείνετε μια ολοκληρωμένη ψηφοφορία" });
-   527|      }
-   528|
-   529|      const updatedPoll = await storage.extendPollDuration(pollId, new Date(newEndDate));
-   530|      res.json(updatedPoll);
-   531|    } catch (error) {
-   532|      res.status(500).json({ message: "Σφάλμα κατά την επέκταση της ψηφοφορίας" });
-   533|    }
-   534|  });
-   535|
-   536|  app.post("/api/polls/:id/vote", requireAuth, async (req, res) => {
-   537|    try {
-   538|      const pollId = parseInt(req.params.id);
-   539|      const userId = req.user.id;
-   540|
-   541|      // Check if poll exists and is active
-   542|      const poll = await storage.getPoll(pollId, userId);
-   543|      if (!poll) {
-   544|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   545|      }
-   546|
-   547|      // SECURITY: Group membership check for voting
-   548|      if (poll.communityId) {
-   549|        const isMember = await storage.isGroupMember(poll.communityId, userId);
-   550|        if (!isMember) {
-   551|          return res.status(403).json({ message: "You must be a member of this group to vote" });
-   552|        }
-   553|      }
-   554|
-   555|      if (!poll.isActive) {
-   556|        return res.status(400).json({ message: "Η ψηφοφορία έχει ολοκληρωθεί" });
-   557|      }
-   558|
-   559|      // Get user data to check location eligibility
-   560|      const user = await storage.getUser(userId);
-   561|      if (!user) {
-   562|        return res.status(404).json({ message: "Χρήστης δεν βρέθηκε" });
-   563|      }
-   564|
-   565|      // Check for Gov.gr verification - MANDATORY for all votes
-   566|      if (!user.govgrVerified) {
-   567|        return res.status(403).json({
-   568|          message: "Απαιτείται επαλήθευση ταυτότητας Gov.gr για να ψηφίσετε. Παρακαλώ επαληθεύστε την ταυτότητά σας πρώτα."
-   569|        });
-   570|      }
-   571|
-   572|      // Debug logging for location data
-   573|      console.log(`[VOTE] User location data for user ID ${userId}:`, {
-   574|        city: user.city,
-   575|        region: user.region,
-   576|        country: user.country,
-   577|        city_id: user.city_id,
-   578|        region_id: user.region_id,
-   579|        country_id: user.country_id
-   580|      });
-   581|
-   582|      console.log(`[VOTE] Poll location restrictions:`, {
-   583|        locationScope: poll.locationScope,
-   584|        locationCity: poll.locationCity,
-   585|        locationRegion: poll.locationRegion,
-   586|        locationCountry: poll.locationCountry
-   587|      });
-   588|
-   589|      // Import the location validator
-   590|      const { isUserEligibleForPoll } = await import('./utils/location-validator');
-   591|
-   592|      // Check if user is eligible to vote based on location restrictions
-   593|      const eligibility = isUserEligibleForPoll(poll, user);
-   594|      console.log(`[VOTE] Eligibility result:`, eligibility);
-   595|
-   596|      if (!eligibility.isEligible) {
-   597|        return res.status(403).json({
-   598|          message: eligibility.message || "Δεν επιτρέπεται να ψηφίσετε λόγω περιορισμών τοποθεσίας"
-   599|        });
-   600|      }
-   601|
-   602|      // Check if user already voted
-   603|      const hasVoted = await storage.hasUserVoted(pollId, userId);
-   604|      console.log(`[VOTE] User ${userId} has voted: ${hasVoted}`);
-   605|
-   606|      // If they already voted, check if they can edit their vote
-   607|      if (hasVoted) {
-   608|        // Check if vote can be edited (within 60 minutes)
-   609|        const canEdit = await storage.canEditVote(pollId, userId);
-   610|        console.log(`[VOTE] Can edit vote: ${canEdit}`);
-   611|        if (!canEdit) {
-   612|          return res.status(403).json({
-   613|            message: "Δεν μπορείτε να αλλάξετε την ψήφο σας μετά από 60 λεπτά",
-   614|            canEdit: false
-   615|          });
-   616|        }
-   617|
-   618|        // Delete the existing vote before creating a new one
-   619|        console.log(`[VOTE] Deleting existing votes for user ${userId} on poll ${pollId}`);
-   620|        await db.delete(votes).where(
-   621|          and(
-   622|            eq(votes.pollId, pollId),
-   623|            eq(votes.userId, userId)
-   624|          )
-   625|        );
-   626|
-   627|        // The vote will be recreated below
-   628|      }
-   629|
-   630|      // Handle different poll types
-   631|      if (poll.pollType === 'ranking') {
-   632|        // For ranking polls, validate with rankingVoteSchema
-   633|        const validateRankingVote = rankingVoteSchema.safeParse({
-   634|          ...req.body,
-   635|          pollId,
-   636|          userId
-   637|        });
-   638|
-   639|        if (!validateRankingVote.success) {
-   640|          // Format the validation errors to be more user-friendly
-   641|          const formattedErrors = formatValidationErrors(validateRankingVote.error.format());
-   642|
-   643|          return res.status(400).json({
-   644|            message: "Λανθασμένα δεδομένα κατάταξης",
-   645|            errors: formattedErrors,
-   646|            errorType: "validation" // Indicate that these are validation errors
-   647|          });
-   648|        }
-   649|
-   650|        const vote = await storage.createVote(validateRankingVote.data);
-   651|        return res.status(201).json({
-   652|          ...vote,
-   653|          isEdit: hasVoted
-   654|        });
-   655|      } else {
-   656|        // For regular polls, handle both single choice and multiple choice
-   657|        console.log("Received vote data:", req.body);
-   658|        console.log("Vote data for validation:", { ...req.body, pollId, userId });
-   659|
-   660|        // Check if this is a multiple choice vote (has optionIds array)
-   661|        if (req.body.optionIds && Array.isArray(req.body.optionIds)) {
-   662|          // Multiple choice voting - create separate votes for each option
-   663|          const votes = [];
-   664|
-   665|          for (const optionId of req.body.optionIds) {
-   666|            const validateVote = insertVoteSchema.safeParse({
-   667|              optionId,
-   668|              pollId,
-   669|              userId,
-   670|              comment: req.body.comment
-   671|            });
-   672|
-   673|            if (!validateVote.success) {
-   674|              const formattedErrors = formatValidationErrors(validateVote.error.format());
-   675|              console.log("Vote validation failed for option", optionId, ":", validateVote.error);
-   676|
-   677|              return res.status(400).json({
-   678|                message: "Λανθασμένα δεδομένα ψήφου",
-   679|                errors: formattedErrors,
-   680|                errorType: "validation"
-   681|              });
-   682|            }
-   683|
-   684|            const vote = await storage.createVote(validateVote.data);
-   685|            votes.push(vote);
-   686|          }
-   687|
-   688|          return res.status(201).json({
-   689|            votes,
-   690|            isEdit: hasVoted,
-   691|            count: votes.length
-   692|          });
-   693|        } else {
-   694|          // Single choice voting
-   695|          const validateVote = insertVoteSchema.safeParse({
-   696|            ...req.body,
-   697|            pollId,
-   698|            userId
-   699|          });
-   700|
-   701|          if (!validateVote.success) {
-   702|            const formattedErrors = formatValidationErrors(validateVote.error.format());
-   703|            console.log("Vote validation failed:", validateVote.error);
-   704|            console.log("Formatted errors:", formattedErrors);
-   705|
-   706|            return res.status(400).json({
-   707|              message: "Λανθασμένα δεδομένα ψήφου",
-   708|              errors: formattedErrors,
-   709|              errorType: "validation"
-   710|            });
-   711|          }
-   712|
-   713|          const vote = await storage.createVote(validateVote.data);
-   714|          return res.status(201).json({
-   715|            ...vote,
-   716|            isEdit: hasVoted
-   717|          });
-   718|        }
-   719|      }
-   720|    } catch (error) {
-   721|      console.error("Vote submission error:", error);
-   722|      res.status(500).json({ message: "Σφάλμα κατά την υποβολή ψήφου" });
-   723|    }
-   724|  });
-   725|
-   726|  app.get("/api/polls/:id/results", async (req, res) => {
-   727|    try {
-   728|      const pollId = parseInt(req.params.id);
-   729|      const results = await storage.getPollResults(pollId);
-   730|      res.json(results);
-   731|    } catch (error) {
-   732|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των αποτελεσμάτων" });
-   733|    }
-   734|  });
-   735|
-   736|  app.post("/api/polls/:id/comments", requireAuth, async (req, res) => {
-   737|    try {
-   738|      const pollId = parseInt(req.params.id);
-   739|      const userId = req.user.id;
-   740|
-   741|      const validateComment = insertCommentSchema.safeParse({
-   742|        ...req.body,
-   743|        pollId,
-   744|        userId
-   745|      });
-   746|
-   747|      if (!validateComment.success) {
-   748|        return res.status(400).json({
-   749|          message: "Λανθασμένα δεδομένα σχολίου",
-   750|          errors: validateComment.error.format()
-   751|        });
-   752|      }
-   753|
-   754|      // Check if poll exists and allows comments
-   755|      const poll = await storage.getPoll(pollId);
-   756|      if (!poll) {
-   757|        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-   758|      }
-   759|
-   760|      if (!poll.allowComments) {
-   761|        return res.status(400).json({ message: "Τα σχόλια δεν επιτρέπονται σε αυτή την ψηφοφορία" });
-   762|      }
-   763|
-   764|      const comment = await storage.createComment(validateComment.data);
-   765|      res.status(201).json(comment);
-   766|    } catch (error) {
-   767|      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία σχολίου" });
-   768|    }
-   769|  });
-   770|
-   771|  app.get("/api/polls/:id/comments", async (req, res) => {
-   772|    try {
-   773|      const pollId = parseInt(req.params.id);
-   774|      const comments = await storage.getPollComments(pollId);
-   775|      res.json(comments);
-   776|    } catch (error) {
-   777|      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση σχολίων" });
-   778|    }
-   779|  });
-   780|
-  1809|  app.get("/api/communities", async (req, res) => {
-  1810|    try {
-  1811|      const userId = req.user?.id;
-  1812|      const communities = await storage.getCommunities(userId);
-  1813|      res.json(communities);
-  1814|    } catch (error) {
-  1815|      console.error("Error fetching communities:", error);
-  1816|      res.status(500).json({ message: "Failed to fetch communities" });
-  1817|    }
-  1818|  });
-  1819|
-  1820|  // Create community (authenticated)
-  1821|  app.post("/api/communities", requireAuth, async (req: any, res) => {
-  1822|    try {
-  1823|      const { name, description, type, governanceModel } = req.body;
-  1824|      
-  1825|      if (!name) {
-  1826|        return res.status(400).json({ message: "Name is required" });
-  1827|      }
-  1828|
-  1829|      const community = await storage.createCommunity({
-  1830|        name,
-  1831|        description,
-  1832|        type: type || 'autonomous',
-  1833|        governanceModel: governanceModel || 'no_admin',
-  1834|        creatorId: req.user.id,
-  1835|      });
-  1836|
-  1837|      // Auto-add creator as founder
-  1838|      await storage.addCommunityMember(community.id, req.user.id, 'founder');
-  1839|
-  1840|      res.status(201).json(community);
-  1841|    } catch (error) {
-  1842|      console.error("Error creating community:", error);
-  1843|      res.status(500).json({ message: "Failed to create community" });
-  1844|    }
-  1845|  });
-  1846|
-  1847|  // Get community details
-  1848|  app.get("/api/communities/:id", async (req, res) => {
-  1849|    try {
-  1850|      const community = await storage.getCommunity(parseInt(req.params.id));
-  1851|      if (!community) return res.status(404).json({ message: "Community not found" });
-  1852|      res.json(community);
-  1853|    } catch (error) {
-  1854|      console.error("Error fetching community:", error);
-  1855|      res.status(500).json({ message: "Failed to fetch community" });
-  1856|    }
-  1857|  });
-  1858|
-  1859|  // Update community (admin/founder only)
-  1860|  app.patch("/api/communities/:id", requireAuth, async (req: any, res) => {
-  1861|    try {
-  1862|      const communityId = parseInt(req.params.id);
-  1863|      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
-  1864|      
-  1865|      if (!role || (role !== 'admin' && role !== 'founder')) {
-  1866|        return res.status(403).json({ message: "Not authorized" });
-  1867|      }
-  1868|
-  1869|      const community = await storage.updateCommunity(communityId, req.body);
-  1870|      res.json(community);
-  1871|    } catch (error) {
-  1872|      console.error("Error updating community:", error);
-  1873|      res.status(500).json({ message: "Failed to update community" });
-  1874|    }
-  1875|  });
-  1876|
-  1877|  // Get community members
-  1878|  app.get("/api/communities/:id/members", async (req, res) => {
-  1879|    try {
-  1880|      const members = await storage.getCommunityMembers(parseInt(req.params.id));
-  1881|      res.json(members);
-  1882|    } catch (error) {
-  1883|      console.error("Error fetching members:", error);
-  1884|      res.status(500).json({ message: "Failed to fetch members" });
-  1885|    }
-  1886|  });
-  1887|
-  1888|  // Join community (authenticated)
-  1889|  app.post("/api/communities/:id/members", requireAuth, async (req: any, res) => {
-  1890|    try {
-  1891|      const communityId = parseInt(req.params.id);
-  1892|      const userId = req.user.id;
-  1893|
-  1894|      // Check if already a member
-  1895|      const isMember = await storage.isCommunityMember(communityId, userId);
-  1896|      if (isMember) {
-  1897|        return res.status(409).json({ message: "Already a member" });
-  1898|      }
-  1899|
-  1900|      const member = await storage.addCommunityMember(communityId, userId);
-  1901|      res.status(201).json(member);
-  1902|    } catch (error) {
-  1903|      console.error("Error joining community:", error);
-  1904|      res.status(500).json({ message: "Failed to join community" });
-  1905|    }
-  1906|  });
-  1907|
-  1908|  // Leave community (authenticated)
-  1909|  app.delete("/api/communities/:id/members", requireAuth, async (req: any, res) => {
-  1910|    try {
-  1911|      const communityId = parseInt(req.params.id);
-  1912|      const userId = req.user.id;
-  1913|
-  1914|      await storage.removeCommunityMember(communityId, userId);
-  1915|      res.json({ success: true });
-  1916|    } catch (error) {
-  1917|      console.error("Error leaving community:", error);
-  1918|      res.status(500).json({ message: "Failed to leave community" });
-  1919|    }
-  1920|  });
-  1921|
-  1922|  // ─── Demopolis: Proposal Routes ────────────────────────────────────────────
-  1923|
-  1924|  // Global proposals endpoint (all communities)
-  1925|  app.get("/api/proposals", async (req, res) => {
-  1926|    try {
-  1927|      const limit = parseInt(req.query.limit as string) || 20;
-  1928|      const proposals = await storage.getAllProposals(limit);
-  1929|      res.json(proposals);
-  1930|    } catch (e: any) {
-  1931|      res.status(500).json({ message: e.message });
-  1932|    }
-  1933|  });
-  1934|
-  1935|  // List proposals for a community
-  1936|  app.get("/api/communities/:communityId/proposals", async (req, res) => {
-  1937|    try {
-  1938|      const communityId = parseInt(req.params.communityId);
-  1939|      const { status, category } = req.query;
-  1940|      
-  1941|      const proposals = await storage.getProposals(communityId, {
-  1942|        status: status as string,
-  1943|        category: category as string,
-  1944|      });
-  1945|      res.json(proposals);
-  1946|    } catch (error) {
-  1947|      console.error("Error fetching proposals:", error);
-  1948|      res.status(500).json({ message: "Failed to fetch proposals" });
-  1949|    }
-  1950|  });
-  1951|
-  1952|  // Create proposal (authenticated, must be community member)
-  1953|  app.post("/api/communities/:communityId/proposals", requireAuth, async (req: any, res) => {
-  1954|    try {
-  1955|      const communityId = parseInt(req.params.communityId);
-  1956|      const userId = req.user.id;
-  1957|
-  1958|      // Check membership
-  1959|      const isMember = await storage.isCommunityMember(communityId, userId);
-  1960|      if (!isMember) {
-  1961|        return res.status(403).json({ message: "Must be a community member to submit proposals" });
-  1962|      }
-  1963|
-  1964|      const { question, solution, category } = req.body;
-  1965|
-  1966|      if (!question || !solution) {
-  1967|        return res.status(400).json({ message: "Question and solution are required" });
-  1968|      }
-  1969|
-  1970|      const proposal = await storage.createProposal({
-  1971|        communityId,
-  1972|        authorId: userId,
-  1973|        question,
-  1974|        solution,
-  1975|        category,
-  1976|        status: 'draft',
-  1977|      });
-  1978|
-  1979|      res.status(201).json(proposal);
-  1980|    } catch (error) {
-  1981|      console.error("Error creating proposal:", error);
-  1982|      res.status(500).json({ message: "Failed to create proposal" });
-  1983|    }
-  1984|  });
-  1985|
-  1986|  // Get proposal details
-  1987|  app.get("/api/proposals/:id", async (req, res) => {
-  1988|    try {
-  1989|      const proposal = await storage.getProposal(parseInt(req.params.id));
-  1990|      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
-  1991|      res.json(proposal);
-  1992|    } catch (error) {
-  1993|      console.error("Error fetching proposal:", error);
-  1994|      res.status(500).json({ message: "Failed to fetch proposal" });
-  1995|    }
-  1996|  });
-  1997|
-  1998|  // Update proposal (author only, draft only)
-  1999|  app.patch("/api/proposals/:id", requireAuth, async (req: any, res) => {
-  2000|    try {
-  2001|
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { setupAuth } from "./auth";
+import { updatePollLocations } from "./update-poll-locations";
+import {
+  createPollSchema,
+  createSurveyPollSchema,
+  insertVoteSchema,
+  rankingVoteSchema,
+  insertCommentSchema,
+  insertGroupSchema,
+  users,
+  votes,
+  insertPollUserResponseSchema,
+  sortitionMembers,
+} from "@shared/schema";
+import { z } from "zod";
+import { db } from "./db";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
+import {
+  authorReviewAmendment,
+  castRejectionVote,
+  calculateCommunitySignals,
+  buildSortitionInput,
+  saveFinalText,
+} from "./utils/amendment-processor";
+
+const addGroupMemberSchema = z.object({
+  email: z.string().email("Invalid email format")
+});
+
+/**
+ * Helper function to format Zod validation errors in a more user-friendly way.
+ * 
+ * @param errors The raw Zod validation errors
+ * @returns A more user-friendly error object
+ */
+function formatValidationErrors(errors: Record<string, any>): Record<string, any> {
+  const formattedErrors: Record<string, any> = {};
+
+  // Helper function to recursively process errors
+  function processErrors(obj: Record<string, any>, path: string = "") {
+    for (const key in obj) {
+      const fullPath = path ? `${path}.${key}` : key;
+
+      if (key === "_errors" && Array.isArray(obj[key])) {
+        if (obj[key].length > 0) {
+          // We have actual error messages here
+          let location = path;
+          if (location === "") {
+            location = "general";
+          }
+
+          if (!formattedErrors[location]) {
+            formattedErrors[location] = [];
+          }
+
+          // Add all error messages for this field
+          for (const error of obj[key]) {
+            formattedErrors[location].push(error);
+          }
+        }
+      } else if (typeof obj[key] === "object" && obj[key] !== null) {
+        // Recursively process nested objects
+        processErrors(obj[key], fullPath);
+      }
+    }
+  }
+
+  processErrors(errors);
+
+  // Special case for optionId which is often required in votes
+  if (errors.optionId?._errors?.includes("Required")) {
+    formattedErrors.optionId = ["Παρακαλώ επιλέξτε μια επιλογή"];
+  }
+
+  return formattedErrors;
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Setup authentication routes
+  setupAuth(app);
+
+  // Consolidated route for /polls/:id with social bot detection
+  app.get("/polls/:id", async (req, res, next) => {
+    const userAgent = req.get('User-Agent') || '';
+
+    // Detect social media crawlers and preview bots
+    const isSocialBot = /facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|skypeuripreview|slackbot|discordbot/i.test(userAgent);
+
+    if (!isSocialBot) {
+      // Regular users - let frontend handle this route
+      return next();
+    }
+
+    // Social bots - serve SEO-optimized HTML with Open Graph tags
+    try {
+      const pollId = parseInt(req.params.id);
+      const poll = await storage.getPoll(pollId);
+
+      if (!poll) {
+        return next(); // Let frontend handle 404
+      }
+
+      const results = await storage.getPollResults(pollId);
+      const totalVotes = results.reduce((sum, result) => sum + result.voteCount, 0);
+      const isActive = new Date(poll.endDate) > new Date();
+
+      // Clean description without HTML tags
+      const cleanDescription = poll.description
+        ? poll.description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+        : '';
+
+      // Optimized description for social sharing
+      const shareDescription = cleanDescription
+        ? `${cleanDescription.substring(0, 150)}... 🗳️ Ψηφίστε στο AgoraX!`
+        : `🗳️ Συμμετέχετε στην ψηφοφορία και εκφράστε τη γνώμη σας!`;
+
+      const pollUrl = `${req.protocol}://${req.get('host')}/polls/${pollId}`;
+      const ogImage = `${req.protocol}://${req.get('host')}/api/og-image/${pollId}?v=3`;
+
+      const html = `<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${poll.title} - AgoraX</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="${pollUrl}">
+    <meta property="og:title" content="${poll.title}">
+    <meta property="og:description" content="${shareDescription}">
+    <meta property="og:image" content="${ogImage}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:site_name" content="AgoraX">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${poll.title}">
+    <meta name="twitter:description" content="${shareDescription}">
+    <meta name="twitter:image" content="${ogImage}">
+    
+    <meta name="description" content="${shareDescription}">
+</head>
+<body>
+    <div style="font-family: Arial; max-width: 600px; margin: 2rem auto; padding: 2rem;">
+        <h1>${poll.title}</h1>
+        <p>${cleanDescription}</p>
+        <p>Κατηγορία: ${poll.category} • Ψήφοι: ${totalVotes} • ${isActive ? 'Ενεργή' : 'Κλειστή'}</p>
+        <a href="${pollUrl}" style="background: #2563eb; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 6px; display: inline-block;">Δείτε την ψηφοφορία</a>
+    </div>
+</body>
+</html>`;
+
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating bot HTML:", error);
+      next();
+    }
+  });
+
+  // Open Graph image generation for social media previews (minimal design with logo)
+  app.get("/api/og-image/:id", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const poll = await storage.getPoll(pollId);
+
+      if (!poll) {
+        return res.status(404).send("Poll not found");
+      }
+
+      const { createCanvas, loadImage } = await import('canvas');
+      const path = await import('path');
+
+      // Standard OpenGraph size: 1200x630
+      const width = 1200;
+      const height = 630;
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+
+      // Clean white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Load and draw logo (centered)
+      try {
+        const logoPath = path.resolve(process.cwd(), 'client/public/logo-share.png');
+        const logo = await loadImage(logoPath);
+        const logoSize = 200;
+        const logoX = (width - logoSize) / 2;
+        const logoY = (height - logoSize) / 2;
+        ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+      } catch (err) {
+        // If logo fails to load, show AgoraX text instead
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 64px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('AgoraX', width / 2, height / 2);
+      }
+
+      // Convert to PNG buffer
+      const pngBuffer = canvas.toBuffer('image/png');
+
+      // Serve PNG with caching headers
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Disposition', 'inline; filename="poll-preview.png"');
+      res.send(pngBuffer);
+
+    } catch (error) {
+      console.error("Error generating OG image:", error);
+      res.status(500).send("Error generating image");
+    }
+  });
+
+  // Protected route middleware
+  const requireAuth = (req: any, res: any, next: any) => {
+    // Demo mode: bypass auth, use user 3 (maria) as demo user — author of proposal 1
+    if (process.env.DEMO_MODE === 'true') {
+      if (!req.user) {
+        req.user = { id: 3, username: 'demo', email: 'demo@agorax.gr', name: 'Demo User', isAdmin: true };
+        req.isAuthenticated = () => true;
+      }
+      return next();
+    }
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  };
+
+  // Health check endpoint
+  app.get("/api/health", async (req, res) => {
+    try {
+      const { db } = await import('./db');
+      await db.execute('SELECT 1');
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: 'connected',
+        version: '0.1.0'
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'unhealthy',
+        error: String(error)
+      });
+    }
+  });
+
+  // Poll routes
+  app.get("/api/polls", async (req, res) => {
+    try {
+      const {
+        status,
+        category,
+        sort,
+        page = "1",
+        pageSize = "9",
+        locationScope,
+        locationCountry,
+        locationRegion,
+        locationCity,
+        groupId
+      } = req.query;
+
+      const filters = {
+        status: status as string,
+        category: category as string,
+        sort: sort as string,
+        page: parseInt(page as string),
+        pageSize: parseInt(pageSize as string),
+        userId: req.isAuthenticated() ? req.user.id : undefined,
+        locationScope: locationScope as string,
+        locationCountry: locationCountry as string,
+        locationRegion: locationRegion as string,
+        locationCity: locationCity as string,
+        groupId: groupId ? parseInt(groupId as string) : undefined
+      };
+
+      const polls = await storage.getPolls(filters);
+      res.json(polls);
+    } catch (error) {
+      console.error("Error fetching polls:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ψηφοφοριών" });
+    }
+  });
+
+  app.get("/api/polls/my", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const polls = await storage.getUserPolls(userId);
+      res.json(polls);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των ψηφοφοριών σας" });
+    }
+  });
+
+  app.get("/api/polls/participated", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const polls = await storage.getParticipatedPolls(userId);
+      res.json(polls);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των συμμετοχών σας" });
+    }
+  });
+
+  app.get("/api/polls/:id", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.isAuthenticated() ? req.user.id : undefined;
+      const poll = await storage.getPoll(pollId, userId);
+
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      res.json(poll);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση της ψηφοφορίας" });
+    }
+  });
+
+  app.post("/api/polls", requireAuth, async (req, res) => {
+    try {
+      console.log("Creating poll with data:", JSON.stringify(req.body, null, 2));
+
+      const parsedData = createPollSchema.safeParse(req.body);
+
+      if (!parsedData.success) {
+        console.log("Poll data validation failed:", parsedData.error.format());
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα ψηφοφορίας",
+          errors: parsedData.error.format()
+        });
+      }
+
+      console.log("Parsed poll data:", JSON.stringify(parsedData.data, null, 2));
+      const { poll, options } = parsedData.data;
+      const creatorId = req.user.id;
+
+      console.log("Creating poll with creator:", creatorId);
+      console.log("Poll object:", JSON.stringify({ ...poll, creatorId }, null, 2));
+      console.log("Options:", JSON.stringify(options, null, 2));
+
+      try {
+        const createdPoll = await storage.createPoll({
+          ...poll,
+          creatorId
+        }, options);
+
+        // Notify group members if poll is in a group
+        if (createdPoll.groupId) {
+          try {
+            const group = await storage.getGroup(createdPoll.groupId);
+            if (group && group.members) {
+              // Create notifications for all group members except the creator
+              const notificationPromises = group.members
+                .filter(member => member.userId !== creatorId)
+                .map(member =>
+                  storage.createPollNotification({
+                    userId: member.userId,
+                    pollId: createdPoll.id
+                  })
+                );
+
+              await Promise.all(notificationPromises);
+              console.log(`Created ${notificationPromises.length} notifications for poll ${createdPoll.id}`);
+            }
+          } catch (notificationError) {
+            console.error("Error creating notifications:", notificationError);
+          }
+        }
+
+        res.status(201).json(createdPoll);
+      } catch (storageError) {
+        console.error("Error in storage.createPoll:", storageError);
+        throw storageError;
+      }
+    } catch (error) {
+      console.error("Error creating poll:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία ψηφοφορίας", error: String(error) });
+    }
+  });
+
+  app.patch("/api/polls/:id", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      console.log("Poll update request received for poll ID:", pollId);
+      console.log("Update data:", JSON.stringify(req.body, null, 2));
+
+      // Check if user is the creator
+      const poll = await storage.getPoll(pollId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (poll.creatorId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να επεξεργαστείτε αυτή την ψηφοφορία" });
+      }
+
+      // Handle empty strings in numeric fields to avoid database errors
+      const updates = { ...req.body };
+
+      // Remove creatorId from updates to preserve the original creator
+      // This prevents foreign key constraint issues
+      delete updates.creatorId;
+
+      // Special handling for description - must be at least empty string, not null
+      if (updates.description === '' || updates.description === null) {
+        updates.description = ''; // Empty string instead of null to satisfy not-null constraint
+      }
+
+      // Fix potential issues with empty coordinate strings
+      if (updates.centerLat === '') updates.centerLat = null;
+      if (updates.centerLng === '') updates.centerLng = null;
+      if (updates.radiusKm === '') updates.radiusKm = null;
+
+      // Handle empty location strings
+      if (updates.locationCity === '') updates.locationCity = null;
+      if (updates.locationRegion === '') updates.locationRegion = null;
+      if (updates.locationCountry === '') updates.locationCountry = null;
+
+      // Fix date fields - convert to proper Date objects
+      if (updates.startDate && typeof updates.startDate === 'string') {
+        updates.startDate = new Date(updates.startDate);
+      }
+      if (updates.endDate && typeof updates.endDate === 'string') {
+        updates.endDate = new Date(updates.endDate);
+      }
+
+      // Clean up empty string values to avoid database errors
+      // But exclude description field which needs to remain an empty string
+      Object.keys(updates).forEach(key => {
+        if (key !== 'description' && updates[key] === '') {
+          updates[key] = null;
+        }
+      });
+
+      console.log("Processed updates:", JSON.stringify(updates, null, 2));
+
+      const updatedPoll = await storage.updatePoll(pollId, updates);
+      res.json(updatedPoll);
+    } catch (error) {
+      console.error("Error updating poll:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της ψηφοφορίας", error: error.message });
+    }
+  });
+
+  app.delete("/api/polls/:id", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if user is the creator
+      const poll = await storage.getPoll(pollId, userId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (poll.creatorId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να διαγράψετε αυτή την ψηφοφορία" });
+      }
+
+      // Check if the poll has more than 100 participants
+      const participantCount = await storage.getPollParticipantCount(pollId);
+      if (participantCount > 100) {
+        return res.status(403).json({
+          message: "Δεν μπορείτε να διαγράψετε μια ψηφοφορία με πάνω από 100 συμμετέχοντες",
+          canSetCommunity: true // Indicate that community mode is an option
+        });
+      }
+
+      const result = await storage.deletePoll(pollId);
+      if (result) {
+        res.json({ success: true, message: "Η ψηφοφορία διαγράφηκε επιτυχώς" });
+      } else {
+        res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή της ψηφοφορίας" });
+      }
+    } catch (error) {
+      console.error("Error deleting poll:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή της ψηφοφορίας" });
+    }
+  });
+
+  // Endpoint to set poll to community mode (removing creator association)
+  app.patch("/api/polls/:id/community", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if user is the creator
+      const poll = await storage.getPoll(pollId, userId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (poll.creatorId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να μεταφέρετε αυτή την ψηφοφορία" });
+      }
+
+      // Update the poll to community mode
+      const updatedPoll = await storage.updatePoll(pollId, { communityMode: true });
+      res.json({ success: true, message: "Η ψηφοφορία μεταφέρθηκε στην κοινότητα", poll: updatedPoll });
+    } catch (error) {
+      console.error("Error setting poll to community mode:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη μεταφορά της ψηφοφορίας" });
+    }
+  });
+
+  app.patch("/api/polls/:id/extend", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+      const { newEndDate } = req.body;
+
+      if (!newEndDate) {
+        return res.status(400).json({ message: "Απαιτείται νέα ημερομηνία λήξης" });
+      }
+
+      // Check if user is the creator
+      const poll = await storage.getPoll(pollId, userId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (poll.creatorId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να επεκτείνετε αυτή την ψηφοφορία" });
+      }
+
+      if (!poll.allowExtension) {
+        return res.status(400).json({ message: "Η επέκταση δεν επιτρέπεται για αυτή την ψηφοφορία" });
+      }
+
+      if (!poll.isActive) {
+        return res.status(400).json({ message: "Δεν μπορείτε να επεκτείνετε μια ολοκληρωμένη ψηφοφορία" });
+      }
+
+      const updatedPoll = await storage.extendPollDuration(pollId, new Date(newEndDate));
+      res.json(updatedPoll);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την επέκταση της ψηφοφορίας" });
+    }
+  });
+
+  app.post("/api/polls/:id/vote", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if poll exists and is active
+      const poll = await storage.getPoll(pollId, userId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      // SECURITY: Group membership check for voting
+      if (poll.groupId) {
+        const isMember = await storage.isGroupMember(poll.groupId, userId);
+        if (!isMember) {
+          return res.status(403).json({ message: "You must be a member of this group to vote" });
+        }
+      }
+
+      if (!poll.isActive) {
+        return res.status(400).json({ message: "Η ψηφοφορία έχει ολοκληρωθεί" });
+      }
+
+      // Get user data to check location eligibility
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Χρήστης δεν βρέθηκε" });
+      }
+
+      // Check for Gov.gr verification - MANDATORY for all votes
+      if (!user.govgrVerified) {
+        return res.status(403).json({
+          message: "Απαιτείται επαλήθευση ταυτότητας Gov.gr για να ψηφίσετε. Παρακαλώ επαληθεύστε την ταυτότητά σας πρώτα."
+        });
+      }
+
+      // Debug logging for location data
+      console.log(`[VOTE] User location data for user ID ${userId}:`, {
+        city: user.city,
+        region: user.region,
+        country: user.country,
+        city_id: user.city_id,
+        region_id: user.region_id,
+        country_id: user.country_id
+      });
+
+      console.log(`[VOTE] Poll location restrictions:`, {
+        locationScope: poll.locationScope,
+        locationCity: poll.locationCity,
+        locationRegion: poll.locationRegion,
+        locationCountry: poll.locationCountry
+      });
+
+      // Import the location validator
+      const { isUserEligibleForPoll } = await import('./utils/location-validator');
+
+      // Check if user is eligible to vote based on location restrictions
+      const eligibility = isUserEligibleForPoll(poll, user);
+      console.log(`[VOTE] Eligibility result:`, eligibility);
+
+      if (!eligibility.isEligible) {
+        return res.status(403).json({
+          message: eligibility.message || "Δεν επιτρέπεται να ψηφίσετε λόγω περιορισμών τοποθεσίας"
+        });
+      }
+
+      // Check if user already voted
+      const hasVoted = await storage.hasUserVoted(pollId, userId);
+      console.log(`[VOTE] User ${userId} has voted: ${hasVoted}`);
+
+      // If they already voted, check if they can edit their vote
+      if (hasVoted) {
+        // Check if vote can be edited (within 60 minutes)
+        const canEdit = await storage.canEditVote(pollId, userId);
+        console.log(`[VOTE] Can edit vote: ${canEdit}`);
+        if (!canEdit) {
+          return res.status(403).json({
+            message: "Δεν μπορείτε να αλλάξετε την ψήφο σας μετά από 60 λεπτά",
+            canEdit: false
+          });
+        }
+
+        // Delete the existing vote before creating a new one
+        console.log(`[VOTE] Deleting existing votes for user ${userId} on poll ${pollId}`);
+        await db.delete(votes).where(
+          and(
+            eq(votes.pollId, pollId),
+            eq(votes.userId, userId)
+          )
+        );
+
+        // The vote will be recreated below
+      }
+
+      // Handle different poll types
+      if (poll.pollType === 'ranking') {
+        // For ranking polls, validate with rankingVoteSchema
+        const validateRankingVote = rankingVoteSchema.safeParse({
+          ...req.body,
+          pollId,
+          userId
+        });
+
+        if (!validateRankingVote.success) {
+          // Format the validation errors to be more user-friendly
+          const formattedErrors = formatValidationErrors(validateRankingVote.error.format());
+
+          return res.status(400).json({
+            message: "Λανθασμένα δεδομένα κατάταξης",
+            errors: formattedErrors,
+            errorType: "validation" // Indicate that these are validation errors
+          });
+        }
+
+        const vote = await storage.createVote(validateRankingVote.data);
+        return res.status(201).json({
+          ...vote,
+          isEdit: hasVoted
+        });
+      } else {
+        // For regular polls, handle both single choice and multiple choice
+        console.log("Received vote data:", req.body);
+        console.log("Vote data for validation:", { ...req.body, pollId, userId });
+
+        // Check if this is a multiple choice vote (has optionIds array)
+        if (req.body.optionIds && Array.isArray(req.body.optionIds)) {
+          // Multiple choice voting - create separate votes for each option
+          const votes = [];
+
+          for (const optionId of req.body.optionIds) {
+            const validateVote = insertVoteSchema.safeParse({
+              optionId,
+              pollId,
+              userId,
+              comment: req.body.comment
+            });
+
+            if (!validateVote.success) {
+              const formattedErrors = formatValidationErrors(validateVote.error.format());
+              console.log("Vote validation failed for option", optionId, ":", validateVote.error);
+
+              return res.status(400).json({
+                message: "Λανθασμένα δεδομένα ψήφου",
+                errors: formattedErrors,
+                errorType: "validation"
+              });
+            }
+
+            const vote = await storage.createVote(validateVote.data);
+            votes.push(vote);
+          }
+
+          return res.status(201).json({
+            votes,
+            isEdit: hasVoted,
+            count: votes.length
+          });
+        } else {
+          // Single choice voting
+          const validateVote = insertVoteSchema.safeParse({
+            ...req.body,
+            pollId,
+            userId
+          });
+
+          if (!validateVote.success) {
+            const formattedErrors = formatValidationErrors(validateVote.error.format());
+            console.log("Vote validation failed:", validateVote.error);
+            console.log("Formatted errors:", formattedErrors);
+
+            return res.status(400).json({
+              message: "Λανθασμένα δεδομένα ψήφου",
+              errors: formattedErrors,
+              errorType: "validation"
+            });
+          }
+
+          const vote = await storage.createVote(validateVote.data);
+          return res.status(201).json({
+            ...vote,
+            isEdit: hasVoted
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Vote submission error:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την υποβολή ψήφου" });
+    }
+  });
+
+  app.get("/api/polls/:id/results", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const results = await storage.getPollResults(pollId);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των αποτελεσμάτων" });
+    }
+  });
+
+  app.post("/api/polls/:id/comments", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const validateComment = insertCommentSchema.safeParse({
+        ...req.body,
+        pollId,
+        userId
+      });
+
+      if (!validateComment.success) {
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα σχολίου",
+          errors: validateComment.error.format()
+        });
+      }
+
+      // Check if poll exists and allows comments
+      const poll = await storage.getPoll(pollId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (!poll.allowComments) {
+        return res.status(400).json({ message: "Τα σχόλια δεν επιτρέπονται σε αυτή την ψηφοφορία" });
+      }
+
+      const comment = await storage.createComment(validateComment.data);
+      res.status(201).json(comment);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία σχολίου" });
+    }
+  });
+
+  app.get("/api/polls/:id/comments", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const comments = await storage.getPollComments(pollId);
+      res.json(comments);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση σχολίων" });
+    }
+  });
+
+  // Group routes
+  app.post("/api/groups", requireAuth, async (req, res) => {
+    try {
+      const parsedData = insertGroupSchema.safeParse({
+        ...req.body,
+        creatorId: req.user.id
+      });
+
+      if (!parsedData.success) {
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα ομάδας",
+          errors: parsedData.error.format()
+        });
+      }
+
+      const { name } = parsedData.data;
+      const creatorId = req.user.id;
+      const group = await storage.createGroup(name, creatorId);
+
+      res.status(201).json(group);
+    } catch (error) {
+      console.error("Error creating group:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία ομάδας" });
+    }
+  });
+
+  app.get("/api/groups", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const groups = await storage.getUserGroups(userId);
+      res.json(groups);
+    } catch (error) {
+      console.error("Error fetching user groups:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ομάδων" });
+    }
+  });
+
+  app.get("/api/groups/:id", requireAuth, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const group = await storage.getGroup(groupId);
+
+      if (!group) {
+        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
+      }
+
+      const isMember = await storage.isGroupMember(groupId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Δεν έχετε πρόσβαση σε αυτή την ομάδα" });
+      }
+
+      res.json(group);
+    } catch (error) {
+      console.error("Error fetching group:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ομάδας" });
+    }
+  });
+
+  app.post("/api/groups/:id/members", requireAuth, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const requesterId = req.user.id;
+
+      const validation = addGroupMemberSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Μη έγκυρα δεδομένα",
+          errors: validation.error.flatten()
+        });
+      }
+
+      const { email } = validation.data;
+
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
+      }
+
+      const isCreator = group.creatorId === requesterId;
+      const isMember = await storage.isGroupMember(groupId, requesterId);
+
+      if (!isCreator && !isMember) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να προσθέσετε μέλη σε αυτή την ομάδα" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User with this email is not registered" });
+      }
+
+      const member = await storage.addGroupMember(groupId, email);
+      res.status(201).json({ success: true, message: "Το μέλος προστέθηκε επιτυχώς", member });
+    } catch (error: any) {
+      console.error("Error adding group member:", error);
+
+      if (error.message === "User is already a member of this group") {
+        return res.status(400).json({ message: "Ο χρήστης είναι ήδη μέλος της ομάδας" });
+      }
+
+      res.status(500).json({ message: "Σφάλμα κατά την προσθήκη μέλους" });
+    }
+  });
+
+  app.delete("/api/groups/:id/members/:userId", requireAuth, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userIdToRemove = parseInt(req.params.userId);
+      const requesterId = req.user.id;
+
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
+      }
+
+      if (group.creatorId !== requesterId) {
+        return res.status(403).json({ message: "Μόνο ο δημιουργός της ομάδας μπορεί να αφαιρέσει μέλη" });
+      }
+
+      const result = await storage.removeGroupMember(groupId, userIdToRemove);
+
+      if (result) {
+        res.json({ success: true, message: "Το μέλος αφαιρέθηκε επιτυχώς" });
+      } else {
+        res.status(404).json({ message: "Το μέλος δεν βρέθηκε στην ομάδα" });
+      }
+    } catch (error) {
+      console.error("Error removing group member:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την αφαίρεση μέλους" });
+    }
+  });
+
+  app.delete("/api/groups/:id/leave", requireAuth, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const result = await storage.removeGroupMember(groupId, userId);
+
+      if (result) {
+        res.json({ success: true, message: "Αποχωρήσατε από την ομάδα επιτυχώς" });
+      } else {
+        res.status(404).json({ message: "Δεν είστε μέλος αυτής της ομάδας" });
+      }
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την αποχώρηση από την ομάδα" });
+    }
+  });
+
+  app.delete("/api/groups/:id", requireAuth, async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const result = await storage.deleteGroup(groupId, userId);
+
+      if (result) {
+        res.json({ success: true, message: "Η ομάδα διαγράφηκε επιτυχώς" });
+      } else {
+        res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή ομάδας" });
+      }
+    } catch (error) {
+      console.error("Error deleting group:", error);
+
+      if (error.message === "Group not found") {
+        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
+      }
+
+      if (error.message === "Only the group creator can delete the group") {
+        return res.status(403).json({ message: "Μόνο ο δημιουργός μπορεί να διαγράψει την ομάδα" });
+      }
+
+      res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή ομάδας" });
+    }
+  });
+
+  // Notification routes
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const notifications = await storage.getUserNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ειδοποιήσεων" });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      const notifications = await storage.getUserNotifications(userId);
+      const notification = notifications.find(n => n.id === notificationId);
+
+      if (!notification) {
+        return res.status(404).json({ message: "Η ειδοποίηση δεν βρέθηκε" });
+      }
+
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα πρόσβασης σε αυτή την ειδοποίηση" });
+      }
+
+      const updatedNotification = await storage.markNotificationAsRead(notificationId);
+      res.json({ success: true, notification: updatedNotification });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση ειδοποίησης" });
+    }
+  });
+
+  app.get("/api/notifications/unread/count", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const notifications = await storage.getUserNotifications(userId);
+      const unreadCount = notifications.filter(n => !n.read).length;
+      res.json({ count: unreadCount });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση μη αναγνωσμένων ειδοποιήσεων" });
+    }
+  });
+
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = [
+        // Politics & Democracy
+        "Πολιτική",
+        "Τοπική Αυτοδιοίκηση",
+        "Νομοθεσία",
+        "Δημόσια Διοίκηση",
+        "Εκλογές",
+        "Προϋπολογισμός",
+        "Δημοκρατία",
+        "Διαφάνεια",
+        "Συμμετοχή",
+        "Ευρωπαϊκή Ένωση",
+
+        // Economy & Society
+        "Περιβάλλον",
+        "Οικονομία",
+        "Κοινωνία",
+        "Δικαιοσύνη",
+        "Παιδεία",
+        "Υγεία",
+        "Ασφάλεια",
+
+        // Science & Technology
+        "Τεχνολογία",
+        "Επιστήμη",
+        "Καινοτομία",
+        "Φυσική",
+        "Πληροφορική",
+        "Τεχνητή Νοημοσύνη",
+        "Διάστημα",
+        "Δεδομένα",
+        "Υπολογιστικό Νέφος",
+
+        // Culture & Infrastructure
+        "Πολιτισμός",
+        "Υποδομές",
+        "Στρατηγικός Σχεδιασμός",
+        "Βιομηχανία",
+        "Επιχειρήσεις",
+
+        // Other
+        "Άλλο"
+      ];
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση κατηγοριών" });
+    }
+  });
+
+  // User location routes
+  const locationSchema = z.object({
+    // Display names (for UI)
+    city: z.string().optional(),
+    region: z.string().optional(),
+    country: z.string().optional(),
+
+    // Standardized IDs (for database lookups and comparisons)
+    city_id: z.string().optional(),
+    region_id: z.string().optional(),
+    country_id: z.string().optional(),
+
+    // Coordinates
+    latitude: z.string().optional(),
+    longitude: z.string().optional(),
+
+    // Confirmation flag
+    locationConfirmed: z.boolean().optional()
+  });
+
+  // Location verification schema
+  const verifyLocationSchema = z.object({
+    verified: z.boolean()
+  });
+
+  // Endpoint to verify manually entered coordinates
+  app.patch("/api/user/verify-location", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Δεν είστε συνδεδεμένοι" });
+      }
+
+      const parsedData = verifyLocationSchema.safeParse(req.body);
+      if (!parsedData.success) {
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα επαλήθευσης",
+          errors: parsedData.error.format()
+        });
+      }
+
+      // Update the user's location verification status
+      const updated = await storage.verifyUserLocation(userId, parsedData.data.verified);
+
+      // If verification is false, reset the location confirmation as well
+      if (!parsedData.data.verified) {
+        await storage.updateUserLocation(userId, {
+          locationConfirmed: false,
+          locationVerified: false
+        });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error verifying location:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση τοποθεσίας" });
+    }
+  });
+
+  app.patch("/api/user/location", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const parsedData = locationSchema.safeParse(req.body);
+
+      if (!parsedData.success) {
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα τοποθεσίας",
+          errors: parsedData.error.format()
+        });
+      }
+
+      const updatedUser = await storage.updateUserLocation(userId, parsedData.data);
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της τοποθεσίας" });
+    }
+  });
+
+  // The verify-location endpoint is already defined above
+
+  // Survey Poll Routes
+  app.post("/api/surveys", requireAuth, async (req, res) => {
+    try {
+      console.log("Creating survey poll with data:", JSON.stringify(req.body, null, 2));
+
+      const parsedData = createSurveyPollSchema.safeParse(req.body);
+
+      if (!parsedData.success) {
+        console.log("Survey poll data validation failed:", parsedData.error.format());
+        return res.status(400).json({
+          message: "Λανθασμένα δεδομένα δημοσκόπησης",
+          errors: parsedData.error.format()
+        });
+      }
+
+      console.log("Parsed survey poll data:", JSON.stringify(parsedData.data, null, 2));
+      const { poll, questions } = parsedData.data;
+      const creatorId = req.user.id;
+
+      // Organize answers by question
+      const questionAnswers = questions.map(question => ({
+        questionId: question.id,
+        answers: question.answers.map((answer, index) => ({
+          id: answer.id || index + 1, // Use provided ID or generate one
+          text: answer.text,
+          order: answer.order || index
+        }))
+      }));
+
+      // Prepare questions without answers
+      const questionData = questions.map(question => {
+        const { answers, ...questionWithoutAnswers } = question;
+        return questionWithoutAnswers;
+      });
+
+      try {
+        const createdPoll = await storage.createSurveyPoll({
+          ...poll,
+          creatorId
+        }, questionData, questionAnswers);
+
+        // Notify group members if poll is in a group
+        if (createdPoll.groupId) {
+          try {
+            const group = await storage.getGroup(createdPoll.groupId);
+            if (group && group.members) {
+              // Create notifications for all group members except the creator
+              const notificationPromises = group.members
+                .filter(member => member.userId !== creatorId)
+                .map(member =>
+                  storage.createPollNotification({
+                    userId: member.userId,
+                    pollId: createdPoll.id
+                  })
+                );
+
+              await Promise.all(notificationPromises);
+              console.log(`Created ${notificationPromises.length} notifications for survey poll ${createdPoll.id}`);
+            }
+          } catch (notificationError) {
+            console.error("Error creating notifications:", notificationError);
+          }
+        }
+
+        res.status(201).json(createdPoll);
+      } catch (storageError) {
+        console.error("Error in storage.createSurveyPoll:", storageError);
+        throw storageError;
+      }
+    } catch (error) {
+      console.error("Error creating survey poll:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία δημοσκόπησης", error: String(error) });
+    }
+  });
+
+  app.get("/api/surveys/:id", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.isAuthenticated() ? req.user.id : undefined;
+      const poll = await storage.getSurveyPoll(pollId, userId);
+
+      if (!poll) {
+        return res.status(404).json({ message: "Η δημοσκόπηση δεν βρέθηκε" });
+      }
+
+      res.json(poll);
+    } catch (error) {
+      console.error("Error retrieving survey poll:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση της δημοσκόπησης", error: String(error) });
+    }
+  });
+
+  app.post("/api/surveys/:id/respond", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if poll exists and is active
+      const poll = await storage.getSurveyPoll(pollId, userId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η δημοσκόπηση δεν βρέθηκε" });
+      }
+
+      // SECURITY: Group membership check for survey responses
+      if (poll.groupId) {
+        const isMember = await storage.isGroupMember(poll.groupId, userId);
+        if (!isMember) {
+          return res.status(403).json({ message: "You must be a member of this group to respond to this survey" });
+        }
+      }
+
+      if (!poll.isActive) {
+        return res.status(400).json({ message: "Η δημοσκόπηση έχει ολοκληρωθεί" });
+      }
+
+      // Get user data to check location eligibility
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Χρήστης δεν βρέθηκε" });
+      }
+
+      // Import the location validator
+      const { isUserEligibleForPoll } = await import('./utils/location-validator');
+
+      // Check if user is eligible to participate based on location restrictions
+      const eligibility = isUserEligibleForPoll(poll, user);
+      if (!eligibility.isEligible) {
+        return res.status(403).json({
+          message: eligibility.message || "Δεν επιτρέπεται να συμμετάσχετε λόγω περιορισμών τοποθεσίας"
+        });
+      }
+
+      // Check if user already responded
+      const hasResponded = await storage.hasUserRespondedToSurvey(pollId, userId);
+      if (hasResponded) {
+        return res.status(400).json({ message: "Έχετε ήδη απαντήσει σε αυτή τη δημοσκόπηση" });
+      }
+
+      // Validate responses
+      const responsesArray = req.body.responses;
+      if (!Array.isArray(responsesArray) || responsesArray.length === 0) {
+        return res.status(400).json({ message: "Οι απαντήσεις πρέπει να παρέχονται ως πίνακας" });
+      }
+
+      // Validate each response has answerId (except for ordering questions which use answerValue)
+      // Use loose equality (==) to catch both null and undefined
+      for (const response of responsesArray) {
+        if (response.answerId == null && !response.answerValue) {
+          return res.status(400).json({
+            message: "Κάθε απάντηση πρέπει να έχει answerId ή answerValue"
+          });
+        }
+      }
+
+      // Add pollId and userId to each response
+      const responses = responsesArray.map(response => ({
+        ...response,
+        pollId,
+        userId
+      }));
+
+      // Create responses
+      const createdResponses = await storage.createSurveyResponse(responses);
+      res.status(201).json(createdResponses);
+    } catch (error) {
+      console.error("Error responding to survey:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την υποβολή απαντήσεων", error: String(error) });
+    }
+  });
+
+  app.get("/api/surveys/:id/results", async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+
+      // Verify poll exists
+      const poll = await storage.getSurveyPoll(pollId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η δημοσκόπηση δεν βρέθηκε" });
+      }
+
+      // Check if results are visible
+      if (!poll.showResults && !req.isAuthenticated()) {
+        return res.status(403).json({ message: "Τα αποτελέσματα αυτής της δημοσκόπησης δεν είναι δημόσια" });
+      }
+
+      // If not creator and results not visible, deny access
+      if (!poll.showResults && req.isAuthenticated() && req.user.id !== poll.creatorId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να δείτε τα αποτελέσματα αυτής της δημοσκόπησης" });
+      }
+
+      const results = await storage.getSurveyResults(pollId);
+      res.json(results);
+    } catch (error) {
+      console.error("Error retrieving survey results:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των αποτελεσμάτων", error: String(error) });
+    }
+  });
+
+  app.patch("/api/surveys/:id", requireAuth, async (req, res) => {
+    try {
+      const pollId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if user is the creator
+      const poll = await storage.getSurveyPoll(pollId);
+      if (!poll) {
+        return res.status(404).json({ message: "Η δημοσκόπηση δεν βρέθηκε" });
+      }
+
+      if (poll.creatorId !== userId) {
+        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να επεξεργαστείτε αυτή τη δημοσκόπηση" });
+      }
+
+      // If we have questions in the body, parse as a full update
+      if (req.body.questions) {
+        const parsedData = createSurveyPollSchema.safeParse(req.body);
+
+        if (!parsedData.success) {
+          return res.status(400).json({
+            message: "Λανθασμένα δεδομένα δημοσκόπησης",
+            errors: parsedData.error.format()
+          });
+        }
+
+        const { poll: pollData, questions } = parsedData.data;
+
+        // Organize answers by question
+        const questionAnswers = questions.map(question => ({
+          questionId: question.id,
+          answers: question.answers.map((answer, index) => ({
+            id: answer.id || index + 1,
+            text: answer.text,
+            order: answer.order || index
+          }))
+        }));
+
+        // Prepare questions without answers
+        const questionData = questions.map(question => {
+          const { answers, ...questionWithoutAnswers } = question;
+          return questionWithoutAnswers;
+        });
+
+        const updatedPoll = await storage.updateSurveyStructure(
+          pollId,
+          { ...pollData, creatorId: poll.creatorId },
+          questionData,
+          questionAnswers
+        );
+
+        res.json(updatedPoll);
+      } else {
+        // Simple update of poll metadata (no structural changes)
+        const updatedPoll = await storage.updateSurveyMetadata(pollId, req.body);
+        res.json(updatedPoll);
+      }
+    } catch (error) {
+      console.error("Error updating survey poll:", error);
+
+      // Check if error is about structural edits being blocked
+      if (error.message && error.message.includes("Cannot modify survey structure")) {
+        return res.status(400).json({
+          message: "Δεν μπορείτε να τροποποιήσετε τις ερωτήσεις ή απαντήσεις αφού έχουν υποβληθεί απαντήσεις",
+          error: error.message
+        });
+      }
+
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της δημοσκόπησης", error: String(error) });
+    }
+  });
+
+  // Poll location update utility route
+  app.post("/api/admin/update-poll-locations", requireAuth, async (req, res) => {
+    try {
+      // Only allow admin users to run this utility
+      if (req.user?.id !== 1) { // Assuming user ID 1 is admin
+        return res.status(403).json({ message: "Only administrators can update poll locations" });
+      }
+
+      console.log("Starting poll locations update process");
+
+      // Run the update process
+      await updatePollLocations();
+
+      res.json({
+        success: true,
+        message: "Poll locations update process completed successfully"
+      });
+    } catch (error) {
+      console.error("Error updating poll locations:", error);
+      res.status(500).json({
+        message: "Error updating poll locations",
+        error: String(error)
+      });
+    }
+  });
+
+  // Admin-only access control middleware
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    if (!req.user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // Analytics Dashboard Endpoints (Public - Platform Statistics)
+  // Note: These endpoints are publicly accessible as they show aggregate platform statistics
+  app.get("/api/analytics/overview", async (req, res) => {
+    try {
+      const overview = await storage.getAnalyticsOverview();
+      res.json(overview);
+    } catch (error: any) {
+      console.error("Error fetching analytics overview:", error);
+      res.status(500).json({ error: "Failed to fetch analytics overview" });
+    }
+  });
+
+  app.get("/api/analytics/poll-popularity", async (req, res) => {
+    try {
+      const popularity = await storage.getPollPopularityStats();
+      res.json(popularity);
+    } catch (error: any) {
+      console.error("Error fetching poll popularity:", error);
+      res.status(500).json({ error: "Failed to fetch poll popularity data" });
+    }
+  });
+
+  app.get("/api/analytics/activity-trends", async (req, res) => {
+    try {
+      const trends = await storage.getActivityTrends();
+      res.json(trends);
+    } catch (error: any) {
+      console.error("Error fetching activity trends:", error);
+      res.status(500).json({ error: "Failed to fetch activity trends" });
+    }
+  });
+
+  app.get("/api/analytics/usage-patterns", async (req, res) => {
+    try {
+      const patterns = await storage.getUsagePatterns();
+      res.json(patterns);
+    } catch (error: any) {
+      console.error("Error fetching usage patterns:", error);
+      res.status(500).json({ error: "Failed to fetch usage patterns" });
+    }
+  });
+
+  // Admin Account Management Endpoints
+  app.get("/api/admin/accounts", requireAdmin, async (req, res) => {
+    try {
+      const { status, search } = req.query;
+
+      const filters = {
+        status: status && status !== 'undefined' ? status as string : undefined,
+        search: search && search !== 'undefined' ? search as string : undefined
+      };
+
+      const users = await storage.getAllUsersWithAccountInfo(filters);
+      res.json(users);
+    } catch (error: any) {
+      console.error("Error fetching user accounts:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των λογαριασμών χρηστών" });
+    }
+  });
+
+  app.get("/api/admin/accounts/:userId/activity", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
+      }
+
+      const activity = await storage.getUserAccountActivity(userId);
+      res.json(activity);
+    } catch (error: any) {
+      console.error("Error fetching user activity:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση του ιστορικού δραστηριότητας" });
+    }
+  });
+
+  app.post("/api/admin/accounts/:userId/ban", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
+      }
+
+      const updatedUser = await storage.updateAccountStatus(userId, 'banned');
+      res.json({
+        success: true,
+        message: "Ο λογαριασμός χρήστη έχει αποκλειστεί επιτυχώς",
+        user: updatedUser
+      });
+    } catch (error: any) {
+      console.error("Error banning user account:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τον αποκλεισμό του λογαριασμού χρήστη" });
+    }
+  });
+
+  app.post("/api/admin/accounts/:userId/approve", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
+      }
+
+      const updatedUser = await storage.updateAccountStatus(userId, 'active');
+      res.json({
+        success: true,
+        message: "Ο λογαριασμός χρήστη έχει εγκριθεί επιτυχώς",
+        user: updatedUser
+      });
+    } catch (error: any) {
+      console.error("Error approving user account:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την έγκριση του λογαριασμού χρήστη" });
+    }
+  });
+
+  // ============================================
+  // GOV.GR BALLOT VOTING ROUTES
+  // ============================================
+  // These routes proxy to the Python ballot validation service
+  // for verifying Gov.gr Solemn Declaration PDFs as certified ballots
+
+  const multer = (await import('multer')).default;
+  const ballotUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Only PDF files are allowed'));
+      }
+    }
+  });
+
+  // Generate a poll token for ballot voting
+  app.post("/api/ballot/token", requireAuth, async (req, res) => {
+    try {
+      const { pollId } = req.body;
+
+      if (!pollId) {
+        return res.status(400).json({ message: "Poll ID is required" });
+      }
+
+      // Verify poll exists and supports ballot voting
+      const poll = await storage.getPoll(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      // Import ballot client
+      const { generatePollToken } = await import('./utils/ballot-client');
+      const tokenResponse = await generatePollToken(String(pollId));
+
+      if (!tokenResponse) {
+        return res.status(503).json({
+          message: "Ballot service unavailable. Please try again later."
+        });
+      }
+
+      res.json(tokenResponse);
+    } catch (error) {
+      console.error("Error generating ballot token:", error);
+      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία token" });
+    }
+  });
+
+  // Get ballot voting instructions
+  app.get("/api/ballot/instructions", requireAuth, async (req, res) => {
+    try {
+      const { pollId, pollToken } = req.query;
+
+      if (!pollId || !pollToken) {
+        return res.status(400).json({ message: "Poll ID and token are required" });
+      }
+
+      const { getBallotInstructions } = await import('./utils/ballot-client');
+      const instructions = await getBallotInstructions(
+        String(pollId),
+        String(pollToken)
+      );
+
+      if (!instructions) {
+        return res.status(503).json({
+          message: "Ballot service unavailable. Please try again later."
+        });
+      }
+
+      res.json(instructions);
+    } catch (error) {
+      console.error("Error getting ballot instructions:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση οδηγιών" });
+    }
+  });
+
+  // Upload and validate a ballot PDF
+  app.post("/api/ballot/validate", requireAuth, ballotUpload.single('file'), async (req: any, res) => {
+    try {
+      const file = req.file;
+      const { pollId, pollToken } = req.body;
+
+      if (!file) {
+        return res.status(400).json({ message: "PDF file is required" });
+      }
+
+      if (!pollId || !pollToken) {
+        return res.status(400).json({ message: "Poll ID and token are required" });
+      }
+
+      // Verify poll exists
+      const poll = await storage.getPoll(parseInt(pollId));
+      if (!poll) {
+        return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
+      }
+
+      if (!poll.isActive) {
+        return res.status(400).json({ message: "Η ψηφοφορία έχει ολοκληρωθεί" });
+      }
+
+      // Validate via Python ballot service
+      const { validateBallot } = await import('./utils/ballot-client');
+      const result = await validateBallot(
+        file.buffer,
+        String(pollId),
+        String(pollToken),
+        file.originalname
+      );
+
+      if (result.success) {
+        // Vote was recorded in Python service
+        // Optionally sync to main DB for unified reporting
+        console.log(`Ballot vote recorded for poll ${pollId}: ${result.vote_choice}`);
+
+        return res.status(201).json({
+          success: true,
+          message: "Η ψήφος σας καταχωρήθηκε επιτυχώς μέσω Gov.gr",
+          vote_choice: result.vote_choice,
+          signer_name: result.signer_name,
+        });
+      } else {
+        // Map rejection reasons to appropriate HTTP status
+        const statusMap: Record<string, number> = {
+          'invalid_signature': 403,
+          'no_signature': 403,
+          'unknown_signer': 403,
+          'duplicate_file': 409,
+          'already_voted': 409,
+          'invalid_token': 400,
+          'token_not_found': 400,
+          'afm_not_found': 400,
+          'vote_choice_not_found': 400,
+          'pdf_read_error': 400,
+        };
+
+        const status = result.rejection_reason
+          ? (statusMap[result.rejection_reason] || 400)
+          : 400;
+
+        return res.status(status).json({
+          success: false,
+          message: result.message,
+          rejection_reason: result.rejection_reason,
+        });
+      }
+    } catch (error) {
+      console.error("Error validating ballot:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση της ψήφου" });
+    }
+  });
+
+  // Get ballot voting statistics
+  app.get("/api/ballot/stats/:pollId", async (req, res) => {
+    try {
+      const pollId = req.params.pollId;
+
+      const { getBallotStats } = await import('./utils/ballot-client');
+      const stats = await getBallotStats(pollId);
+
+      if (!stats) {
+        return res.status(503).json({
+          message: "Ballot service unavailable or no votes yet."
+        });
+      }
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting ballot stats:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση στατιστικών" });
+    }
+  });
+
+  // Check ballot service health
+  app.get("/api/ballot/health", async (req, res) => {
+    try {
+      const { checkBallotServiceHealth } = await import('./utils/ballot-client');
+      const isHealthy = await checkBallotServiceHealth();
+
+      res.json({
+        status: isHealthy ? 'healthy' : 'unavailable',
+        service: 'ballot-validator'
+      });
+    } catch (error) {
+      res.json({ status: 'unavailable', service: 'ballot-validator' });
+    }
+  });
+
+  // One-time Gov.gr Identity Verification
+  app.post("/api/user/verify-govgr", requireAuth, ballotUpload.single('file'), async (req: any, res) => {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ message: "PDF file is required" });
+      }
+
+      // Verify identity via Python ballot service
+      const { verifyIdentity } = await import('./utils/ballot-client');
+      const result = await verifyIdentity(
+        file.buffer,
+        file.originalname
+      );
+
+      if (result.success) {
+        // Check if this voter hash is already used by another account
+        const voterHash = result.voter_hash || "";
+        if (voterHash) {
+          const existingUser = await storage.getUserByVoterHash(voterHash);
+          if (existingUser && existingUser.id !== req.user.id) {
+            return res.status(400).json({
+              success: false,
+              message: "Αυτή η ταυτότητα είναι ήδη συνδεδεμένη με άλλο λογαριασμό",
+              rejection_reason: "already_verified"
+            });
+          }
+        }
+
+        // Update user record with verification info
+        await storage.updateUser(req.user.id, {
+          govgrVerified: true,
+          govgrVerifiedAt: new Date(),
+          govgrVoterHash: voterHash || "hash-missing",
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "Η ταυτότητά σας επαληθεύτηκε επιτυχώς μέσω Gov.gr",
+          signer_name: result.signer_name,
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: result.message,
+          rejection_reason: result.rejection_reason,
+        });
+      }
+    } catch (error) {
+      console.error("Error verifying identity:", error);
+      res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση ταυτότητας" });
+    }
+  });
+
+  // ─── Demopolis: Community Routes ────────────────────────────────────────────
+
+  // List communities (public)
+  app.get("/api/communities", async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const communities = await storage.getCommunities(userId);
+      res.json(communities);
+    } catch (error) {
+      console.error("Error fetching communities:", error);
+      res.status(500).json({ message: "Failed to fetch communities" });
+    }
+  });
+
+  // Create community (authenticated)
+  app.post("/api/communities", requireAuth, async (req: any, res) => {
+    try {
+      const { name, description, type, governanceModel } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const community = await storage.createCommunity({
+        name,
+        description,
+        type: type || 'autonomous',
+        governanceModel: governanceModel || 'no_admin',
+        creatorId: req.user.id,
+      });
+
+      // Auto-add creator as founder
+      await storage.addCommunityMember(community.id, req.user.id, 'founder');
+
+      res.status(201).json(community);
+    } catch (error) {
+      console.error("Error creating community:", error);
+      res.status(500).json({ message: "Failed to create community" });
+    }
+  });
+
+  // Get community details
+  app.get("/api/communities/:id", async (req, res) => {
+    try {
+      const community = await storage.getCommunity(parseInt(req.params.id));
+      if (!community) return res.status(404).json({ message: "Community not found" });
+      res.json(community);
+    } catch (error) {
+      console.error("Error fetching community:", error);
+      res.status(500).json({ message: "Failed to fetch community" });
+    }
+  });
+
+  // Update community (admin/founder only)
+  app.patch("/api/communities/:id", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+      
+      if (!role || (role !== 'admin' && role !== 'founder')) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const community = await storage.updateCommunity(communityId, req.body);
+      res.json(community);
+    } catch (error) {
+      console.error("Error updating community:", error);
+      res.status(500).json({ message: "Failed to update community" });
+    }
+  });
+
+  // Get community members
+  app.get("/api/communities/:id/members", async (req, res) => {
+    try {
+      const members = await storage.getCommunityMembers(parseInt(req.params.id));
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
+  // Join community (authenticated)
+  app.post("/api/communities/:id/members", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if already a member
+      const isMember = await storage.isCommunityMember(communityId, userId);
+      if (isMember) {
+        return res.status(409).json({ message: "Already a member" });
+      }
+
+      const member = await storage.addCommunityMember(communityId, userId);
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error joining community:", error);
+      res.status(500).json({ message: "Failed to join community" });
+    }
+  });
+
+  // Leave community (authenticated)
+  app.delete("/api/communities/:id/members", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      await storage.removeCommunityMember(communityId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error leaving community:", error);
+      res.status(500).json({ message: "Failed to leave community" });
+    }
+  });
+
+  // ─── Demopolis: Proposal Routes ────────────────────────────────────────────
+
+  // Global proposals endpoint (all communities)
+  app.get("/api/proposals", async (req, res) => {
+    try {
+      const { limit } = req.query;
+      const proposals = await storage.getAllProposals(limit ? parseInt(limit as string) : undefined);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+
+  // List proposals for a community
+  app.get("/api/communities/:communityId/proposals", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const { status, category } = req.query;
+      
+      const proposals = await storage.getProposals(communityId, {
+        status: status as string,
+        category: category as string,
+      });
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+
+  // Create proposal (authenticated, must be community member)
+  app.post("/api/communities/:communityId/proposals", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const userId = req.user.id;
+
+      // Check membership
+      const isMember = await storage.isCommunityMember(communityId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Must be a community member to submit proposals" });
+      }
+
+      const { question, solution, category } = req.body;
+
+      if (!question || !solution) {
+        return res.status(400).json({ message: "Question and solution are required" });
+      }
+
+      const proposal = await storage.createProposal({
+        communityId,
+        authorId: userId,
+        question,
+        solution,
+        category,
+        status: 'draft',
+      });
+
+      res.status(201).json(proposal);
+    } catch (error) {
+      console.error("Error creating proposal:", error);
+      res.status(500).json({ message: "Failed to create proposal" });
+    }
+  });
+
+  // Get proposal details
+  app.get("/api/proposals/:id", async (req, res) => {
+    try {
+      const proposal = await storage.getProposal(parseInt(req.params.id));
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      res.json(proposal);
+    } catch (error) {
+      console.error("Error fetching proposal:", error);
+      res.status(500).json({ message: "Failed to fetch proposal" });
+    }
+  });
+
+  // Update proposal (author only, draft only)
+  app.patch("/api/proposals/:id", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Can only edit drafts" });
+
+      const updated = await storage.updateProposal(proposalId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating proposal:", error);
+      res.status(500).json({ message: "Failed to update proposal" });
+    }
+  });
+
+  // Submit proposal for review (author only)
+  app.post("/api/proposals/:id/submit", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
+
+      // ─── LLM Validation ───────────────────────────────────────────────────
+      let llmScore: string | undefined;
+      let llmFeedback: string | undefined;
+      let llmValidatedAt: Date | undefined;
+      let nextStatus = 'validating';
+
+      try {
+        const { validateProposal } = await import('./utils/llm-validation');
+        const result = await validateProposal(proposal.question, proposal.solution);
+
+        llmScore = String(result.score);
+        llmFeedback = result.feedback;
+        llmValidatedAt = new Date();
+
+        // Determine next state based on LLM score
+        if (result.category === 'return') {
+          nextStatus = 'returned';
+        } else if (result.category === 'auto_approve') {
+          nextStatus = 'approved';
+        } else {
+          nextStatus = 'valid';
+        }
+      } catch (llmError) {
+        console.error('LLM validation failed:', llmError);
+        // Fall back to manual review if LLM is unavailable
+        nextStatus = 'validating';
+        llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
+      }
+
+      // Update proposal with LLM validation results and transition state
+      const updated = await storage.updateProposal(proposalId, {
+        status: nextStatus,
+        llmScore,
+        llmFeedback,
+        llmValidatedAt,
+      });
+
+      res.json({
+        ...updated,
+        validation: {
+          score: llmScore ? Number(llmScore) : null,
+          feedback: llmFeedback,
+          category: llmScore ? (Number(llmScore) < 20 ? 'return' : Number(llmScore) > 90 ? 'auto_approve' : 'sortition') : null,
+        },
+      });
+    } catch (error) {
+      console.error("Error submitting proposal:", error);
+      res.status(500).json({ message: "Failed to submit proposal" });
+    }
+  });
+
+  // ─── Demopolis: Amendment Routes ───────────────────────────────────────────
+
+  // List amendments for a proposal
+  app.get("/api/proposals/:id/amendments", async (req, res) => {
+    try {
+      const amendments = await storage.getAmendments(parseInt(req.params.id));
+      res.json(amendments);
+    } catch (error) {
+      console.error("Error fetching amendments:", error);
+      res.status(500).json({ message: "Failed to fetch amendments" });
+    }
+  });
+
+  // Create amendment (authenticated, must be community member)
+  app.post("/api/proposals/:id/amendments", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      // Check amendment cap
+      const community = await storage.getCommunity(proposal.communityId);
+      if (community && community.maxAmendmentsPerProposal > 0) {
+        const currentCount = await storage.countAmendmentsForProposal(proposalId);
+        if (currentCount >= community.maxAmendmentsPerProposal) {
+          return res.status(400).json({ 
+            message: `Amendment limit reached (${community.maxAmendmentsPerProposal} per proposal)` 
+          });
+        }
+      }
+
+      const { type, text } = req.body;
+
+      if (!type || !text) {
+        return res.status(400).json({ message: "Type and text are required" });
+      }
+
+      const amendment = await storage.createAmendment({
+        proposalId,
+        authorId: req.user.id,
+        type,
+        text,
+        status: 'pending',
+      });
+
+      res.status(201).json(amendment);
+    } catch (error) {
+      console.error("Error creating amendment:", error);
+      res.status(500).json({ message: "Failed to create amendment" });
+    }
+  });
+
+  // ─── Amendment Review: Author accepts/rejects an amendment ──────────────────
+
+  app.post("/api/amendments/:id/review", requireAuth, async (req: any, res) => {
+    try {
+      const amendmentId = parseInt(req.params.id);
+      const { decision, reason } = req.body;
+
+      if (!['accepted', 'rejected'].includes(decision)) {
+        return res.status(400).json({ message: "Decision must be 'accepted' or 'rejected'" });
+      }
+
+      const amendment = await storage.getAmendment(amendmentId);
+      if (!amendment) return res.status(404).json({ message: "Amendment not found" });
+
+      // Only the proposal author can review amendments
+      const proposal = await storage.getProposal(amendment.proposalId);
+      if (proposal.authorId !== req.user.id) {
+        return res.status(403).json({ message: "Only the proposal author can review amendments" });
+      }
+
+      await authorReviewAmendment(amendmentId, decision as 'accepted' | 'rejected', reason);
+      res.json({ success: true, decision });
+    } catch (error) {
+      console.error("Error reviewing amendment:", error);
+      res.status(500).json({ message: "Failed to review amendment" });
+    }
+  });
+
+  // ─── Amendment Review: Community votes on rejected amendments ───────────────
+
+  app.post("/api/amendments/:id/rejection-vote", requireAuth, async (req: any, res) => {
+    try {
+      const amendmentId = parseInt(req.params.id);
+      const { vote } = req.body;
+
+      if (![1, -1].includes(vote)) {
+        return res.status(400).json({ message: "Vote must be +1 or -1" });
+      }
+
+      const amendment = await storage.getAmendment(amendmentId);
+      if (!amendment) return res.status(404).json({ message: "Amendment not found" });
+
+      // Only rejected amendments can be voted on
+      if (amendment.authorDecision !== 'rejected') {
+        return res.status(400).json({ message: "Only rejected amendments can be voted on" });
+      }
+
+      await castRejectionVote(amendmentId, req.user.id, vote as 1 | -1);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error casting rejection vote:", error);
+      res.status(500).json({ message: "Failed to cast vote" });
+    }
+  });
+
+  // ─── Community Signal: Get signal data for all rejected amendments ──────────
+
+  app.get("/api/proposals/:id/amendments/signals", async (req, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const signals = await calculateCommunitySignals(proposalId, proposal.communityId);
+      res.json(signals);
+    } catch (error) {
+      console.error("Error fetching community signals:", error);
+      res.status(500).json({ message: "Failed to fetch signals" });
+    }
+  });
+
+  // ─── Sortition Input: Get the sortition synthesis package ───────────────────
+
+  app.get("/api/proposals/:id/sortition-input", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      // Check if user is part of the sortition body for this proposal
+      // (simplified check — in production, verify sortition membership)
+
+      const input = await buildSortitionInput(proposalId, proposal.communityId);
+      res.json(input);
+    } catch (error) {
+      console.error("Error fetching sortition input:", error);
+      res.status(500).json({ message: "Failed to fetch sortition input" });
+    }
+  });
+
+  // ─── Sortition: Save final composed text ────────────────────────────────────
+
+  app.post("/api/proposals/:id/final-text", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { finalText } = req.body;
+
+      if (!finalText) {
+        return res.status(400).json({ message: "Final text is required" });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      // Check if proposal is in sortition_synthesis state
+      if (proposal.status !== 'sortition_synthesis') {
+        return res.status(400).json({ message: "Proposal must be in sortition_synthesis state" });
+      }
+
+      await saveFinalText(proposalId, finalText);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving final text:", error);
+      res.status(500).json({ message: "Failed to save final text" });
+    }
+  });
+
+  // ─── Demopolis: Debate Routes ──────────────────────────────────────────────
+
+  // List debate arguments for a proposal
+  app.get("/api/proposals/:id/arguments", async (req, res) => {
+    try {
+      const arguments_ = await storage.getDebateArguments(parseInt(req.params.id));
+      res.json(arguments_);
+    } catch (error) {
+      console.error("Error fetching arguments:", error);
+      res.status(500).json({ message: "Failed to fetch arguments" });
+    }
+  });
+
+  // Create debate argument (authenticated, must be community member)
+  app.post("/api/proposals/:id/arguments", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      const { side, text } = req.body;
+
+      if (!side || !text) {
+        return res.status(400).json({ message: "Side and text are required" });
+      }
+
+      const argument = await storage.createDebateArgument({
+        proposalId,
+        authorId: req.user.id,
+        side,
+        text,
+      });
+
+      res.status(201).json(argument);
+    } catch (error) {
+      console.error("Error creating argument:", error);
+      res.status(500).json({ message: "Failed to create argument" });
+    }
+  });
+
+  // Support an argument
+  app.post("/api/arguments/:id/support", requireAuth, async (req: any, res) => {
+    try {
+      const argument = await storage.supportDebateArgument(parseInt(req.params.id), req.user.id);
+      res.json(argument);
+    } catch (error) {
+      console.error("Error supporting argument:", error);
+      res.status(500).json({ message: "Failed to support argument" });
+    }
+  });
+
+  // Oppose an argument
+  app.post("/api/arguments/:id/oppose", requireAuth, async (req: any, res) => {
+    try {
+      const argument = await storage.opposeDebateArgument(parseInt(req.params.id), req.user.id);
+      res.json(argument);
+    } catch (error) {
+      console.error("Error opposing argument:", error);
+      res.status(500).json({ message: "Failed to oppose argument" });
+    }
+  });
+
+  // ─── Demopolis: Proposal Support Routes ────────────────────────────────────
+
+  // Support/oppose a proposal
+  app.post("/api/proposals/:id/support", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { type } = req.body; // 'support' or 'oppose'
+
+      if (!type || !['support', 'oppose'].includes(type)) {
+        return res.status(400).json({ message: "Type must be 'support' or 'oppose'" });
+      }
+
+      const support = await storage.createProposalSupport(proposalId, req.user.id, type);
+      res.status(201).json(support);
+    } catch (error) {
+      console.error("Error creating support:", error);
+      res.status(500).json({ message: "Failed to create support" });
+    }
+  });
+
+  // Get proposal support counts
+  app.get("/api/proposals/:id/support", async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const support = await storage.getProposalSupport(parseInt(req.params.id), userId);
+      res.json(support);
+    } catch (error) {
+      console.error("Error fetching support:", error);
+      res.status(500).json({ message: "Failed to fetch support" });
+    }
+  });
+
+  // ─── Demopolis: State Machine Routes ───────────────────────────────────────
+
+  // Transition proposal state (author/admin only)
+  app.post("/api/proposals/:id/transition", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const { newState } = req.body;
+      if (!newState) {
+        return res.status(400).json({ message: "New state is required" });
+      }
+
+      // Import state machine
+      const { transitionProposal, canTransition, getNextStates } = await import('./utils/proposal-state-machine');
+
+      // Validate transition
+      if (!canTransition(proposal.status, newState)) {
+        const valid = getNextStates(proposal.status);
+        return res.status(409).json({
+          message: `Invalid transition: ${proposal.status} → ${newState}`,
+          valid_transitions: valid,
+        });
+      }
+
+      // Check permissions
+      if (proposal.authorId !== req.user.id) {
+        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        if (role !== 'admin' && role !== 'founder') {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+
+      const { storage: storageInstance } = await import('./storage');
+      const updated = await transitionProposal(proposal, newState, storageInstance);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error transitioning proposal:", error);
+      res.status(500).json({ message: "Failed to transition proposal" });
+    }
+  });
+
+  // ─── Demopolis: Sortition Routes ──────────────────────────────────────────
+
+  // Create sortition body (admin/founder only)
+  app.post("/api/communities/:id/sortition", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const { size } = req.body;
+      const panelSize = size || 7;
+
+      const { createSortitionBody } = await import('./utils/sortition');
+      const result = await createSortitionBody(communityId, panelSize, storage);
+
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating sortition body:", error);
+      res.status(500).json({ message: "Failed to create sortition body" });
+    }
+  });
+
+  // Preview sortition selection (any community member)
+  app.get("/api/communities/:id/sortition/preview", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const isMember = await storage.isCommunityMember(communityId, req.user.id);
+
+      if (!isMember) {
+        return res.status(403).json({ message: "Must be a community member" });
+      }
+
+      const { previewSortition } = await import('./utils/sortition');
+      const { size } = req.query;
+      const panelSize = parseInt(size as string) || 7;
+
+      const result = await previewSortition(communityId, panelSize, storage);
+      res.json(result);
+    } catch (error) {
+      console.error("Error previewing sortition:", error);
+      res.status(500).json({ message: "Failed to preview sortition" });
+    }
+  });
+
+  // ─── Demopolis: Sortition Assignment Routes ────────────────────────────────
+
+  // Get sortition assignment details (for scoring page)
+  app.get("/api/sortition/assignments/:id", requireAuth, async (req: any, res) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, memberId));
+
+      if (!member.length) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      const sortMember = member[0];
+      const body = await storage.getSortitionBody(sortMember.bodyId);
+      if (!body) {
+        return res.status(404).json({ message: "Sortition body not found" });
+      }
+
+      // Get the proposal being reviewed
+      let proposal = null;
+      let similarProposals: any[] = [];
+      if (body.proposalId) {
+        proposal = await storage.getProposal(body.proposalId);
+        if (proposal) {
+          // Get similar proposals from same community
+          const allProposals = await storage.getProposals(body.communityId);
+          similarProposals = allProposals
+            .filter(p => p.id !== proposal!.id && p.status === proposal!.status)
+            .slice(0, 3)
+            .map(p => ({
+              id: p.id,
+              question: p.question,
+              state: p.status,
+            }));
+        }
+      }
+
+      res.json({
+        id: sortMember.id,
+        bodyId: sortMember.bodyId,
+        proposalId: body.proposalId,
+        proposalQuestion: proposal?.question || "",
+        proposalSolution: proposal?.solution || "",
+        responseDeadline: body.selectedAt
+          ? new Date(new Date(body.selectedAt).getTime() + (body.responseHours || 72) * 60 * 60 * 1000).toISOString()
+          : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+        similarProposals,
+        responded: sortMember.responded,
+      });
+    } catch (error) {
+      console.error("Error fetching sortition assignment:", error);
+      res.status(500).json({ message: "Failed to fetch assignment" });
+    }
+  });
+
+  // Submit sortition score
+  app.post("/api/sortition/assignments/:id/score", requireAuth, async (req: any, res) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const { score, feedback } = req.body;
+
+      const member = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, memberId));
+
+      if (!member.length) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+
+      const sortMember = member[0];
+
+      // Verify the user is the assigned member
+      if (sortMember.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not your assignment" });
+      }
+
+      // Update the member with their score
+      const [updated] = await db
+        .update(sortitionMembers)
+        .set({
+          score: score ? String(score) : undefined,
+          responded: true,
+          scoredAt: new Date(),
+        })
+        .where(and(
+          eq(sortitionMembers.bodyId, sortMember.bodyId),
+          eq(sortitionMembers.userId, req.user.id)
+        ))
+        .returning();
+
+      res.json({ success: true, member: updated });
+    } catch (error) {
+      console.error("Error submitting sortition score:", error);
+      res.status(500).json({ message: "Failed to submit score" });
+    }
+  });
+
+  // ─── Demopolis: Democracy Score Routes ────────────────────────────────────
+
+  // Get democracy score for a community (public)
+  app.get("/api/communities/:id/democracy-score", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const community = await storage.getCommunity(communityId);
+
+      if (!community) {
+        return res.status(404).json({ message: "Community not found" });
+      }
+
+      const { calculateDemocracyScore, getDemocracyGrade } = await import('./utils/democracy-score');
+      const result = await calculateDemocracyScore(communityId, storage);
+
+      res.json({
+        ...result,
+        grade: getDemocracyGrade(result.score),
+      });
+    } catch (error) {
+      console.error("Error calculating democracy score:", error);
+      res.status(500).json({ message: "Failed to calculate democracy score" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  return httpServer;
+}

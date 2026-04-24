@@ -1,49 +1,43 @@
 # Stage 1: Build
-FROM node:20-alpine AS build
+FROM node:20-bookworm AS build
 
 WORKDIR /app
 
-# Install build tools needed for native dependencies (canvas, sharp, puppeteer)
-RUN apk add --no-cache \
-    build-base \
+# Install build tools needed for native dependencies (canvas npm)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     python3 \
-    g++ \
-    make \
-    cairo-dev \
-    pango-dev \
-    giflib-dev \
-    jpeg-dev \
-    rust \
-    && npm install -g pnpm
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better caching
 COPY package.json package-lock.json ./
 
-# Install all dependencies (including devDependencies needed for build)
+# Install all dependencies
 RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build frontend (Vite) and backend (esbuild)
+# Build frontend and backend
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM node:20-bookworm AS production
 
 WORKDIR /app
 
-# Install runtime dependencies needed by native modules (canvas, sharp, puppeteer)
-RUN apk add --no-cache \
-    cairo \
-    pango \
-    giflib \
-    libjpeg-turbo \
-    ttf-dejavu-sans \
-    chromium \
-    nss \
-    at-spi2-atk \
-    && addgroup -S appgroup && adduser -S appuser -G appgroup
+# Install runtime dependencies (canvas npm)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libjpeg62-turbo \
+    libgdk-pixbuf-2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd appgroup && useradd -g appgroup appuser
 
 # Copy built artifacts from build stage
 COPY --from=build /app/dist ./dist

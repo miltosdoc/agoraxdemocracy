@@ -71,7 +71,7 @@ export function CommunityList() {
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">Δεν υπάρχουν κοινότητες ακόμα.</p>
             <Button asChild className="mt-4">
-              <Link href="/communities/new">Δημιούργησε την πρώτη κοινότητα</Link>
+              <Link href="/communities/new">Δημιούργησε Κοινότητα</Link>
             </Button>
           </CardContent>
         </Card>

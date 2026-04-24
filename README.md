@@ -26,25 +26,29 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 │                                                              │
 │  Routes: polls, surveys, groups, communities, proposals,     │
 │          sortition, amendments, debate, ballot verification  │
+│                                                              │
+│  Features: OG image generation (canvas), social bot SEO,     │
+│            health checks, demo mode, job queue               │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                      PostgreSQL                              │
 │  Tables: users, polls, communities, proposals,               │
-│          sortition_bodies, amendments, debate_arguments      │
+│          sortition_bodies, amendments, debate_arguments,     │
+│          ballot_votes, jobs, admin_actions, account_activity │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React + Vite, Wouter (routing), shadcn/ui, Tailwind CSS |
-| **Backend** | Express.js, Node.js |
-| **Database** | PostgreSQL with Drizzle ORM |
-| **Authentication** | Sessions + cookies, Google OAuth |
-| **LLM Validation** | Configurable (NVIDIA Nemotron free tier, OpenRouter, Anthropic) |
-| **Deployment** | Docker-ready |
+- **Frontend:** React + Vite, Wouter (routing), shadcn/ui, Tailwind CSS, Leaflet (maps), TipTap (rich text)
+- **Backend:** Express.js, Node.js 20
+- **Database:** PostgreSQL 15 with Drizzle ORM
+- **Authentication:** Sessions + cookies (PostgreSQL-backed), Google OAuth, Gov.gr ballot verification
+- **LLM Validation:** Configurable (NVIDIA Nemotron free tier, OpenRouter, Anthropic, local Ollama)
+- **Image Generation:** Canvas (Node.js) for Open Graph social preview images
+- **Deployment:** Docker Compose (PostgreSQL + Node.js API)
+- **Device Fingerprinting:** FingerprintJS for one-person-one-vote enforcement
 
 ---
 
@@ -62,7 +66,7 @@ The following features are direct implementations of Demopolis specifications:
 
 ### 2. Proposals (Προβουλεύματα)
 - **Question + Solution format** (Το Ερώτημα + Η Απάντηση/Λύση) — every proposal defines a specific action
-- Full state machine: `draft → review → author_review → community_signal → sortition_synthesis → voting → decided`
+- Full state machine: `submitted → validating → valid/returned/rejected → scoring → under_review → amendments → debate → voting → resolved`
 - **LLM Tiered Validation**:
   - **<20%**: Returned to author for revision with feedback
   - **20-90%**: Sent to sortition body for human review
@@ -109,6 +113,7 @@ The following features are direct implementations of Demopolis specifications:
 - Minimum participation threshold for validity (configurable per community)
 - Secret ballot with verifiable integrity
 - Maximum concurrent active votes limit (configurable per community)
+- **Ballot voting** (Gov.gr Solemn Declaration PDF verification)
 
 ### 8. AI Assistance (Τεχνητή Νοημοσύνη)
 - AI as a **support tool only** — never makes final decisions
@@ -127,21 +132,18 @@ The following features are direct implementations of Demopolis specifications:
 ## Proposal Lifecycle
 
 ```
-┌─────────┐    ┌────────┐    ┌──────────────┐    ┌────────────────┐    ┌──────────────────┐    ┌────────┐    ┌─────────┐
-│  Draft  │───▶│ Review │───▶│ Author Review│───▶│ Community      │───▶│ Sortition        │───▶│ Voting │───▶│ Decided │
-│         │    │ (LLM)  │    │ (Accept/     │    │ Signal         │    │ Synthesis        │    │        │    │         │
-│         │    │        │    │  Reject)     │    │ (Upvote/       │    │ (Compose final   │    │        │    │         │
-│         │    │        │    │              │    │  Downvote)     │    │  text)           │    │        │    │         │
-└─────────┘    └────────┘    └──────────────┘    └────────────────┘    └──────────────────┘    └────────┘    └─────────┘
+Submitted → LLM Validation → Valid/Returned → Scoring → Under Review → Amendments → Debate → Voting → Resolved
 ```
 
-1. **Draft** — Author submits a proposal (question + solution)
-2. **Review** — LLM validates structure, clarity, and completeness (tiered scoring)
-3. **Author Review** — Author reviews amendments, accepts or rejects each
-4. **Community Signal** — Community upvotes rejected amendments to signal disagreement
-5. **Sortition Synthesis** — Randomly selected citizens compose the final text using author's draft + flagged amendments
-6. **Voting** — Full community votes on the final synthesized text
-7. **Decided** — Results are recorded and published
+1. **Submitted** — Author submits a proposal (question + solution)
+2. **Validating** — LLM validates structure, clarity, and completeness (tiered scoring)
+3. **Valid/Returned/Rejected** — Based on LLM score: auto-approve (>90%), sortition review (20-90%), or return to author (<20%)
+4. **Scoring** — Sortition body scores proposal quality and significance
+5. **Under Review** — Community reviews and submits amendments
+6. **Amendments** — Author reviews amendments, community signals disagreement with rejections
+7. **Debate** — Structured for/against arguments with support tracking
+8. **Voting** — Full community votes on the final synthesized text
+9. **Resolved** — Results are recorded and published
 
 ---
 
@@ -151,17 +153,43 @@ The following features are direct implementations of Demopolis specifications:
 
 **Demopolis:** `communities`, `community_members`, `proposals`, `proposal_amendments`, `sortition_bodies`, `sortition_members`, `debate_arguments`, `proposal_support`, `amendment_rejection_votes`
 
-**Supporting:** `groups`, `group_members`, `poll_notifications`, `account_activity`, `admin_actions`, `jobs`
+**Security:** `ballot_votes`, `account_activity`, `admin_actions`, `device_fingerprint`, `govgr_verified`
+
+**Supporting:** `groups`, `group_members`, `poll_notifications`, `poll_notifications`, `jobs`
 
 ---
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 18+
-- PostgreSQL 14+
+### Option 1: Docker Compose (Recommended)
 
-### Setup
+```bash
+# Clone and start
+git clone https://github.com/miltosdoc/agoraxdemo.git
+cd agoraxdemo
+
+# Configure (optional — defaults work for local testing)
+cp .env.example .env
+# Edit .env for custom DB credentials, LLM keys, etc.
+
+# Start everything (PostgreSQL + API)
+docker compose up -d
+
+# Check status
+docker compose ps
+curl http://localhost:3000/api/health
+
+# Seed demo data (optional)
+docker compose exec db psql -U agorax -d agorax -f seed_demo.sql
+```
+
+### Option 2: Local Development
+
+#### Prerequisites
+- Node.js 20+
+- PostgreSQL 15+
+
+#### Setup
 
 ```bash
 # Clone and install
@@ -185,14 +213,15 @@ psql -d agorax -f seed_demo.sql
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `LLM_API_KEY` | API key for LLM validation | No (uses free tier by default) |
-| `LLM_MODEL` | LLM model name (default: `nvidia/nemotron-3-nano-30b-a3b:free`) | No |
-| `LLM_BASE_URL` | LLM API endpoint (default: `https://staging.xsilico.ai/api/v1`) | No |
-| `DEMO_MODE` | Set to `true` to bypass auth for testing | No |
-| `PORT` | Backend port (default: 3000) | No |
+- `DATABASE_URL` — PostgreSQL connection string (**required**)
+- `LLM_API_KEY` — API key for LLM validation (optional, uses free tier by default)
+- `LLM_MODEL` — LLM model name (default: `nvidia/nemotron-3-nano-30b-a3b:free`)
+- `LLM_BASE_URL` — LLM API endpoint (default: `https://staging.xsilico.ai/api/v1`)
+- `JWT_SECRET` — Secret for JWT tokens (default: `change-me-in-production`)
+- `SESSION_SECRET` — Secret for session cookies (default: `change-me-in-production`)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth credentials
+- `DEMO_MODE` — Set to `true` to bypass auth for testing
+- `PORT` — Backend port (default: 3000)
 
 ### Demo Mode
 
@@ -212,20 +241,35 @@ This bypasses authentication and uses a demo user (ID: 3) for all requests.
 agoraxdemo/
 ├── client/                    # React frontend
 │   ├── src/
-│   │   ├── pages/             # Route components
-│   │   ├── components/        # Reusable UI components (shadcn/ui)
-│   │   ├── lib/               # Utilities (api client, query client)
+│   │   ├── pages/             # Route components (20+ pages)
+│   │   ├── components/        # Reusable UI components (shadcn/ui + custom)
+│   │   ├── hooks/             # Custom React hooks (auth, share, toast)
+│   │   ├── lib/               # Utilities (api client, query client, geofencing)
 │   │   └── App.tsx            # Router configuration
 ├── server/                    # Express backend
 │   ├── index.ts               # Entry point
-│   ├── routes.ts              # All API routes
-│   ├── storage.ts             # IStorage interface + PostgresStorage
-│   ├── auth.ts                # Authentication setup
+│   ├── routes.ts              # All API routes (2500+ lines)
+│   ├── storage.ts             # IStorage interface + DatabaseStorage
+│   ├── auth.ts                # Authentication (sessions, OAuth, Gov.gr)
 │   ├── db.ts                  # Drizzle connection
-│   └── utils/                 # Utilities (LLM validation, state machine)
+│   ├── seed-demo.ts           # Demo data seeder
+│   └── utils/                 # Utilities
+│       ├── llm-validation.ts  # LLM proposal validation
+│       ├── proposal-state-machine.ts  # State transitions
+│       ├── amendment-processor.ts     # Amendment workflow
+│       ├── amendment-merger.ts        # AI-assisted merge
+│       ├── sortition.ts             # Random selection
+│       ├── democracy-score.ts       # Community governance score
+│       ├── job-queue.ts             # Background job processing
+│       ├── ballot-client.ts         # Gov.gr ballot verification
+│       └── geo-region-detector.ts   # Location detection
 ├── shared/
-│   └── schema.ts              # Drizzle schema + type exports
+│   └── schema.ts              # Drizzle schema (928 lines, 21+ tables)
+├── ballot_service/            # Python ballot verification (planned)
 ├── migrations/                # SQL migrations
+├── Dockerfile                 # Multi-stage build (Node 20 + canvas)
+├── docker-compose.yml         # PostgreSQL + API services
+├── drizzle.config.ts          # Drizzle ORM configuration
 ├── seed_demo.sql              # Demo data seed script
 ├── start.sh                   # Development startup script
 └── README.md                  # This file
@@ -234,6 +278,10 @@ agoraxdemo/
 ---
 
 ## API Endpoints
+
+### Health
+- `GET /api/health` — Service health check (database connectivity)
+- `GET /api/ballot/health` — Ballot service health check
 
 ### Proposals
 - `GET /api/proposals` — List all proposals
@@ -269,6 +317,23 @@ agoraxdemo/
 - `POST /api/communities` — Create a community
 - `GET /api/communities/:id/democracy-score` — Get democracy score
 
+### Polls & Voting
+- `GET /api/polls` — List polls with filters (category, location, pagination)
+- `GET /api/polls/:id` — Get poll details
+- `POST /api/polls` — Create a poll
+- `PATCH /api/polls/:id` — Update a poll
+- `DELETE /api/polls/:id` — Delete a poll (max 100 participants)
+- `PATCH /api/polls/:id/community` — Transfer poll to community (hides creator)
+- `POST /api/polls/:id/votes` — Cast a vote
+- `GET /api/polls/:id/results` — Get poll results
+
+### Ballot Verification (Gov.gr)
+- `POST /api/ballot/verify` — Verify Solemn Declaration PDF
+- `GET /api/ballot/health` — Ballot service status
+
+### Social Sharing
+- `GET /api/og-image/:id` — Generate Open Graph preview image for poll sharing
+
 ---
 
 ## Roadmap
@@ -276,15 +341,26 @@ agoraxdemo/
 ### Completed ✅
 - [x] Database schema (21+ tables) with Drizzle ORM
 - [x] Full backend API (Express.js + PostgreSQL)
-- [x] LLM validation pipeline (NVIDIA Nemotron free tier)
-- [x] Proposal state machine (7 states)
+- [x] LLM validation pipeline (configurable providers)
+- [x] Proposal state machine (9 states)
 - [x] Amendment flow (author review → community signal → sortition synthesis)
 - [x] Debate arguments with support/opposition tracking
 - [x] Proposal support/oppose voting
 - [x] Sortition scoring interface
-- [x] Frontend pages (proposal detail, amendment review, community signal, sortition synthesis)
+- [x] Frontend pages (20+ pages: proposals, amendments, debate, sortition, communities)
 - [x] Demo mode for testing without auth
-- [x] Vite proxy configuration for frontend-backend communication
+- [x] Docker Compose deployment (PostgreSQL + API)
+- [x] Open Graph image generation for social sharing
+- [x] Social bot SEO (Facebook, Twitter, WhatsApp, Telegram previews)
+- [x] Health check endpoint
+- [x] Device fingerprinting + IP tracking
+- [x] Gov.gr ballot verification (Solemn Declaration PDF)
+- [x] Survey polls (multi-question with branching logic)
+- [x] Geofencing support (location-based polls)
+- [x] Community democracy score calculation
+- [x] Admin action logging
+- [x] Job queue for background tasks
+- [x] Rich text editor (TipTap) for proposals
 
 ### In Progress ⏳
 - [ ] Sortition body composition algorithm (random selection)
@@ -293,6 +369,7 @@ agoraxdemo/
 - [ ] Production authentication (Google OAuth)
 - [ ] Notification system for sortition assignments
 - [ ] Analytics for deliberation metrics
+- [ ] Ballot service (Python microservice for PDF verification)
 
 ### Future 🚀
 - [ ] AI-assisted proposal merging (detect similar proposals)

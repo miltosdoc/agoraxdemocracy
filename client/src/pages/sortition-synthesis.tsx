@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { ArrowLeft, PenTool, AlertCircle, CheckCircle } from 'lucide-react';
+import Footer from '@/components/layout/footer';
 
 interface SortitionInput {
   authorDraft: string;
@@ -221,6 +222,7 @@ export default function SortitionSynthesis() {
           </div>
         </>
       )}
+      <Footer />
     </div>
   );
 }

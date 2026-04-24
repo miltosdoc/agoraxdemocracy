@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, FileText, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
 import { api } from '@/lib/api';
+import Footer from '@/components/layout/footer';
 import { DebateArguments } from '@/components/debate/debate-arguments';
 
 interface Proposal {
@@ -312,6 +313,7 @@ export default function ProposalDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <Footer />
     </div>
   );
 }

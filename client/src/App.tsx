@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import PollDetailsPage from "@/pages/poll-details";
 import MyPollsPage from "@/pages/my-polls";
 import PollCreatePage from "@/pages/poll-create";
@@ -42,16 +44,24 @@ function CommunitiesPage() {
 
 function ProposalFormPage() {
   return (
-    <div className="container mx-auto py-6 px-4 max-w-3xl">
-      <ProposalForm />
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
+        <ProposalForm />
+      </div>
+      <Footer />
     </div>
   );
 }
 
 function CommunityFormPage() {
   return (
-    <div className="container mx-auto py-6 px-4 max-w-3xl">
-      <CommunityForm />
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
+        <CommunityForm />
+      </div>
+      <Footer />
     </div>
   );
 }

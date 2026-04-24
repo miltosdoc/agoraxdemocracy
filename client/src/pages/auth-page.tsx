@@ -108,51 +108,50 @@ export default function AuthPage() {
       <div className="hidden lg:w-1/2 lg:flex flex-col bg-primary text-white p-10 items-center justify-center">
         <div className="max-w-lg">
           <h2 className="text-4xl font-bold mb-6">
-            Καλωσορίσατε στην πλατφόρμα ψηφιακής δημοκρατίας
+            Καλωσορίσατε στην πλατφόρμα διαβούλευσης και συμμετοχικής διακυβέρνησης
           </h2>
           <p className="text-lg mb-8">
-            Η AgoraX είναι ένας διαδικτυακός χώρος για διαβούλευση και ψηφοφορία πάνω σε πολιτικές προτάσεις. 
-            Είναι μια πλατφόρμα για μια πιο ανοιχτή και συμμετοχική διακυβέρνηση.
+            Η AgoraX είναι μια πλατφόρμα για διαβούλευση, τροπολογίες και αποφάσεις μέσω κληρωτών σωμάτων. 
+            Υποβάλετε προτάσεις, συζητάτε με την κοινότητα, και αποφασίζετε μαζί.
           </p>
           <div className="space-y-4">
             <div className="flex items-start">
               <div className="bg-white/20 p-2 rounded-full mr-4">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m9 12 2 2 4-4" />
+                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                  <path d="M15 2v6h6" />
+                  <path d="M10 12l4 0" />
+                  <path d="M10 16l4 0" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Δημιουργήστε ψηφοφορίες</h3>
-                <p>Προτείνετε τις ιδέες σας και αφήστε την κοινότητα να αποφασίσει</p>
+                <h3 className="font-semibold text-xl">Υποβάλετε προτάσεις</h3>
+                <p>Προτείνετε ιδέες και λύσεις — η κοινότητα τις αξιολογεί και τις βελτιώνει</p>
               </div>
             </div>
             <div className="flex items-start">
               <div className="bg-white/20 p-2 rounded-full mr-4">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <path d="M2 20h.01" />
-                  <path d="M7 20v-4" />
-                  <path d="M12 20v-8" />
-                  <path d="M17 20V8" />
-                  <path d="M22 4v16" />
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Συμμετέχετε σε ψηφοφορίες</h3>
-                <p>Ψηφίστε για τις προτάσεις που σας ενδιαφέρουν</p>
+                <h3 className="font-semibold text-xl">Διαβουλεύεστε με την κοινότητα</h3>
+                <p>Τροπολογίες, συζήτηση και κριτική — ο συγγραφέας συνθέτει την τελική πρόταση</p>
               </div>
             </div>
             <div className="flex items-start">
               <div className="bg-white/20 p-2 rounded-full mr-4">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <rect width="18" height="18" x="3" y="3" rx="2" />
-                  <path d="M8 12h8" />
-                  <path d="M12 8v8" />
+                  <path d="M16 21v-2a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a2 2 0 0 0-2-2h-2.21" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Διαχειριστείτε τη διάρκεια</h3>
-                <p>Ορίστε και επεκτείνετε τη διάρκεια των ψηφοφοριών σας</p>
+                <h3 className="font-semibold text-xl">Κληρωτά σώματα αποφασίζουν</h3>
+                <p>Τυχαία επιλεγμένοι πολίτες συνθέτουν την τελική πρόταση και η κοινότητα επικυρώνει</p>
               </div>
             </div>
           </div>

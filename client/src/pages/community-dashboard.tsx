@@ -6,7 +6,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useParams } from 'wouter';
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,8 +35,8 @@ interface Proposal {
 }
 
 export default function CommunityDashboardPage() {
-  const [, params] = useLocation();
-  const communityId = new URLSearchParams(params).get('id');
+  const params = useParams();
+  const communityId = params.id;
   
   const [community, setCommunity] = useState<Community | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -54,15 +56,29 @@ export default function CommunityDashboardPage() {
   }, [communityId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Loading...</div>;
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center flex-grow min-h-[50vh]">Loading...</div>
+        <Footer />
+      </div>
+    );
   }
 
   if (!community) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Community not found</div>;
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center flex-grow min-h-[50vh]">Community not found</div>
+        <Footer />
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back
@@ -168,6 +184,8 @@ export default function CommunityDashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
+      <Footer />
     </div>
   );
 }

@@ -12,6 +12,8 @@
  */
 
 import { useState } from 'react';
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -492,7 +494,10 @@ export default function DeliberationWalkthrough() {
   const Icon = currentStepData?.icon || FileText;
   
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="flex-grow flex items-start justify-center py-6">
+      <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle>Ροή Διαβούλευσης</CardTitle>
         <CardDescription>
@@ -601,5 +606,8 @@ export default function DeliberationWalkthrough() {
         </div>
       </CardContent>
     </Card>
+      </div>
+      <Footer />
+    </div>
   );
 }

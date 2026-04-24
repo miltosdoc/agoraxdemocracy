@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocationDetector } from "@/components/user/location-detector";
 import { DeleteAccount } from "@/components/user/delete-account";
@@ -21,10 +23,14 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6">
-        <div className="flex justify-center items-center h-32">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6 flex-grow">
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
         </div>
+        <Footer />
       </div>
     );
   }
@@ -34,7 +40,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6 flex-grow">
       <div className="flex items-center mb-6">
         <Button
           variant="ghost"
@@ -129,6 +137,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <Footer />
+    </div>
     </div>
   );
 }

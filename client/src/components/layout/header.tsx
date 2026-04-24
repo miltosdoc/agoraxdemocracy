@@ -196,7 +196,7 @@ export default function Header() {
               data-testid="button-new-proposal"
             >
               <FileText className="h-4 w-4" />
-              <span>Νέο Προβούλευμα</span>
+              <span>Υπόβαλε Πρόταση</span>
             </Button>
 
             {/* Notification Bell */}
@@ -353,7 +353,7 @@ export default function Header() {
                   data-testid="menu-new-proposal"
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  Νέο Προβούλευμα
+                  Υπόβαλε Πρόταση
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/walkthrough")}

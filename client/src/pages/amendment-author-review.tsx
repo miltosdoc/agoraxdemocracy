@@ -7,6 +7,8 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,16 +83,22 @@ export default function AmendmentAuthorReview() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6 px-4 max-w-3xl">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+          </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-3xl">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
       <div className="flex items-center gap-2 mb-6">
         <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
           <ArrowLeft className="w-4 h-4 mr-1" /> Πίσω
@@ -216,6 +224,8 @@ export default function AmendmentAuthorReview() {
           )}
         </div>
       )}
+      </div>
+      <Footer />
     </div>
   );
 }

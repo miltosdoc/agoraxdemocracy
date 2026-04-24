@@ -71,7 +71,7 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Νέο Προβούλευμα</CardTitle>
+        <CardTitle>Υπόβαλε Πρόταση</CardTitle>
         <CardDescription>
           Υποβάλετε μια πρόταση για την κοινότητά σας. Κάθε πρόταση πρέπει να περιλαμβάνει ένα ερώτημα (το πρόβλημα) και μια λύση.
         </CardDescription>

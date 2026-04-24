@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Area, AreaChart } from "recharts";
 import { Users, MessageSquare, Vote, BarChart3, TrendingUp, Clock, Calendar, Activity, UserPlus, Percent } from "lucide-react";
 import t from "@/i18n";
@@ -68,26 +70,32 @@ export default function AnalyticsDashboard() {
 
   if (overviewLoading || popularityLoading || trendsLoading || patternsLoading) {
     return (
-      <div className="container mx-auto p-6 pb-16 sm:pb-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-64 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-muted rounded"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-80 bg-muted rounded"></div>
-            ))}
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="container mx-auto p-6 pb-16 sm:pb-6 flex-grow">
+          <div className="animate-pulse">
+            <div className="h-8 bg-muted rounded w-64 mb-6"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-muted rounded"></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-80 bg-muted rounded"></div>
+              ))}
+            </div>
           </div>
         </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 pb-16 sm:pb-6">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto p-6 pb-16 sm:pb-6 flex-grow">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">{t("Analytics Dashboard")}</h1>
         <p className="text-muted-foreground">{t("Platform insights and usage statistics")}</p>
@@ -374,6 +382,8 @@ export default function AnalyticsDashboard() {
           </div>
         </CardContent>
       </Card>
+      </div>
+      <Footer />
     </div>
   );
 }
