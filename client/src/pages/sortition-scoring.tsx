@@ -29,8 +29,8 @@ interface SortitionAssignment {
 }
 
 export default function SortitionScoringPage() {
-  const [, params] = useLocation();
-  const assignmentId = new URLSearchParams(params).get('id');
+  const [location] = useLocation();
+  const assignmentId = location.split('/').pop();
   
   const [assignment, setAssignment] = useState<SortitionAssignment | null>(null);
   const [score, setScore] = useState(50);
@@ -41,13 +41,28 @@ export default function SortitionScoringPage() {
 
   useEffect(() => {
     if (!assignmentId) return;
-    
+
+    // DEMO MODE: Use mock data when backend is unavailable
     api.get(`/api/sortition/assignments/${assignmentId}`)
       .then(resp => {
         setAssignment(resp.data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        // Fallback to demo data
+        setAssignment({
+          id: 1,
+          proposalId: 1,
+          proposalQuestion: 'Πώς μπορούμε να βελτιώσουμε τη δημόσια συγκοινωνία στην περιοχή μας;',
+          proposalSolution: 'Εισαγωγή ηλεκτρικών λεωφορείων και επέκταση του δικτύου ποδηλατοδρόμων με στόχο μείωση των εκπομπών CO2 κατά 30% έως το 2030.',
+          responseDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          similarProposals: [
+            { id: 2, question: 'Βελτίωση ποδηλατοδρόμων στο κέντρο', state: 'voting' },
+            { id: 3, question: 'Δωρεάν εισιτήρια για μαθητές', state: 'deliberation' },
+          ],
+        });
+        setLoading(false);
+      });
   }, [assignmentId]);
 
   const handleSubmit = async () => {

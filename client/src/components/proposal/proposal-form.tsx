@@ -17,7 +17,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProposalFormProps {
-  communityId: number;
+  communityId?: number;  // Optional for demo mode
 }
 
 const CATEGORIES = [
@@ -31,7 +31,7 @@ const CATEGORIES = [
 ];
 
 export function ProposalForm({ communityId }: ProposalFormProps) {
-  const router = useRouter();
+  const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -58,7 +58,7 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
       }
 
       const proposal = await res.json();
-      router.push(`/proposals/${proposal.id}`);
+      setLocation(`/proposals/${proposal.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
