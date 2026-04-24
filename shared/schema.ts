@@ -81,8 +81,8 @@ export const polls = pgTable("polls", {
   // Standardized geographic region (for more robust filtering)
   geoRegion: text("geo_region"), // Normalized geographic region name derived from coordinates
 
-  // Group visibility
-  groupId: integer("group_id").references(() => groups.id, { onDelete: "set null" }), // If set, poll is only visible to group members
+  // Community visibility
+  communityId: integer("community_id").references(() => communities.id, { onDelete: "set null" }), // If set, poll is only visible to community members
 });
 
 export const pollOptions = pgTable("poll_options", {
@@ -109,24 +109,7 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Groups for private polls
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  creatorId: integer("creator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const groupMembers = pgTable("group_members", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  joinedAt: timestamp("joined_at").notNull().defaultNow(),
-}, (table) => ({
-  groupMemberUnique: uniqueIndex('group_member_unique').on(table.groupId, table.userId),
-}));
-
-// Poll notifications for group members
+// Poll notifications for community members
 export const pollNotifications = pgTable("poll_notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -412,9 +395,9 @@ export const pollsRelations = relations(polls, ({ one, many }) => ({
     fields: [polls.creatorId],
     references: [users.id],
   }),
-  group: one(groups, {
-    fields: [polls.groupId],
-    references: [groups.id],
+  community: one(communities, {
+    fields: [polls.communityId],
+    references: [communities.id],
   }),
   options: many(pollOptions),
   votes: many(votes),
@@ -452,26 +435,6 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
   user: one(users, {
     fields: [comments.userId],
-    references: [users.id],
-  }),
-}));
-
-export const groupsRelations = relations(groups, ({ one, many }) => ({
-  creator: one(users, {
-    fields: [groups.creatorId],
-    references: [users.id],
-  }),
-  members: many(groupMembers),
-  polls: many(polls),
-}));
-
-export const groupMembersRelations = relations(groupMembers, ({ one }) => ({
-  group: one(groups, {
-    fields: [groupMembers.groupId],
-    references: [groups.id],
-  }),
-  user: one(users, {
-    fields: [groupMembers.userId],
     references: [users.id],
   }),
 }));
@@ -655,8 +618,6 @@ export const adminActionsRelations = relations(adminActions, ({ one }) => ({
 
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
-export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, joinedAt: true });
 export const insertPollNotificationSchema = createInsertSchema(pollNotifications).omit({ id: true, createdAt: true });
 export const insertAccountActivitySchema = createInsertSchema(accountActivity).omit({ id: true, timestamp: true });
 export const insertPollSchema = createInsertSchema(polls)
@@ -837,8 +798,6 @@ export const loginUserSchema = z.object({
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertGroup = z.infer<typeof insertGroupSchema>;
-export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 export type InsertPollNotification = z.infer<typeof insertPollNotificationSchema>;
 export type InsertAccountActivity = z.infer<typeof insertAccountActivitySchema>;
 export type InsertPoll = z.infer<typeof insertPollSchema>;
@@ -855,8 +814,6 @@ export type RegisterUser = z.infer<typeof registerUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 
 export type User = typeof users.$inferSelect;
-export type Group = typeof groups.$inferSelect;
-export type GroupMember = typeof groupMembers.$inferSelect;
 export type PollNotification = typeof pollNotifications.$inferSelect;
 export type SelectAccountActivity = typeof accountActivity.$inferSelect;
 export type Poll = typeof polls.$inferSelect;
@@ -894,18 +851,12 @@ export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 export type SafeUser = Pick<User, 'id' | 'username' | 'name' | 'email' | 'profilePicture'>;
 
 // Extended types
-export type GroupWithMembers = Group & {
-  members: (GroupMember & { user: SafeUser })[];
-  creator: SafeUser;
-  memberCount: number;
-};
-
 export type PollWithOptions = Poll & {
   options: PollOption[];
   creator: User;
   voteCount: number;
   userVoted?: boolean;
-  group?: Group;
+  community?: Community;
 };
 
 // Survey poll extended types

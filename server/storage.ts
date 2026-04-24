@@ -11,20 +11,13 @@ import {
   Vote,
   Comment,
   PollWithOptions,
-  Group,
-  InsertGroup,
-  GroupMember,
-  InsertGroupMember,
   PollNotification,
   InsertPollNotification,
-  GroupWithMembers,
   users,
   polls,
   pollOptions,
   votes,
   comments,
-  groups,
-  groupMembers,
   pollNotifications,
   pollQuestions,
   pollAnswers,
@@ -88,7 +81,7 @@ interface PollFilters {
   locationRegion?: string; // Region name for filtering
   locationCity?: string; // City/Municipality name for filtering
   search?: string; // Search term for poll title/description
-  groupId?: number; // Filter polls by specific group
+  communityId?: number; // Filter polls by specific community
 }
 
 // Results type
@@ -175,18 +168,10 @@ export interface IStorage {
   createComment(comment: InsertComment): Promise<Comment>;
   getPollComments(pollId: number): Promise<CommentWithUser[]>;
 
-  // Group methods
-  createGroup(name: string, creatorId: number): Promise<Group>;
-  getGroup(id: number): Promise<GroupWithMembers | undefined>;
-  getUserGroups(userId: number): Promise<GroupWithMembers[]>;
-  addGroupMember(groupId: number, email: string): Promise<GroupMember>;
-  removeGroupMember(groupId: number, userId: number): Promise<boolean>;
-  isGroupMember(groupId: number, userId: number): Promise<boolean>;
-  deleteGroup(groupId: number, userId: number): Promise<boolean>;
 
   // Notification methods
   createPollNotification(notification: InsertPollNotification): Promise<PollNotification>;
-  getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { group?: { id: number; name: string } | null } })[]>;
+  getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { community?: { id: number; name: string } | null } })[]>;
   markNotificationAsRead(notificationId: number): Promise<PollNotification>;
 
   // Session store
@@ -273,6 +258,7 @@ export interface IStorage {
   createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport>;
   removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
   getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }>;
+  getAllProposals(limit?: number): Promise<Proposal[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -559,7 +545,7 @@ export class DatabaseStorage implements IStorage {
         locationRegion,
         locationCity,
         search,
-        groupId
+        communityId
       } = filters;
 
       // Build query
@@ -622,36 +608,35 @@ export class DatabaseStorage implements IStorage {
         );
       }
 
-      // Filter by specific group if groupId is provided
-      if (groupId) {
-        conditions.push(eq(polls.groupId, groupId));
+      // Filter by specific group if communityId is provided
+      if (communityId) {
+        conditions.push(eq(polls.communityId, communityId));
       }
 
-      // Group-based access control: Filter polls based on user's group memberships
+      // Community-based access control: Filter polls based on user's community memberships
       if (userId) {
-        // For authenticated users, fetch their group IDs
-        const userGroupIds = await db
-          .select({ groupId: groupMembers.groupId })
-          .from(groupMembers)
-          .where(eq(groupMembers.userId, userId));
+        // For authenticated users, fetch their community IDs
+        const userCommunityIds = await db
+          .select({ communityId: communityMembers.communityId })
+          .from(communityMembers)
+          .where(eq(communityMembers.userId, userId));
 
-        const groupIds = userGroupIds.map(g => g.groupId);
+        const communityIds = userCommunityIds.map(g => g.communityId);
 
-        if (groupIds.length > 0) {
-          // Show public polls (groupId IS NULL) OR polls from user's groups
+        if (communityIds.length > 0) {
+          // Show public polls (communityId IS NULL) OR polls from user's communities
           conditions.push(
             or(
-              isNull(polls.groupId),
-              inArray(polls.groupId, groupIds)
+              isNull(polls.communityId),
+              inArray(polls.communityId, communityIds)
             )
           );
         } else {
-          // User is not in any groups, show only public polls
-          conditions.push(isNull(polls.groupId));
+          conditions.push(isNull(polls.communityId));
         }
       } else {
-        // For anonymous users, show only public polls (groupId IS NULL)
-        conditions.push(isNull(polls.groupId));
+        // For anonymous users, show only public polls (communityId IS NULL)
+        conditions.push(isNull(polls.communityId));
       }
 
       // Apply conditions if any exist
@@ -717,36 +702,35 @@ export class DatabaseStorage implements IStorage {
         );
       }
 
-      // Filter by specific group if groupId is provided (for count query)
-      if (groupId) {
-        countConditions.push(eq(polls.groupId, groupId));
+      // Filter by specific group if communityId is provided (for count query)
+      if (communityId) {
+        countConditions.push(eq(polls.communityId, communityId));
       }
 
-      // Group-based access control for count query: Filter polls based on user's group memberships
+      // Community-based access control for count query: Filter polls based on user's community memberships
       if (userId) {
-        // For authenticated users, fetch their group IDs
-        const userGroupIds = await db
-          .select({ groupId: groupMembers.groupId })
-          .from(groupMembers)
-          .where(eq(groupMembers.userId, userId));
+        // For authenticated users, fetch their community IDs
+        const userCommunityIds = await db
+          .select({ communityId: communityMembers.communityId })
+          .from(communityMembers)
+          .where(eq(communityMembers.userId, userId));
 
-        const groupIds = userGroupIds.map(g => g.groupId);
+        const communityIds = userCommunityIds.map(g => g.communityId);
 
-        if (groupIds.length > 0) {
-          // Show public polls (groupId IS NULL) OR polls from user's groups
+        if (communityIds.length > 0) {
+          // Show public polls (communityId IS NULL) OR polls from user's communities
           countConditions.push(
             or(
-              isNull(polls.groupId),
-              inArray(polls.groupId, groupIds)
+              isNull(polls.communityId),
+              inArray(polls.communityId, communityIds)
             )
           );
         } else {
-          // User is not in any groups, show only public polls
-          countConditions.push(isNull(polls.groupId));
+          countConditions.push(isNull(polls.communityId));
         }
       } else {
-        // For anonymous users, show only public polls (groupId IS NULL)
-        countConditions.push(isNull(polls.groupId));
+        // For anonymous users, show only public polls (communityId IS NULL)
+        countConditions.push(isNull(polls.communityId));
       }
 
       let countQuery = baseQuery;
@@ -828,17 +812,17 @@ export class DatabaseStorage implements IStorage {
 
     if (!poll) return undefined;
 
-    // SECURITY: Group membership access control
-    if (poll.groupId) {
-      // If poll belongs to a group, check membership
+    // SECURITY: Community membership access control
+    if (poll.communityId) {
+      // If poll belongs to a community, check membership
       if (!userId) {
-        // Anonymous users cannot see group-only polls
+        // Anonymous users cannot see community-only polls
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.groupId, userId);
+      const isMember = await this.isGroupMember(poll.communityId, userId);
       if (!isMember) {
-        // User is not a member of this group
+        // User is not a member of this community
         return undefined;
       }
     }
@@ -1180,17 +1164,17 @@ export class DatabaseStorage implements IStorage {
 
     if (!poll) return undefined;
 
-    // SECURITY: Group membership access control
-    if (poll.groupId) {
-      // If poll belongs to a group, check membership
+    // SECURITY: Community membership access control
+    if (poll.communityId) {
+      // If poll belongs to a community, check membership
       if (!userId) {
-        // Anonymous users cannot see group-only polls
+        // Anonymous users cannot see community-only polls
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.groupId, userId);
+      const isMember = await this.isGroupMember(poll.communityId, userId);
       if (!isMember) {
-        // User is not a member of this group
+        // User is not a member of this community
         return undefined;
       }
     }
@@ -1885,194 +1869,7 @@ export class DatabaseStorage implements IStorage {
 
     return commentsWithUser as CommentWithUser[];
   }
-
-  // Group methods
-  async createGroup(name: string, creatorId: number): Promise<Group> {
-    return await db.transaction(async (tx) => {
-      // Create the group
-      const [newGroup] = await tx
-        .insert(groups)
-        .values({ name, creatorId })
-        .returning();
-
-      // Add creator as first member
-      await tx
-        .insert(groupMembers)
-        .values({ groupId: newGroup.id, userId: creatorId });
-
-      return newGroup;
-    });
-  }
-
-  async getGroup(id: number): Promise<GroupWithMembers | undefined> {
-    // Get the group
-    const [group] = await db
-      .select()
-      .from(groups)
-      .where(eq(groups.id, id));
-
-    if (!group) return undefined;
-
-    // Get the creator
-    const [creator] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, group.creatorId));
-
-    // Get all members with user details (sanitized - no sensitive fields)
-    const membersData = await db
-      .select({
-        id: groupMembers.id,
-        groupId: groupMembers.groupId,
-        userId: groupMembers.userId,
-        joinedAt: groupMembers.joinedAt,
-        user: {
-          id: users.id,
-          username: users.username,
-          name: users.name,
-          email: users.email,
-          profilePicture: users.profilePicture
-        }
-      })
-      .from(groupMembers)
-      .innerJoin(users, eq(groupMembers.userId, users.id))
-      .where(eq(groupMembers.groupId, id));
-
-    return {
-      ...group,
-      creator: creator ? {
-        id: creator.id,
-        username: creator.username,
-        name: creator.name,
-        email: creator.email,
-        profilePicture: creator.profilePicture
-      } : {
-        id: group.creatorId,
-        username: "unknown",
-        name: "Unknown",
-        email: "",
-        profilePicture: null
-      },
-      members: membersData,
-      memberCount: membersData.length
-    };
-  }
-
-  async getUserGroups(userId: number): Promise<GroupWithMembers[]> {
-    // Get all group IDs where user is a member
-    const userGroupIds = await db
-      .select({ groupId: groupMembers.groupId })
-      .from(groupMembers)
-      .where(eq(groupMembers.userId, userId));
-
-    if (userGroupIds.length === 0) return [];
-
-    // Get all groups with their details
-    const groupIds = userGroupIds.map(g => g.groupId);
-    const userGroups = await db
-      .select()
-      .from(groups)
-      .where(inArray(groups.id, groupIds));
-
-    // Enrich each group with members and creator info
-    return Promise.all(
-      userGroups.map(async (group) => {
-        const enrichedGroup = await this.getGroup(group.id);
-        return enrichedGroup!;
-      })
-    );
-  }
-
-  async addGroupMember(groupId: number, email: string): Promise<GroupMember> {
-    // Validate email exists in users table
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(sql`LOWER(${users.email}) = LOWER(${email})`);
-
-    if (!user) {
-      throw new Error("User with this email does not exist");
-    }
-
-    // Check if user is already a member
-    const [existingMember] = await db
-      .select()
-      .from(groupMembers)
-      .where(and(
-        eq(groupMembers.groupId, groupId),
-        eq(groupMembers.userId, user.id)
-      ));
-
-    if (existingMember) {
-      throw new Error("User is already a member of this group");
-    }
-
-    // Add user to group
-    const [newMember] = await db
-      .insert(groupMembers)
-      .values({ groupId, userId: user.id })
-      .returning();
-
-    return newMember;
-  }
-
-  async removeGroupMember(groupId: number, userId: number): Promise<boolean> {
-    const result = await db
-      .delete(groupMembers)
-      .where(and(
-        eq(groupMembers.groupId, groupId),
-        eq(groupMembers.userId, userId)
-      ))
-      .returning();
-
-    return result.length > 0;
-  }
-
-  async isGroupMember(groupId: number, userId: number): Promise<boolean> {
-    const [member] = await db
-      .select()
-      .from(groupMembers)
-      .where(and(
-        eq(groupMembers.groupId, groupId),
-        eq(groupMembers.userId, userId)
-      ));
-
-    return !!member;
-  }
-
-  async deleteGroup(groupId: number, userId: number): Promise<boolean> {
-    const [group] = await db
-      .select()
-      .from(groups)
-      .where(eq(groups.id, groupId));
-
-    if (!group) {
-      throw new Error("Group not found");
-    }
-
-    if (group.creatorId !== userId) {
-      throw new Error("Only the group creator can delete the group");
-    }
-
-    const result = await db
-      .delete(groups)
-      .where(eq(groups.id, groupId))
-      .returning();
-
-    return result.length > 0;
-  }
-
-  // Notification methods
-  async createPollNotification(notification: InsertPollNotification): Promise<PollNotification> {
-    const [newNotification] = await db
-      .insert(pollNotifications)
-      .values(notification)
-      .returning();
-
-    return newNotification;
-  }
-
-  async getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { group?: { id: number; name: string } | null } })[]> {
+  async getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { community?: { id: number; name: string } | null } })[]> {
     // Get unread notifications with poll details
     const notifications = await db
       .select({
@@ -2112,16 +1909,10 @@ export class DatabaseStorage implements IStorage {
           locationRegionId: polls.locationRegionId,
           locationCountryId: polls.locationCountryId,
           geoRegion: polls.geoRegion,
-          groupId: polls.groupId
-        },
-        group: {
-          id: groups.id,
-          name: groups.name
-        }
+          communityId: polls.communityId
       })
       .from(pollNotifications)
       .innerJoin(polls, eq(pollNotifications.pollId, polls.id))
-      .leftJoin(groups, eq(polls.groupId, groups.id))
       .where(and(
         eq(pollNotifications.userId, userId),
         eq(pollNotifications.read, false)
@@ -2135,8 +1926,7 @@ export class DatabaseStorage implements IStorage {
       read: n.read,
       createdAt: n.createdAt,
       poll: {
-        ...n.poll,
-        group: n.group
+        ...n.poll
       }
     }));
   }
@@ -2966,6 +2756,12 @@ export class DatabaseStorage implements IStorage {
         eq(proposalSupport.type, type)
       ));
     return true;
+  }
+
+  async getAllProposals(limit?: number): Promise<Proposal[]> {
+    const query = db.select().from(proposals).orderBy(desc(proposals.createdAt));
+    if (limit) return await query.limit(limit);
+    return await query;
   }
 
   async getProposalSupport(proposalId: number, userId?: number): Promise<{ support: number; oppose: number; userVote?: string | null }> {

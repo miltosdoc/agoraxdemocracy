@@ -41,11 +41,10 @@ import { Users, UserPlus, LogOut, Shield, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { insertGroupSchema } from "@shared/schema";
 import type { GroupWithMembers } from "@shared/schema";
 import t from "@/i18n";
 
-const createGroupFormSchema = insertGroupSchema.pick({ name: true });
+const createGroupFormSchema = z.object({ name: z.string().min(1, "Το όνομα είναι υποχρεωτικό") });
 type CreateGroupForm = z.infer<typeof createGroupFormSchema>;
 
 const addMemberFormSchema = z.object({
