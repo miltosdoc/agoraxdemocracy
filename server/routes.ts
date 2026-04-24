@@ -18,6 +18,13 @@ import {
 import { z } from "zod";
 import { db } from "./db";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
+import {
+  authorReviewAmendment,
+  castRejectionVote,
+  calculateCommunitySignals,
+  buildSortitionInput,
+  saveFinalText,
+} from "./utils/amendment-processor";
 
 const addGroupMemberSchema = z.object({
   email: z.string().email("Invalid email format")
@@ -2090,6 +2097,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating amendment:", error);
       res.status(500).json({ message: "Failed to create amendment" });
+    }
+  });
+
+  // ─── Amendment Review: Author accepts/rejects an amendment ──────────────────
+
+  app.post("/api/amendments/:id/review", requireAuth, async (req: any, res) => {
+    try {
+      const amendmentId = parseInt(req.params.id);
+      const { decision, reason } = req.body;
+
+      if (!['accepted', 'rejected'].includes(decision)) {
+        return res.status(400).json({ message: "Decision must be 'accepted' or 'rejected'" });
+      }
+
+      const amendment = await storage.getAmendment(amendmentId);
+      if (!amendment) return res.status(404).json({ message: "Amendment not found" });
+
+      // Only the proposal author can review amendments
+      const proposal = await storage.getProposal(amendment.proposalId);
+      if (proposal.authorId !== req.user.id) {
+        return res.status(403).json({ message: "Only the proposal author can review amendments" });
+      }
+
+      await authorReviewAmendment(amendmentId, decision as 'accepted' | 'rejected', reason);
+      res.json({ success: true, decision });
+    } catch (error) {
+      console.error("Error reviewing amendment:", error);
+      res.status(500).json({ message: "Failed to review amendment" });
+    }
+  });
+
+  // ─── Amendment Review: Community votes on rejected amendments ───────────────
+
+  app.post("/api/amendments/:id/rejection-vote", requireAuth, async (req: any, res) => {
+    try {
+      const amendmentId = parseInt(req.params.id);
+      const { vote } = req.body;
+
+      if (![1, -1].includes(vote)) {
+        return res.status(400).json({ message: "Vote must be +1 or -1" });
+      }
+
+      const amendment = await storage.getAmendment(amendmentId);
+      if (!amendment) return res.status(404).json({ message: "Amendment not found" });
+
+      // Only rejected amendments can be voted on
+      if (amendment.authorDecision !== 'rejected') {
+        return res.status(400).json({ message: "Only rejected amendments can be voted on" });
+      }
+
+      await castRejectionVote(amendmentId, req.user.id, vote as 1 | -1);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error casting rejection vote:", error);
+      res.status(500).json({ message: "Failed to cast vote" });
+    }
+  });
+
+  // ─── Community Signal: Get signal data for all rejected amendments ──────────
+
+  app.get("/api/proposals/:id/amendments/signals", async (req, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const signals = await calculateCommunitySignals(proposalId, proposal.communityId);
+      res.json(signals);
+    } catch (error) {
+      console.error("Error fetching community signals:", error);
+      res.status(500).json({ message: "Failed to fetch signals" });
+    }
+  });
+
+  // ─── Sortition Input: Get the sortition synthesis package ───────────────────
+
+  app.get("/api/proposals/:id/sortition-input", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      // Check if user is part of the sortition body for this proposal
+      // (simplified check — in production, verify sortition membership)
+
+      const input = await buildSortitionInput(proposalId, proposal.communityId);
+      res.json(input);
+    } catch (error) {
+      console.error("Error fetching sortition input:", error);
+      res.status(500).json({ message: "Failed to fetch sortition input" });
+    }
+  });
+
+  // ─── Sortition: Save final composed text ────────────────────────────────────
+
+  app.post("/api/proposals/:id/final-text", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { finalText } = req.body;
+
+      if (!finalText) {
+        return res.status(400).json({ message: "Final text is required" });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      // Check if proposal is in sortition_synthesis state
+      if (proposal.status !== 'sortition_synthesis') {
+        return res.status(400).json({ message: "Proposal must be in sortition_synthesis state" });
+      }
+
+      await saveFinalText(proposalId, finalText);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving final text:", error);
+      res.status(500).json({ message: "Failed to save final text" });
     }
   });
 

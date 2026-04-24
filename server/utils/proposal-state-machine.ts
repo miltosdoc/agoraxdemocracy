@@ -1,8 +1,9 @@
 /**
- * Proposal State Machine
+ * Proposal State Machine v2
  * 
- * Implements the 5-state proposal lifecycle aligned with Demopolis deliberation cycle:
- * draft → review → deliberation → voting → decided
+ * Implements the revised deliberation cycle with author-as-editor model:
+ * 
+ * draft → review → author_review → community_signal → sortition_synthesis → voting → decided
  * 
  * Plus an 'archived' state for proposals that are closed without reaching a decision.
  * 
@@ -15,38 +16,46 @@ import type { IStorage } from '../storage';
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
 import { validateProposal } from './proposal-structuring';
 import { createSortitionBody } from './sortition';
-import { saveMergedProposal } from './amendment-merger';
 
 // ─── State Definitions ──────────────────────────────────────────────────────
 
 export type ProposalState = 
-  | 'draft'        // Author is still editing
-  | 'review'       // Submitted for LLM structuring + sortition review
-  | 'deliberation' // Open for amendments, debate arguments, community discussion
-  | 'voting'       // Final vote — no more amendments or debate
-  | 'decided'      // Vote completed, outcome recorded
-  | 'archived';    // Closed without reaching decision
+  | 'draft'                // Author is still editing
+  | 'review'               // Submitted for LLM structuring + validation
+  | 'author_review'        // Author reviews amendments, accepts/rejects each
+  | 'community_signal'     // Community votes ⬆️/⬇️ on rejected amendments
+  | 'sortition_synthesis'  // Sortition body composes final text
+  | 'voting'               // Final vote — community ratifies the sortition's version
+  | 'decided'              // Vote completed, outcome recorded
+  | 'archived';            // Closed without reaching decision
 
 // ─── Valid Transitions ──────────────────────────────────────────────────────
 // 
 // The state machine enforces a strict deliberation cycle:
 // 
-// draft → review (author submits for structuring)
-// review → deliberation (LLM/sortition approves structure)
-// review → draft (LLM/sortition returns for revision)
-// deliberation → voting (debate period ends, time to vote)
-// deliberation → archived (author withdraws, or admin closes)
+// draft → review (author submits for LLM validation)
+// review → author_review (LLM validates, amendments can now be submitted)
+// review → draft (LLM returns for revision)
+// review → archived (LLM rejects outright)
+// author_review → community_signal (author finishes reviewing all amendments)
+// author_review → archived (author withdraws)
+// community_signal → sortition_synthesis (signal period ends, flagged amendments identified)
+// community_signal → archived (no amendments to flag, goes straight to voting)
+// sortition_synthesis → voting (sortition body submits final text)
+// sortition_synthesis → author_review (sortition returns for revision)
 // voting → decided (vote completes)
 // voting → archived (vote times out without quorum)
 // any → archived (admin can archive at any time)
 //
-// Note: No backward transitions from voting → deliberation.
+// Note: No backward transitions from voting → sortition_synthesis.
 // Once voting starts, the proposal is locked.
 
 const VALID_TRANSITIONS: Record<ProposalState, ProposalState[]> = {
   draft: ['review', 'archived'],
-  review: ['deliberation', 'draft', 'archived'],
-  deliberation: ['voting', 'archived'],
+  review: ['author_review', 'draft', 'archived'],
+  author_review: ['community_signal', 'archived'],
+  community_signal: ['sortition_synthesis', 'voting', 'archived'],
+  sortition_synthesis: ['voting', 'author_review', 'archived'],
   voting: ['decided', 'archived'],
   decided: [],  // Terminal state — no transitions out
   archived: [], // Terminal state — no transitions out
@@ -95,8 +104,14 @@ export async function transitionProposal(
   if (newState === 'review') {
     updates.reviewStartedAt = new Date();
   }
-  if (newState === 'deliberation') {
-    updates.deliberationStartedAt = new Date();
+  if (newState === 'author_review') {
+    updates.authorReviewStartedAt = new Date();
+  }
+  if (newState === 'community_signal') {
+    updates.communitySignalStartedAt = new Date();
+  }
+  if (newState === 'sortition_synthesis') {
+    updates.sortitionSynthesisStartedAt = new Date();
   }
   if (newState === 'voting') {
     updates.votingStartedAt = new Date();
@@ -118,9 +133,11 @@ export async function transitionProposal(
 export function getStateDescription(state: ProposalState): string {
   const descriptions: Record<ProposalState, string> = {
     draft: 'Under author revision',
-    review: 'Being structured by LLM and reviewed by sortition panel',
-    deliberation: 'Open for amendments and community debate',
-    voting: 'Final vote in progress',
+    review: 'Being validated by LLM',
+    author_review: 'Author reviewing amendments',
+    community_signal: 'Community voting on rejected amendments',
+    sortition_synthesis: 'Sortition body composing final text',
+    voting: 'Final ratification vote in progress',
     decided: 'Decision reached',
     archived: 'Closed without decision',
   };
@@ -144,18 +161,31 @@ export function isEditable(state: ProposalState): boolean {
 
 /**
  * Check if amendments can be submitted.
- * Only during deliberation phase.
+ * During review and author_review phases.
  */
 export function canAmend(state: ProposalState): boolean {
-  return state === 'deliberation';
+  return state === 'review' || state === 'author_review';
 }
 
 /**
- * Check if debate arguments can be added.
- * Only during deliberation phase.
+ * Check if the author can review amendments.
  */
-export function canDebate(state: ProposalState): boolean {
-  return state === 'deliberation';
+export function canAuthorReview(state: ProposalState): boolean {
+  return state === 'author_review';
+}
+
+/**
+ * Check if community can vote on rejected amendments.
+ */
+export function canCommunitySignal(state: ProposalState): boolean {
+  return state === 'community_signal';
+}
+
+/**
+ * Check if sortition body can compose final text.
+ */
+export function canSortitionSynthesize(state: ProposalState): boolean {
+  return state === 'sortition_synthesis';
 }
 
 /**
@@ -172,9 +202,11 @@ export function isVoting(state: ProposalState): boolean {
  * 
  * Each transition can trigger background jobs:
  * - draft → review: LLM validation job
- * - review → deliberation: create sortition body for scoring
+ * - review → author_review: notify author to review amendments
  * - review → draft: notify author of return
- * - deliberation → voting: open voting phase
+ * - author_review → community_signal: open community voting on rejected amendments
+ * - community_signal → sortition_synthesis: create sortition body for synthesis
+ * - sortition_synthesis → voting: open voting phase
  */
 export async function triggerSideEffects(
   fromState: ProposalState,
@@ -189,9 +221,9 @@ export async function triggerSideEffects(
       await enqueueStructureProposal(proposal.id, proposal.question, proposal.solution);
       break;
     
-    case 'review->deliberation':
-      // Create sortition body for scoring (use community's default size)
-      await enqueueCreateSortition(proposal.communityId, 20);
+    case 'review->author_review':
+      // Notify author to review submitted amendments
+      await enqueueNotification(proposal.authorId, 'amendments_ready', 'Amendments are ready for your review');
       break;
     
     case 'review->draft':
@@ -199,9 +231,17 @@ export async function triggerSideEffects(
       await enqueueNotification(proposal.authorId, 'proposal_returned', 'Your proposal has been returned for revision');
       break;
     
-    case 'deliberation->voting':
-      // Merge accepted amendments into proposal text before voting opens
-      await saveMergedProposal(proposal.id);
+    case 'author_review->community_signal':
+      // Open community voting on rejected amendments
+      await enqueueNotification(proposal.authorId, 'community_signal_open', 'Community is now voting on your rejected amendments');
+      break;
+    
+    case 'community_signal->sortition_synthesis':
+      // Create sortition body for text synthesis
+      await enqueueCreateSortition(proposal.communityId, 12);
+      break;
+    
+    case 'sortition_synthesis->voting':
       // Recalculate democracy score when voting opens
       await enqueueRecalculateScore(proposal.communityId);
       break;

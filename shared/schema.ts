@@ -208,6 +208,10 @@ export const communities = pgTable("communities", {
   sortitionMode: text("sortition_mode").default("absolute"), // 'absolute' | 'percentage'
   sortitionResponseHours: integer("sortition_response_hours").default(72),
 
+  // Amendment parameters (per-community config)
+  amendmentThreshold: numeric("amendment_threshold").default("0.5"), // upvote ratio to flag rejected amendments
+  maxAmendmentsPerProposal: integer("max_amendments_per_proposal").default(-1), // -1 = unlimited
+
   // Verification settings
   requireGovgrVerification: boolean("require_govgr_verification").default(false),
 
@@ -235,6 +239,7 @@ export const proposals = pgTable("proposals", {
   // Core content (Προβούλευμα = question + solution)
   question: text("question").notNull(),       // Το Ερώτημα
   solution: text("solution").notNull(),       // Η Απάντηση/Λύση
+  finalText: text("final_text"),              // Τελικό κείμενο από κληρωτό σώμα (null until synthesis)
 
   // State machine
   status: text("status").notNull().default("submitted"),
@@ -269,7 +274,15 @@ export const proposalAmendments = pgTable("proposal_amendments", {
   // Content
   text: text("text").notNull(),
 
-  // Status
+  // Author review (Κρίση συγγραφέα)
+  authorDecision: text("author_decision"), // 'accepted' | 'rejected' | null (not yet reviewed)
+  authorReason: text("author_reason"),     // Author's justification for rejection
+
+  // Community signal (Κρίση κοινότητας — votes on rejected amendments)
+  rejectionUpvotes: integer("rejection_upvotes").default(0),  // ⬆️ disagree with rejection
+  rejectionDownvotes: integer("rejection_downvotes").default(0), // ⬇️ agree with rejection
+
+  // Status (legacy field, kept for backward compatibility)
   status: text("status").default("pending"), // 'pending' | 'accepted' | 'rejected' | 'under_review'
   authorVeto: boolean("author_veto").default(false), // original author vetoed this amendment
 
@@ -278,6 +291,18 @@ export const proposalAmendments = pgTable("proposal_amendments", {
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// ─── Demopolis: Amendment Rejection Votes (Κρίση κοινότητας) ─────────────────
+
+export const amendmentRejectionVotes = pgTable("amendment_rejection_votes", {
+  id: serial("id").primaryKey(),
+  amendmentId: integer("amendment_id").notNull().references(() => proposalAmendments.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  vote: integer("vote").notNull(), // +1 (disagree with rejection) or -1 (agree with rejection)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  amendmentVoteUnique: uniqueIndex('amendment_vote_unique').on(table.amendmentId, table.userId),
+}));
 
 // ─── Demopolis: Sortition Bodies (Κληρωτά Σώματα) ────────────────────────────
 
