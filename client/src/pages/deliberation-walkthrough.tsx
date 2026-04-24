@@ -196,37 +196,64 @@ function StepSortition() {
 function StepAmendments() {
   return (
     <div className="space-y-4">
+      <div className="p-4 border rounded-lg bg-yellow-50 border-yellow-200">
+        <div className="flex items-center gap-2 mb-2">
+          <Edit3 className="w-5 h-5 text-yellow-600" />
+          <span className="font-semibold text-yellow-700">Διευκρινιστικές Προτάσεις</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Οι διευκρινιστικές προτάσεις που ψηφίστηκαν «Υπέρ» ενσωματώνονται στην αρχική πρόταση 
+          πριν από την τελική ψηφοφορία. Η αρχική πρόταση μετασχηματίζεται με βάση τις αποδεκτές αλλαγές.
+        </p>
+      </div>
+      
       <div className="p-4 border rounded-lg bg-muted/30">
         <div className="flex items-center justify-between mb-3">
-          <span className="font-medium">Διευκρινιστικές Προτάσεις</span>
-          <Badge variant="secondary">3 ενεργές</Badge>
+          <span className="font-medium">Αποδεκτές Διευκρινιστικές Προτάσεις</span>
+          <Badge variant="default" className="bg-green-600">2 αποδεκτές</Badge>
         </div>
         <div className="space-y-3">
-          <div className="p-3 bg-background rounded border">
+          <div className="p-3 bg-green-50 rounded border border-green-200">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium">Από: Γ.Σ.</span>
-              <Badge variant="outline">βελτίωση</Badge>
+              <Badge variant="secondary" className="bg-green-100 text-green-700">✓ Αποδεκτή</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
               Να συμπεριληφθούν και σταθμοί φόρτισης ηλεκτρικών οχημάτων σε δημόσιους χώρους.
             </p>
             <div className="mt-2 flex gap-2 text-xs">
-              <Button variant="ghost" size="sm" className="h-6 text-green-600">✓ Υπέρ (8)</Button>
-              <Button variant="ghost" size="sm" className="h-6 text-red-600">✗ Κατά (2)</Button>
+              <span className="text-green-600">✓ 8 υπέρ</span>
+              <span className="text-red-600">✗ 2 κατά</span>
             </div>
           </div>
-          <div className="p-3 bg-background rounded border">
+          <div className="p-3 bg-green-50 rounded border border-green-200">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium">Από: Ε.Ν.</span>
-              <Badge variant="outline">προσθήκη</Badge>
+              <Badge variant="secondary" className="bg-green-100 text-green-700">✓ Αποδεκτή</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
               Προσθήκη προγράμματος εκπαίδευσης οδηγών για ασφαλή οδήγηση ηλεκτρικών λεωφορείων.
             </p>
             <div className="mt-2 flex gap-2 text-xs">
-              <Button variant="ghost" size="sm" className="h-6 text-green-600">✓ Υπέρ (5)</Button>
-              <Button variant="ghost" size="sm" className="h-6 text-red-600">✗ Κατά (1)</Button>
+              <span className="text-green-600">✓ 5 υπέρ</span>
+              <span className="text-red-600">✗ 1 κατά</span>
             </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle className="w-5 h-5 text-blue-600" />
+          <span className="font-semibold text-blue-700">Τελική Πρόταση για Ψηφοφορία</span>
+        </div>
+        <div className="p-3 bg-white rounded border text-sm space-y-2">
+          <p><strong>Αρχική λύση:</strong> Εισαγωγή ηλεκτρικών λεωφορείων και επέκταση του δικτύου ποδηλατοδρόμων με στόχο μείωση των εκπομπών CO2 κατά 30% έως το 2030.</p>
+          <div className="border-l-2 border-green-500 pl-3 text-green-700">
+            <p>[Βελτίωση] Να συμπεριληφθούν και σταθμοί φόρτισης ηλεκτρικών οχημάτων σε δημόσιους χώρους.</p>
+          </div>
+          <div className="border-l-2 border-green-500 pl-3 text-green-700">
+            <p>[Προσθήκη] Προσθήκη προγράμματος εκπαίδευσης οδηγών για ασφαλή οδήγηση ηλεκτρικών λεωφορείων.</p>
           </div>
         </div>
       </div>
@@ -306,6 +333,15 @@ function StepDebate() {
 // ─── Step 6: Voting ─────────────────────────────────────────────────────────
 
 function StepVoting() {
+  const [voteType, setVoteType] = useState('yes_no');
+  
+  const voteTypes = [
+    { id: 'yes_no', name: 'Ναι/Όχι', icon: Vote, desc: 'Απλή ψηφοφορία υπέρ/κατά' },
+    { id: 'ranking', name: 'Κατάταξη', icon: BarChart3, desc: 'Κατάταξη προτάσεων κατά προτίμηση' },
+    { id: 'multiple', name: 'Πολλαπλή Επιλογή', icon: CheckCircle, desc: 'Επιλογή πολλαπλών επιλογών' },
+    { id: 'survey', name: 'Δημοσκόπηση', icon: MessageSquare, desc: 'Πολλαπλές ερωτήσεις με κλιμάκωση' },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="p-4 border rounded-lg bg-green-50 border-green-200">
@@ -319,35 +355,133 @@ function StepVoting() {
       </div>
       
       <div className="p-4 border rounded-lg bg-muted/30">
-        <div className="flex items-center justify-between mb-4">
-          <span className="font-medium">Αποτελέσματα</span>
-          <Badge variant="secondary">1,247 ψήφοι</Badge>
-        </div>
-        
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-green-600 font-medium">Υπέρ</span>
-              <span className="font-bold">65%</span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-4">
-              <div className="bg-green-600 h-4 rounded-full transition-all" style={{ width: '65%' }} />
-            </div>
-            <span className="text-xs text-muted-foreground">810 ψήφοι</span>
-          </div>
-          
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-red-600 font-medium">Κατά</span>
-              <span className="font-bold">35%</span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-4">
-              <div className="bg-red-600 h-4 rounded-full transition-all" style={{ width: '35%' }} />
-            </div>
-            <span className="text-xs text-muted-foreground">437 ψήφοι</span>
-          </div>
+        <label className="text-sm font-medium mb-3 block">Τύπος Ψηφοφορίας</label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {voteTypes.map(type => {
+            const Icon = type.icon;
+            const isActive = voteType === type.id;
+            return (
+              <button
+                key={type.id}
+                onClick={() => setVoteType(type.id)}
+                className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                  isActive ? 'border-green-500 bg-green-50' : 'border-transparent bg-background hover:border-muted'
+                }`}
+              >
+                <Icon className={`w-5 h-5 mb-1 ${isActive ? 'text-green-600' : 'text-muted-foreground'}`} />
+                <div className="text-sm font-medium">{type.name}</div>
+                <div className="text-xs text-muted-foreground">{type.desc}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
+      
+      {voteType === 'yes_no' && (
+        <div className="p-4 border rounded-lg bg-muted/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-medium">Αποτελέσματα</span>
+            <Badge variant="secondary">1,247 ψήφοι</Badge>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-green-600 font-medium">Υπέρ</span>
+                <span className="font-bold">65%</span>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-4">
+                <div className="bg-green-600 h-4 rounded-full transition-all" style={{ width: '65%' }} />
+              </div>
+              <span className="text-xs text-muted-foreground">810 ψήφοι</span>
+            </div>
+            
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-red-600 font-medium">Κατά</span>
+                <span className="font-bold">35%</span>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-4">
+                <div className="bg-red-600 h-4 rounded-full transition-all" style={{ width: '35%' }} />
+              </div>
+              <span className="text-xs text-muted-foreground">437 ψήφοι</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {voteType === 'ranking' && (
+        <div className="p-4 border rounded-lg bg-muted/30">
+          <label className="text-sm font-medium mb-3 block">Κατάταξη Προτάσεων</label>
+          <div className="space-y-2">
+            {[
+              { rank: 1, text: 'Ηλεκτρικά λεωφορεία + ποδηλατόδρομοι', votes: 412 },
+              { rank: 2, text: 'Δωρεάν εισιτήρια για μαθητές', votes: 287 },
+              { rank: 3, text: 'Βελτίωση ποδηλατοδρόμων στο κέντρο', votes: 198 },
+            ].map(item => (
+              <div key={item.rank} className="p-3 bg-background rounded border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    {item.rank}
+                  </div>
+                  <span className="text-sm">{item.text}</span>
+                </div>
+                <span className="text-sm font-medium">{item.votes} ψήφοι</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {voteType === 'multiple' && (
+        <div className="p-4 border rounded-lg bg-muted/30">
+          <label className="text-sm font-medium mb-3 block">Επιλέξτε Όσες Επιλογές Θέλετε</label>
+          <div className="space-y-2">
+            {[
+              { text: 'Ηλεκτρικά λεωφορεία', checked: true },
+              { text: 'Ποδηλατόδρομοι', checked: true },
+              { text: 'Σταθμοί φόρτισης', checked: false },
+              { text: 'Εκπαίδευση οδηγών', checked: true },
+            ].map((item, i) => (
+              <div key={i} className="p-3 bg-background rounded border flex items-center gap-3">
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                  item.checked ? 'bg-primary border-primary' : 'border-muted'
+                }`}>
+                  {item.checked && <div className="w-2 h-2 bg-primary-foreground rounded-sm" />}
+                </div>
+                <span className="text-sm">{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {voteType === 'survey' && (
+        <div className="p-4 border rounded-lg bg-muted/30">
+          <label className="text-sm font-medium mb-3 block">Δημοσκόπηση - Πολλαπλές Ερωτήσεις</label>
+          <div className="space-y-4">
+            <div className="p-3 bg-background rounded border">
+              <p className="text-sm font-medium mb-2">1. Πόσο σημαντική είναι η μείωση ρύπανσης;</p>
+              <div className="flex gap-2">
+                {['Κρίσιμη', 'Σημαντική', 'Μέτρια', 'Ασήμαντη'].map(opt => (
+                  <Button key={opt} variant="outline" size="sm" className="text-xs">{opt}</Button>
+                ))}
+              </div>
+            </div>
+            <div className="p-3 bg-background rounded border">
+              <p className="text-sm font-medium mb-2">2. Ποιο είναι το πιο σημαντικό μέτρο;</p>
+              <div className="flex flex-col gap-2">
+                {['Ηλεκτρικά λεωφορεία', 'Ποδηλατόδρομοι', 'Σταθμοί φόρτισης', 'Εκπαίδευση'].map(opt => (
+                  <div key={opt} className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-muted" />
+                    <span className="text-sm">{opt}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="p-4 border rounded-lg bg-muted/30">
         <div className="flex items-center justify-between mb-3">

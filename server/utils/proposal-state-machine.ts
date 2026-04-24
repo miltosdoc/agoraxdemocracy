@@ -15,6 +15,7 @@ import type { IStorage } from '../storage';
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
 import { validateProposal } from './proposal-structuring';
 import { createSortitionBody } from './sortition';
+import { saveMergedProposal } from './amendment-merger';
 
 // ─── State Definitions ──────────────────────────────────────────────────────
 
@@ -199,6 +200,8 @@ export async function triggerSideEffects(
       break;
     
     case 'deliberation->voting':
+      // Merge accepted amendments into proposal text before voting opens
+      await saveMergedProposal(proposal.id);
       // Recalculate democracy score when voting opens
       await enqueueRecalculateScore(proposal.communityId);
       break;
