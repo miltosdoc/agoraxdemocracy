@@ -221,6 +221,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Protected route middleware
   const requireAuth = (req: any, res: any, next: any) => {
+    // Demo mode: bypass auth, use user 3 (maria) as demo user — author of proposal 1
+    if (process.env.DEMO_MODE === 'true') {
+      if (!req.user) {
+        req.user = { id: 3, username: 'demo', email: 'demo@agorax.gr', name: 'Demo User', isAdmin: true };
+        req.isAuthenticated = () => true;
+      }
+      return next();
+    }
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
