@@ -1997,8 +1997,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
       if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
 
-      const updated = await storage.transitionProposalState(proposalId, 'review');
-      res.json(updated);
+      // ─── LLM Validation ───────────────────────────────────────────────────
+      let llmScore: string | undefined;
+      let llmFeedback: string | undefined;
+      let llmValidatedAt: Date | undefined;
+      let nextStatus = 'validating';
+
+      try {
+        const { validateProposal } = await import('./utils/llm-validation');
+        const result = await validateProposal(proposal.question, proposal.solution);
+
+        llmScore = String(result.score);
+        llmFeedback = result.feedback;
+        llmValidatedAt = new Date();
+
+        // Determine next state based on LLM score
+        if (result.category === 'return') {
+          nextStatus = 'returned';
+        } else if (result.category === 'auto_approve') {
+          nextStatus = 'approved';
+        } else {
+          nextStatus = 'valid';
+        }
+      } catch (llmError) {
+        console.error('LLM validation failed:', llmError);
+        // Fall back to manual review if LLM is unavailable
+        nextStatus = 'validating';
+        llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
+      }
+
+      // Update proposal with LLM validation results and transition state
+      const updated = await storage.updateProposal(proposalId, {
+        status: nextStatus,
+        llmScore,
+        llmFeedback,
+        llmValidatedAt,
+      });
+
+      res.json({
+        ...updated,
+        validation: {
+          score: llmScore ? Number(llmScore) : null,
+          feedback: llmFeedback,
+          category: llmScore ? (Number(llmScore) < 20 ? 'return' : Number(llmScore) > 90 ? 'auto_approve' : 'sortition') : null,
+        },
+      });
     } catch (error) {
       console.error("Error submitting proposal:", error);
       res.status(500).json({ message: "Failed to submit proposal" });
