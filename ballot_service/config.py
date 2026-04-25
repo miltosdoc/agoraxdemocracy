@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     # Security
     SALT_KEY: str = "CHANGE_ME_IN_PRODUCTION_abc123xyz"
     
-    # Database
-    DATABASE_URL: str = "sqlite:///./ballot_votes.db"
+    # Database — defaults to PostgreSQL (shared with main API)
+    DATABASE_URL: str = "postgresql://agorax:changeme@db:5432/agorax"
     
     # Allowed government signers for PAdES validation
     # These are the CN (Common Name) values from the signing certificates
@@ -32,6 +32,8 @@ class Settings(BaseSettings):
         "Ελληνική Δημοκρατία",
         "Υπουργείο Ψηφιακής Διακυβέρνησης",
         "APOSTILLE",  # Gov.gr signing service
+        "gov.gr",
+        "government",
     ]
     
     # Application settings
@@ -40,6 +42,10 @@ class Settings(BaseSettings):
     
     # Vote update policy
     ALLOW_VOTE_UPDATE: bool = False
+    
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
 
 
 # Singleton settings instance

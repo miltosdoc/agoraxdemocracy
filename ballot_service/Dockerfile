@@ -2,10 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for PDF processing
+# Install system dependencies for PDF processing and pyhanko
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libffi-dev \
+    libssl-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libffi-dev \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

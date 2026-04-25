@@ -14,6 +14,7 @@ import {
   votes,
   insertPollUserResponseSchema,
   sortitionMembers,
+  sortitionBodies,
 } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
@@ -2453,6 +2454,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error previewing sortition:", error);
       res.status(500).json({ message: "Failed to preview sortition" });
+    }
+  });
+
+  // List sortition bodies for a community (admin/founder)
+  app.get("/api/communities/:id/sortition", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Get all sortition bodies for this community
+      const bodies = await db
+        .select()
+        .from(sortitionBodies)
+        .where(eq(sortitionBodies.communityId, communityId))
+        .orderBy(desc(sortitionBodies.createdAt));
+
+      // Enrich with member counts
+      const enriched = await Promise.all(
+        bodies.map(async (body) => {
+          const members = await storage.getSortitionMembers(body.id);
+          return {
+            ...body,
+            memberCount: members.length,
+            members: members.map(m => ({ userId: m.userId, scoredAt: m.scoredAt })),
+          };
+        })
+      );
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error listing sortition bodies:", error);
+      res.status(500).json({ message: "Failed to list sortition bodies" });
+    }
+  });
+
+  // Get a specific sortition body with members
+  app.get("/api/sortition/:bodyId", requireAuth, async (req: any, res) => {
+    try {
+      const bodyId = parseInt(req.params.bodyId);
+      const body = await storage.getSortitionBody(bodyId);
+
+      if (!body) {
+        return res.status(404).json({ message: "Sortition body not found" });
+      }
+
+      const members = await storage.getSortitionMembers(bodyId);
+
+      // Get user details for each member
+      const enrichedMembers = await Promise.all(
+        members.map(async (m) => {
+          const user = await storage.getUser(m.userId);
+          return {
+            ...m,
+            user: user ? { id: user.id, name: user.name, username: user.username } : null,
+          };
+        })
+      );
+
+      res.json({
+        ...body,
+        members: enrichedMembers,
+        memberCount: enrichedMembers.length,
+      });
+    } catch (error) {
+      console.error("Error getting sortition body:", error);
+      res.status(500).json({ message: "Failed to get sortition body" });
+    }
+  });
+
+  // Complete a sortition body (admin/founder)
+  app.post("/api/sortition/:bodyId/complete", requireAuth, async (req: any, res) => {
+    try {
+      const bodyId = parseInt(req.params.bodyId);
+      const body = await storage.getSortitionBody(bodyId);
+
+      if (!body) {
+        return res.status(404).json({ message: "Sortition body not found" });
+      }
+
+      // Check if user is admin of the community
+      const role = await storage.getCommunityMemberRole(body.communityId, req.user.id);
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      if (body.status === 'completed') {
+        return res.status(400).json({ message: "Sortition body already completed" });
+      }
+
+      const completed = await storage.completeSortitionBody(bodyId);
+      res.json(completed);
+    } catch (error) {
+      console.error("Error completing sortition body:", error);
+      res.status(500).json({ message: "Failed to complete sortition body" });
     }
   });
 

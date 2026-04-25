@@ -42,6 +42,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
+      BALLOT_SERVICE_URL: http://ballot-service:8000
     ports:
       - "${API_PORT:-3000}:3000"
     volumes:
@@ -53,17 +54,28 @@ services:
       retries: 3
 
   # ─── Python Ballot Validation Service ──────────────────────────────────────
-  # ballot-service:
-  #   build:
-  #     context: ballot-service
-  #     dockerfile: Dockerfile
-  #   container_name: agorax_ballot
-  #   restart: unless-stopped
-  #   environment:
-  #     PORT: 8000
-  #   ports:
-  #     - "${BALLOT_PORT:-8000}:8000"
-  # NOTE: ballot-service directory not yet created. Uncomment when ready.
+  ballot-service:
+    build:
+      context: ballot_service
+      dockerfile: Dockerfile
+    container_name: agorax_ballot
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-agorax}
+      SALT_KEY: ${SALT_KEY:-changeme_ballot_salt}
+      DEBUG: ${DEBUG:-False}
+      HOST: "0.0.0.0"
+      PORT: 8000
+    ports:
+      - "${BALLOT_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:

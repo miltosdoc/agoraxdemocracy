@@ -1,260 +1,222 @@
 /**
- * Ballot Service Client
- * 
- * HTTP client for communicating with the Python ballot validation service.
- * This service validates Gov.gr Solemn Declaration PDFs as certified ballots.
+ * Ballot Client — HTTP client for the Python Ballot Validation Service.
+ *
+ * Proxies requests from the main Node.js API to the ballot-service container.
+ * The ballot service runs on port 8000 and handles PDF validation.
  */
 
-const BALLOT_SERVICE_URL = process.env.BALLOT_SERVICE_URL || 'http://localhost:8001';
+import fetch from "node-fetch";
+import FormData from "form-data";
+
+// Ballot service URL — Docker internal network
+const BALLOT_SERVICE_URL = process.env.BALLOT_SERVICE_URL || "http://localhost:8000";
 
 export interface BallotValidationResult {
-    success: boolean;
-    message: string;
-    rejection_reason?: string;
-    vote_choice?: string;
-    signer_name?: string;
-    voter_hash?: string;
-    file_hash?: string;
+  success: boolean;
+  message: string;
+  voter_hash?: string;
+  vote_choice?: string;
+  file_hash?: string;
+  signer_name?: string;
+  rejection_reason?: string;
 }
 
-export interface BallotInstructions {
-    link: string;
-    template_text: string;
-    poll_token: string;
+export interface IdentityValidationResult {
+  success: boolean;
+  message: string;
+  voter_hash?: string;
+  signer_name?: string;
+  rejection_reason?: string;
 }
 
-export interface PollTokenResponse {
-    poll_id: string;
-    poll_token: string;
-    expires_at: string;
-}
-
-export interface BallotStats {
-    poll_id: string;
-    total_votes: number;
-    choices: Record<string, number>;
+export interface PollStats {
+  poll_id: string;
+  total_votes: number;
+  unique_voters: number;
+  choices: Record<string, number>;
 }
 
 /**
- * Check if the ballot service is healthy
+ * Generate a poll token for ballot voting.
+ *
+ * The token is a random string that must appear in the Solemn Declaration PDF
+ * to prove the declaration was created specifically for this voting session.
  */
-export async function checkBallotServiceHealth(): Promise<boolean> {
-    try {
-        const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/health`);
-        return response.ok;
-    } catch (error) {
-        console.error('Ballot service health check failed:', error);
-        return false;
-    }
+export function generatePollToken(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let token = "";
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
 }
 
 /**
- * Generate a poll token for ballot voting
+ * Get ballot voting instructions for a poll.
+ *
+ * Returns instructions on how to create a Solemn Declaration PDF with the
+ * correct poll token embedded.
  */
-export async function generatePollToken(pollId: string): Promise<PollTokenResponse | null> {
-    try {
-        const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ poll_id: pollId }),
-        });
+export function getBallotInstructions(pollId: string, pollToken: string): string {
+  return `
+Ballot Voting Instructions for Poll: ${pollId}
 
-        if (!response.ok) {
-            console.error('Failed to generate poll token:', await response.text());
-            return null;
-        }
+To cast your vote, you need to create a Solemn Declaration PDF through Gov.gr
+that includes the following security token:
 
-        return await response.json();
-    } catch (error) {
-        console.error('Error generating poll token:', error);
-        return null;
-    }
+  Security Token: ${pollToken}
+
+Steps:
+1. Log in to Gov.gr with your Taxisnet credentials
+2. Create a new Solemn Declaration (Δήλωση υπό Δικαιο-swορκία)
+3. Include your AFM (Tax ID) in the declaration
+4. Include the security token above in the declaration text
+5. State your vote choice using the format: "vote for [OPTION]" or "ψηφίζω [ΕΠΙΛΟΓΗ]"
+6. Sign the PDF digitally with your Taxisnet certificate
+7. Upload the signed PDF to the ballot validation endpoint
+
+Your vote will be validated through 4 security gates:
+1. PAdES digital signature verification (anti-forgery)
+2. File uniqueness check (anti-spam)
+3. Poll token verification (session security)
+4. Voter identity check (one person, one vote)
+
+Your AFM is hashed with a salt — we never store your raw Tax ID.
+  `.trim();
 }
 
 /**
- * Get voting instructions for a poll
- */
-export async function getBallotInstructions(
-    pollId: string,
-    pollToken: string
-): Promise<BallotInstructions | null> {
-    try {
-        const params = new URLSearchParams({ poll_id: pollId, poll_token: pollToken });
-        const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/instructions?${params}`);
-
-        if (!response.ok) {
-            console.error('Failed to get ballot instructions:', await response.text());
-            return null;
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Error getting ballot instructions:', error);
-        return null;
-    }
-}
-
-/**
- * Validate an uploaded ballot PDF
+ * Validate a ballot PDF by sending it to the ballot validation service.
  */
 export async function validateBallot(
-    pdfBuffer: Buffer,
-    pollId: string,
-    pollToken: string,
-    filename: string
+  pdfBuffer: Buffer,
+  pollId: string,
+  pollToken: string,
 ): Promise<BallotValidationResult> {
-    try {
-        // Use FormData from form-data package for Node.js
-        const FormData = (await import('form-data')).default;
-        const formData = new FormData();
+  const form = new FormData();
+  form.append("file", pdfBuffer, { filename: "declaration.pdf" });
+  form.append("poll_id", pollId);
+  form.append("poll_token", pollToken);
 
-        // Append file with proper metadata
-        formData.append('file', pdfBuffer, {
-            filename: filename || 'ballot.pdf',
-            contentType: 'application/pdf',
-        });
-        formData.append('poll_id', pollId);
-        formData.append('poll_token', pollToken);
+  try {
+    const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/validate`, {
+      method: "POST",
+      body: form,
+      headers: form.getHeaders(),
+    });
 
-        // Use node-fetch style request with formData
-        const http = await import('http');
+    const data = await response.json();
 
-        return new Promise((resolve) => {
-            const url = new URL(`${BALLOT_SERVICE_URL}/api/ballot/validate`);
-
-            const options = {
-                hostname: url.hostname,
-                port: url.port || 8001,
-                path: url.pathname,
-                method: 'POST',
-                headers: formData.getHeaders(),
-            };
-
-            const req = http.request(options, (res) => {
-                let data = '';
-                res.on('data', (chunk) => {
-                    data += chunk;
-                });
-                res.on('end', () => {
-                    try {
-                        const result = JSON.parse(data);
-
-                        if (res.statusCode && res.statusCode >= 400) {
-                            // Handle error response from Python service
-                            if (result.detail) {
-                                resolve(typeof result.detail === 'object'
-                                    ? result.detail
-                                    : { success: false, message: result.detail });
-                            } else {
-                                resolve({ success: false, message: result.message || 'Validation failed' });
-                            }
-                        } else {
-                            resolve(result);
-                        }
-                    } catch (e) {
-                        resolve({
-                            success: false,
-                            message: `Failed to parse response: ${data.substring(0, 100)}`,
-                        });
-                    }
-                });
-            });
-
-            req.on('error', (error) => {
-                console.error('Error validating ballot:', error);
-                resolve({
-                    success: false,
-                    message: `Service error: ${error.message}`,
-                });
-            });
-
-            // Pipe the form data to the request
-            formData.pipe(req);
-        });
-    } catch (error) {
-        console.error('Error validating ballot:', error);
-        return {
-            success: false,
-            message: `Service error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        };
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.detail || `Validation failed: ${response.status}`,
+        rejection_reason: data.rejection_reason,
+      };
     }
+
+    return data;
+  } catch (error) {
+    console.error("Ballot service error:", error);
+    return {
+      success: false,
+      message: "Ballot validation service unavailable",
+    };
+  }
 }
 
 /**
- * Verify identity using Gov.gr PDF (One-Time Verification)
+ * Verify identity only (no voting) — for one-time user verification.
  */
 export async function verifyIdentity(
-    pdfBuffer: Buffer,
-    filename: string
-): Promise<BallotValidationResult> {
-    try {
-        const FormData = (await import('form-data')).default;
-        const formData = new FormData();
+  pdfBuffer: Buffer,
+): Promise<IdentityValidationResult> {
+  const form = new FormData();
+  form.append("file", pdfBuffer, { filename: "declaration.pdf" });
 
-        formData.append('file', pdfBuffer, {
-            filename: filename || 'identity.pdf',
-            contentType: 'application/pdf',
-        });
+  try {
+    const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/validate-identity`, {
+      method: "POST",
+      body: form,
+      headers: form.getHeaders(),
+    });
 
-        const http = await import('http');
+    const data = await response.json();
 
-        return new Promise((resolve) => {
-            const url = new URL(`${BALLOT_SERVICE_URL}/api/ballot/verify-identity`);
-
-            const options = {
-                hostname: url.hostname,
-                port: url.port || 8001,
-                path: url.pathname,
-                method: 'POST',
-                headers: formData.getHeaders(),
-            };
-
-            const req = http.request(options, (res) => {
-                let data = '';
-                res.on('data', (chunk) => { data += chunk; });
-                res.on('end', () => {
-                    try {
-                        const result = JSON.parse(data);
-                        if (res.statusCode && res.statusCode >= 400) {
-                            if (result.detail) {
-                                resolve(typeof result.detail === 'object' ? result.detail : { success: false, message: result.detail });
-                            } else {
-                                resolve({ success: false, message: result.message || 'Verification failed' });
-                            }
-                        } else {
-                            resolve(result);
-                        }
-                    } catch (e) {
-                        resolve({ success: false, message: 'Failed to parse response' });
-                    }
-                });
-            });
-
-            req.on('error', (err) => resolve({ success: false, message: err.message }));
-            formData.pipe(req);
-        });
-    } catch (error) {
-        return { success: false, message: `Service error: ${error instanceof Error ? error.message : 'Unknown'}` };
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.detail || `Identity verification failed: ${response.status}`,
+        rejection_reason: data.rejection_reason,
+      };
     }
+
+    return data;
+  } catch (error) {
+    console.error("Ballot service error:", error);
+    return {
+      success: false,
+      message: "Ballot validation service unavailable",
+    };
+  }
 }
 
 /**
- * Get ballot voting statistics for a poll
+ * Get voting statistics for a poll.
  */
-export async function getBallotStats(pollId: string): Promise<BallotStats | null> {
-    try {
-        const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/stats?poll_id=${pollId}`);
+export async function getBallotStats(pollId: string): Promise<PollStats> {
+  try {
+    const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/poll/${pollId}/stats`);
+    const data = await response.json();
 
-        if (!response.ok) {
-            console.error('Failed to get ballot stats:', await response.text());
-            return null;
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Error getting ballot stats:', error);
-        return null;
+    if (!response.ok) {
+      return {
+        poll_id: pollId,
+        total_votes: 0,
+        unique_voters: 0,
+        choices: {},
+      };
     }
+
+    return data;
+  } catch (error) {
+    console.error("Ballot service error:", error);
+    return {
+      poll_id: pollId,
+      total_votes: 0,
+      unique_voters: 0,
+      choices: {},
+    };
+  }
+}
+
+/**
+ * Check if the ballot validation service is healthy.
+ */
+export async function checkBallotServiceHealth(): Promise<{
+  status: string;
+  database: string;
+  service: string;
+}> {
+  try {
+    const response = await fetch(`${BALLOT_SERVICE_URL}/api/health`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        status: "unhealthy",
+        database: "unknown",
+        service: "ballot-validator",
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Ballot service health check failed:", error);
+    return {
+      status: "unavailable",
+      database: "unreachable",
+      service: "ballot-validator",
+    };
+  }
 }

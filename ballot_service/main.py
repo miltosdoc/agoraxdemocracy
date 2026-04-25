@@ -1,301 +1,303 @@
 """
-FastAPI Application for Gov.gr Ballot Box System.
+Ballot Validation Service — FastAPI Application
 
-Provides REST API endpoints for:
-- Ballot validation (PDF upload)
-- Frontend instructions
-- Health checks
+Validates Gov.gr Solemn Declaration PDFs as certified ballots.
+Implements 4 security gates:
+1. Integrity (Anti-Forgery): Verify PAdES digital signature
+2. Uniqueness (Anti-Spam): Check file hash for duplicates
+3. Context (Session Security): Verify poll token in text
+4. Identity (One Person, One Vote): Hash AFM and check voter uniqueness
 """
-import nest_asyncio
-nest_asyncio.apply()
+import asyncio
+import logging
+import sys
+from contextlib import asynccontextmanager
+from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
-import uuid
-
 from sqlalchemy.orm import Session
 
 from config import settings
-from database import get_db, init_db
+from database import get_db, init_db, engine
+from models import Vote
 from validator import BallotValidator, ValidationResult, RejectionReason
 
+# ─── Logging ────────────────────────────────────────────────────────────────
 
-# Initialize FastAPI app
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger("ballot_service")
+
+# ─── Pydantic Models ────────────────────────────────────────────────────────
+
+class VoteResponse(BaseModel):
+    success: bool
+    message: str
+    voter_hash: Optional[str] = None
+    vote_choice: Optional[str] = None
+    file_hash: Optional[str] = None
+    signer_name: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+
+class IdentityResponse(BaseModel):
+    success: bool
+    message: str
+    voter_hash: Optional[str] = None
+    signer_name: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+
+class PollStats(BaseModel):
+    poll_id: str
+    total_votes: int
+    unique_voters: int
+    choices: dict[str, int]
+
+
+class HealthResponse(BaseModel):
+    status: str
+    database: str
+    service: str
+
+
+# ─── Lifespan ────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events."""
+    logger.info("Ballot Validation Service starting up...")
+    init_db()
+    logger.info("Database initialized")
+    yield
+    logger.info("Ballot Validation Service shutting down")
+
+
+# ─── App ────────────────────────────────────────────────────────────────────
+
 app = FastAPI(
-    title="Gov.gr Ballot Box API",
-    description="Secure voting system using government-issued Solemn Declarations",
+    title="Ballot Validation Service",
+    description="Validates Gov.gr Solemn Declaration PDFs as certified ballots with 4 security gates",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# CORS configuration
+# CORS — allow main API to proxy requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],  # In production, restrict to main API origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Pydantic models for API responses
-class HealthResponse(BaseModel):
-    status: str
-    timestamp: str
-    version: str
+# ─── Helper ─────────────────────────────────────────────────────────────────
 
-
-class InstructionsResponse(BaseModel):
-    link: str
-    template_text: str
-    poll_token: str
-
-
-class ValidationResponse(BaseModel):
-    success: bool
-    message: str
-    rejection_reason: Optional[str] = None
-    vote_choice: Optional[str] = None
-    signer_name: Optional[str] = None
-    voter_hash: Optional[str] = None
-
-
-class PollTokenRequest(BaseModel):
-    poll_id: str
-
-
-class PollTokenResponse(BaseModel):
-    poll_id: str
-    poll_token: str
-    expires_at: str
-
-
-# Store active poll tokens (in production, use Redis or database)
-active_poll_tokens: dict[str, dict] = {}
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    init_db()
-
-
-@app.get(f"{settings.API_PREFIX}/health", response_model=HealthResponse)
-async def health_check():
-    """
-    Health check endpoint.
-    
-    Returns service status for monitoring and load balancers.
-    """
-    return HealthResponse(
-        status="healthy",
-        timestamp=datetime.utcnow().isoformat(),
-        version="1.0.0"
+def result_to_response(result: ValidationResult) -> tuple[VoteResponse, int]:
+    """Convert ValidationResult to API response."""
+    status_code = 200 if result.success else 400
+    return (
+        VoteResponse(
+            success=result.success,
+            message=result.message,
+            voter_hash=result.voter_hash,
+            vote_choice=result.vote_choice,
+            file_hash=result.file_hash,
+            signer_name=result.signer_name,
+            rejection_reason=result.rejection_reason.value if result.rejection_reason else None,
+        ),
+        status_code,
     )
 
 
-@app.post(f"{settings.API_PREFIX}/token", response_model=PollTokenResponse)
-async def generate_poll_token(request: PollTokenRequest):
-    """
-    Generate a unique token for a poll session.
-    
-    Frontend should call this before showing voting instructions to user.
-    The token must be included in the Solemn Declaration text.
-    """
-    poll_token = str(uuid.uuid4())
-    expires_at = datetime.utcnow()  # Add 24 hours in production
-    
-    # Store token (in production, use Redis with TTL)
-    active_poll_tokens[poll_token] = {
-        "poll_id": request.poll_id,
-        "created_at": datetime.utcnow().isoformat(),
-    }
-    
-    return PollTokenResponse(
-        poll_id=request.poll_id,
-        poll_token=poll_token,
-        expires_at=expires_at.isoformat()
-    )
+# ─── Routes ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/health", response_model=HealthResponse)
+async def health():
+    """Health check endpoint."""
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return HealthResponse(status="healthy", database="connected", service="ballot_validation")
+    except Exception as e:
+        return HealthResponse(
+            status="unhealthy",
+            database=f"error: {str(e)}",
+            service="ballot_validation",
+        )
 
 
-@app.get(f"{settings.API_PREFIX}/instructions", response_model=InstructionsResponse)
-async def get_instructions(poll_id: str, poll_token: str):
-    """
-    Get voting instructions for the frontend.
-    
-    Returns the gov.gr link and template text with the unique token.
-    
-    Args:
-        poll_id: The poll identifier
-        poll_token: Unique session token (get from /token endpoint first)
-    """
-    template_text = (
-        f"I, the undersigned, cast my valid vote for [CHOICE] "
-        f"in the Community Poll. Security Token: {poll_token}"
-    )
-    
-    return InstructionsResponse(
-        link="https://docs.gov.gr",
-        template_text=template_text,
-        poll_token=poll_token
-    )
-
-
-@app.post(f"{settings.API_PREFIX}/validate", response_model=ValidationResponse)
+@app.post("/api/ballot/validate", response_model=VoteResponse)
 async def validate_ballot(
     file: UploadFile = File(..., description="Gov.gr Solemn Declaration PDF"),
     poll_id: str = Form(..., description="Poll identifier"),
-    poll_token: str = Form(..., description="Session security token"),
-    db: Session = Depends(get_db)
+    poll_token: str = Form(..., description="Session token for this poll"),
+    db: Session = Depends(get_db),
 ):
     """
-    Validate an uploaded Gov.gr Solemn Declaration PDF.
+    Validate a ballot PDF and record the vote.
     
     Runs 4 security gates:
-    1. Integrity: Verify PAdES digital signature
-    2. Uniqueness: Check file hasn't been used before
-    3. Context: Verify poll token appears in text
-    4. Identity: Verify voter hasn't voted (using hashed AFM)
-    
-    Args:
-        file: The uploaded PDF file
-        poll_id: Identifier for the current poll
-        poll_token: Unique session token that must appear in the PDF
-        
-    Returns:
-        ValidationResponse with success status and details
+    1. PAdES signature verification
+    2. File uniqueness check
+    3. Poll token verification
+    4. Voter identity (one person, one vote)
     """
-    # Validate file type
-    if not file.filename or not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(
-            status_code=400,
-            detail="File must be a PDF document"
-        )
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
     
-    # Read file bytes
-    try:
-        pdf_bytes = await file.read()
-    except Exception as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to read uploaded file: {str(e)}"
-        )
-    
-    # Validate file size (max 10MB)
-    max_size = 10 * 1024 * 1024  # 10MB
-    if len(pdf_bytes) > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail="File size exceeds 10MB limit"
-        )
-    
-    # Run validation
-    validator = BallotValidator(db)
-    result = await validator.validate(pdf_bytes, poll_id, poll_token)
-    
-    # Map result to response
-    response = ValidationResponse(
-        success=result.success,
-        message=result.message,
-        rejection_reason=result.rejection_reason.value if result.rejection_reason else None,
-        vote_choice=result.vote_choice,
-        signer_name=result.signer_name
-    )
-    
-    # Set appropriate HTTP status for failures
-    if not result.success:
-        if result.rejection_reason in [
-            RejectionReason.INVALID_SIGNATURE,
-            RejectionReason.NO_SIGNATURE,
-            RejectionReason.UNKNOWN_SIGNER
-        ]:
-            # Security violations - 403 Forbidden
-            raise HTTPException(status_code=403, detail=response.model_dump())
-        elif result.rejection_reason in [
-            RejectionReason.DUPLICATE_FILE,
-            RejectionReason.ALREADY_VOTED
-        ]:
-            # Conflict - already processed
-            raise HTTPException(status_code=409, detail=response.model_dump())
-        else:
-            # Bad request - wrong token, AFM not found, etc.
-            raise HTTPException(status_code=400, detail=response.model_dump())
-    
-    return response
-    
-    
-@app.post(f"{settings.API_PREFIX}/verify-identity", response_model=ValidationResponse)
-async def verify_identity(
-    file: UploadFile = File(..., description="Gov.gr Solemn Declaration PDF"),
-    db: Session = Depends(get_db)
-):
-    """
-    Verify user identity from Gov.gr PDF (One-Time Verification).
-    
-    Checks:
-    1. Digital signature
-    2. Tax ID (AFM) extraction
-    
-    Returns:
-        ValidationResponse with voter_hash
-    """
-    # Validate file type
-    if not file.filename or not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="File must be a PDF document")
-        
-    # Read bytes
     try:
         pdf_bytes = await file.read()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
-        
-    # Run validation
+    
+    if len(pdf_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+    
+    logger.info(f"Validating ballot for poll={poll_id}, file={file.filename}, size={len(pdf_bytes)} bytes")
+    
     validator = BallotValidator(db)
-    result = await validator.validate_identity(pdf_bytes)
     
-    response = ValidationResponse(
-        success=result.success,
-        message=result.message,
-        rejection_reason=result.rejection_reason.value if result.rejection_reason else None,
-        signer_name=result.signer_name,
-        voter_hash=result.voter_hash
+    try:
+        result = await validator.validate(pdf_bytes, poll_id, poll_token)
+    except Exception as e:
+        logger.error(f"Validation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal validation error: {str(e)}")
+    
+    response, status_code = result_to_response(result)
+    logger.info(f"Validation result: success={result.success}, reason={result.rejection_reason}")
+    
+    return response, status_code
+
+
+@app.post("/api/ballot/validate-identity", response_model=IdentityResponse)
+async def validate_identity(
+    file: UploadFile = File(..., description="Gov.gr Solemn Declaration PDF"),
+    db: Session = Depends(get_db),
+):
+    """
+    Validate identity only (one-time verification).
+    
+    Checks:
+    - Valid government PAdES signature
+    - Extracts AFM and returns voter hash
+    
+    Does NOT check poll token or vote choice.
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+    
+    try:
+        pdf_bytes = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+    
+    if len(pdf_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+    
+    logger.info(f"Validating identity for file={file.filename}")
+    
+    validator = BallotValidator(db)
+    
+    try:
+        result = await validator.validate_identity(pdf_bytes)
+    except Exception as e:
+        logger.error(f"Identity validation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal validation error: {str(e)}")
+    
+    status_code = 200 if result.success else 400
+    return (
+        IdentityResponse(
+            success=result.success,
+            message=result.message,
+            voter_hash=result.voter_hash,
+            signer_name=result.signer_name,
+            rejection_reason=result.rejection_reason.value if result.rejection_reason else None,
+        ),
+        status_code,
     )
-    
-    if not result.success:
-         raise HTTPException(status_code=400, detail=response.model_dump())
-         
-    return response
-@app.get(f"{settings.API_PREFIX}/stats")
+
+
+@app.get("/api/ballot/poll/{poll_id}/stats", response_model=PollStats)
 async def get_poll_stats(poll_id: str, db: Session = Depends(get_db)):
-    """
-    Get voting statistics for a poll.
-    
-    Returns vote counts per choice (without revealing voter identities).
-    """
+    """Get voting statistics for a poll."""
     from sqlalchemy import func
-    from models import Vote
+    from sqlalchemy.orm import Session
     
-    results = db.query(
-        Vote.vote_choice,
-        func.count(Vote.id).label('count')
-    ).filter(
-        Vote.poll_id == poll_id
-    ).group_by(
-        Vote.vote_choice
-    ).all()
+    votes = db.query(Vote).filter(Vote.poll_id == poll_id).all()
     
-    total_votes = sum(r.count for r in results)
-    choices = {r.vote_choice: r.count for r in results}
+    if not votes:
+        return PollStats(
+            poll_id=poll_id,
+            total_votes=0,
+            unique_voters=0,
+            choices={},
+        )
+    
+    # Count votes per choice
+    choices: dict[str, int] = {}
+    for vote in votes:
+        choices[vote.vote_choice] = choices.get(vote.vote_choice, 0) + 1
+    
+    # Unique voters
+    unique_voters = len(set(v.voter_hash for v in votes))
+    
+    return PollStats(
+        poll_id=poll_id,
+        total_votes=len(votes),
+        unique_voters=unique_voters,
+        choices=choices,
+    )
+
+
+@app.get("/api/ballot/poll/{poll_id}/votes")
+async def get_poll_votes(
+    poll_id: str,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """Get votes for a poll (admin endpoint)."""
+    votes = (
+        db.query(Vote)
+        .filter(Vote.poll_id == poll_id)
+        .order_by(Vote.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
     
     return {
         "poll_id": poll_id,
-        "total_votes": total_votes,
-        "choices": choices
+        "total": db.query(Vote).filter(Vote.poll_id == poll_id).count(),
+        "votes": [
+            {
+                "id": v.id,
+                "voter_hash": v.voter_hash,
+                "vote_choice": v.vote_choice,
+                "file_hash": v.file_hash,
+                "created_at": v.created_at.isoformat(),
+            }
+            for v in votes
+        ],
     }
 
 
+# ─── Run ────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(
+        "main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+    )
