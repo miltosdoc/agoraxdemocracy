@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -31,6 +32,7 @@ interface VoteModalProps {
 
 export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProps) {
   const { t, locale } = useTranslation();
+  const [, navigate] = useLocation();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
   const [rankedOptions, setRankedOptions] = useState<number[]>([]);
@@ -159,11 +161,6 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
   const voteMutation = useMutation({
     mutationFn: async () => {
-      console.log("🗳️ VOTE SUBMISSION STARTED");
-      console.log("Poll type:", poll.pollType);
-      console.log("Selected options:", selectedOptions);
-      console.log("Selected option:", selectedOption);
-
       // Clear any previous errors
       setError(null);
 
@@ -207,13 +204,6 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
             optionId: selectedOption
           };
       }
-
-      // Debug logging to help identify the issue
-      console.log("Vote data being sent:", voteData);
-      console.log("Poll options:", poll.options.map(opt => ({ id: opt.id, text: opt.text })));
-      console.log("Selected option:", selectedOption);
-      console.log("Selected options array:", selectedOptions);
-      console.log("Poll type:", poll.pollType);
 
       // Validate that the option ID exists in the poll options
       if (voteData.optionId && !poll.options.some(opt => opt.id === voteData.optionId)) {
@@ -330,7 +320,8 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
             <div className="flex flex-col space-y-2 mt-4">
               <Button
                 onClick={() => {
-                  window.location.href = `/auth?returnTo=/polls/${poll.id}`;
+                  onClose();
+                  navigate(`/auth?returnTo=/polls/${poll.id}`);
                 }}
                 className="w-full"
               >
@@ -339,7 +330,8 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
               <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = `/auth?tab=register&returnTo=/polls/${poll.id}`;
+                  onClose();
+                  navigate(`/auth?tab=register&returnTo=/polls/${poll.id}`);
                 }}
                 className="w-full"
               >

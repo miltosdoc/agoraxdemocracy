@@ -7,8 +7,7 @@ import {
 import { RegisterUser, LoginUser, User as SelectUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { getTranslationFunction } from "@/hooks/use-translation";
-const t = getTranslationFunction();
+import { useTranslation } from "@/hooks/use-translation";
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -23,6 +22,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const {
     data: user,
     error,
@@ -37,33 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (data: SelectUser & { returnTo?: string }) => {
-      // Extract returnTo from response if it exists
-      const { returnTo, ...user } = data;
-      
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (data: SelectUser) => {
+      queryClient.setQueryData(["/api/user"], data);
       toast({
-        title: t('general.success'),
-        description: t("Login successful"),
+        title: t('auth.login'),
+        description: t('auth.loginSuccess'),
         variant: "default",
       });
-      
-      // Redirect to returnTo URL if provided
-      if (returnTo) {
-        // Use relative path without domain for internal navigation
-        const path = returnTo.startsWith('http') ? 
-          new URL(returnTo).pathname : 
-          returnTo;
-          
-        console.log('Login successful, redirecting to:', path);
-        
-        // Force a hard redirect to the path
-        window.location.href = path.startsWith('/') ? path : `/${path}`;
-      }
     },
     onError: (error: Error) => {
       toast({
-        title: t('general.error'),
+        title: t('auth.login'),
         description: error.message,
         variant: "destructive",
       });
@@ -75,33 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", credentials);
       return await res.json();
     },
-    onSuccess: (data: SelectUser & { returnTo?: string }) => {
-      // Extract returnTo from response if it exists
-      const { returnTo, ...user } = data;
-      
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (data: SelectUser) => {
+      queryClient.setQueryData(["/api/user"], data);
       toast({
-        title: t('general.success'),
-        description: t("Registration successful"),
+        title: t('auth.register'),
+        description: t('auth.registerSuccess'),
         variant: "default",
       });
-      
-      // Redirect to returnTo URL if provided
-      if (returnTo) {
-        // Use relative path without domain for internal navigation
-        const path = returnTo.startsWith('http') ? 
-          new URL(returnTo).pathname : 
-          returnTo;
-          
-        console.log('Registration successful, redirecting to:', path);
-        
-        // Force a hard redirect to the path
-        window.location.href = path.startsWith('/') ? path : `/${path}`;
-      }
     },
     onError: (error: Error) => {
       toast({
-        title: t('general.error'),
+        title: t('auth.register'),
         description: error.message,
         variant: "destructive",
       });
@@ -114,16 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
-      window.location.href = "/";
       toast({
-        title: t('general.success'),
-        description: t('auth.logout'),
+        title: t('auth.logout'),
+        description: t('auth.logoutSuccess'),
         variant: "default",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: t('general.error'),
+        title: t('auth.logout'),
         description: error.message,
         variant: "destructive",
       });

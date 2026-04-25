@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { useTranslation } from "@/hooks/use-translation";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 import {
   Accordion,
   AccordionContent,
@@ -10,165 +12,196 @@ import {
 } from "@/components/ui/accordion";
 
 export default function FAQPage() {
-  const { t, locale } = useTranslation();
-  // Set page title when component mounts
+  const { t } = useTranslation();
+  const [, navigate] = useLocation();
+
   useEffect(() => {
-    document.title = `AgoraX - ${t('footer.faq')}`;
+    document.title = `AgoraX — ${t('footer.faq')}`;
   }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-grow container mx-auto px-4 py-8 pb-16 sm:pb-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">{t('footer.faq')}</h1>
-          
-          <div className="space-y-8">
-            <p className="text-lg text-muted-foreground mb-6">
-              Συχνές ερωτήσεις σχετικά με την πλατφόρμα AgoraX και τον τρόπο λειτουργίας της.
+      <main className="flex-grow pt-16 pb-16 sm:pb-6">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold mb-3">{t('footer.faq')}</h1>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Απαντήσεις σε συχνές ερωτήσεις για την πλατφόρμα διαβουλευτικής δημοκρατίας AgoraX.
             </p>
+          </div>
 
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="text-left">
-                  Τι είναι το AgoraX;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Το AgoraX είναι μια πλατφόρμα ψηφιακής δημοκρατίας που επιτρέπει στους πολίτες να συμμετέχουν ενεργά 
-                  στη λήψη αποφάσεων μέσω διαφανών και αξιόπιστων ψηφοφοριών. Η πλατφόρμα δημιουργήθηκε για να προάγει 
-                  τη συμμετοχική δημοκρατία και να δώσει φωνή στους πολίτες σε θέματα που τους αφορούν.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-2">
-                <AccordionTrigger className="text-left">
-                  Πώς μπορώ να δημιουργήσω λογαριασμό στο AgoraX;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Μπορείτε να δημιουργήσετε λογαριασμό στο AgoraX πατώντας το κουμπί "Εγγραφή" στην αρχική σελίδα. 
-                  Θα χρειαστεί να συμπληρώσετε το ονοματεπώνυμό σας, ένα όνομα χρήστη, το email σας και έναν κωδικό πρόσβασης. 
-                  Εναλλακτικά, μπορείτε να συνδεθείτε με τον λογαριασμό σας στο Google. Μετά την εγγραφή σας, θα έχετε πρόσβαση 
-                  σε όλες τις λειτουργίες της πλατφόρμας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-3">
-                <AccordionTrigger className="text-left">
-                  Πώς μπορώ να συμμετάσχω σε μια ψηφοφορία;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Για να συμμετάσχετε σε μια ψηφοφορία, θα πρέπει πρώτα να συνδεθείτε στον λογαριασμό σας. Μετά, μπορείτε 
-                  να περιηγηθείτε στις ενεργές ψηφοφορίες από την αρχική σελίδα. Επιλέξτε μια ψηφοφορία που σας ενδιαφέρει, 
-                  διαβάστε τις λεπτομέρειες και τις επιλογές, και πατήστε το κουμπί "Ψηφίστε". Στο αναδυόμενο παράθυρο, 
-                  επιλέξτε την απάντησή σας και υποβάλετε την ψήφο σας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-4">
-                <AccordionTrigger className="text-left">
-                  Πώς μπορώ να δημιουργήσω μια νέα ψηφοφορία;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Για να δημιουργήσετε μια νέα ψηφοφορία, συνδεθείτε στον λογαριασμό σας και πατήστε το κουμπί "Νέα Ψηφοφορία" 
-                  στο πάνω μέρος της σελίδας. Συμπληρώστε τον τίτλο, την περιγραφή και επιλέξτε κατηγορία για την ψηφοφορία σας. 
-                  Προσθέστε τις επιλογές ψήφου και καθορίστε τη διάρκεια και τις ρυθμίσεις ορατότητας. Μπορείτε επίσης να ορίσετε 
-                  γεωγραφικούς περιορισμούς αν η ψηφοφορία αφορά συγκεκριμένη περιοχή. Τέλος, πατήστε "Δημιουργία Ψηφοφορίας" για 
-                  να δημοσιεύσετε την ψηφοφορία σας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-5">
-                <AccordionTrigger className="text-left">
-                  Μπορώ να δω τα αποτελέσματα μιας ψηφοφορίας;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Τα αποτελέσματα των ψηφοφοριών είναι διαθέσιμα ανάλογα με τις ρυθμίσεις που έχει ορίσει ο δημιουργός. 
-                  Σε ορισμένες ψηφοφορίες, τα αποτελέσματα είναι ορατά κατά τη διάρκεια της ψηφοφορίας, ενώ σε άλλες 
-                  εμφανίζονται μόνο μετά την ολοκλήρωσή της. Για να δείτε τα αποτελέσματα μιας ψηφοφορίας, επισκεφθείτε 
-                  τη σελίδα λεπτομερειών της ψηφοφορίας και πατήστε το κουμπί "Αποτελέσματα", εφόσον είναι διαθέσιμο.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-6">
-                <AccordionTrigger className="text-left">
-                  Μπορώ να σχολιάσω σε μια ψηφοφορία;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Ναι, εφόσον ο δημιουργός της ψηφοφορίας έχει ενεργοποιήσει τα σχόλια. Για να προσθέσετε ένα σχόλιο, 
-                  επισκεφθείτε τη σελίδα λεπτομερειών της ψηφοφορίας και χρησιμοποιήστε το πεδίο σχολίων στο κάτω μέρος 
-                  της σελίδας. Τα σχόλια είναι ορατά σε όλους τους χρήστες που έχουν πρόσβαση στην ψηφοφορία.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-7">
-                <AccordionTrigger className="text-left">
-                  Πώς μπορώ να μοιραστώ μια ψηφοφορία με άλλους;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Για να μοιραστείτε μια ψηφοφορία, επισκεφθείτε τη σελίδα λεπτομερειών της ψηφοφορίας και πατήστε το 
-                  κουμπί "Μοιραστείτε". Θα εμφανιστούν επιλογές για αντιγραφή του συνδέσμου ή κοινοποίηση στα μέσα 
-                  κοινωνικής δικτύωσης όπως το Facebook. Μπορείτε επίσης να αντιγράψετε απευθείας τον σύνδεσμο από τη 
-                  γραμμή διευθύνσεων του φυλλομετρητή σας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-8">
-                <AccordionTrigger className="text-left">
-                  Τι γίνεται με την ασφάλεια των δεδομένων μου;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Το AgoraX δεσμεύεται για την προστασία των προσωπικών σας δεδομένων. Οι κωδικοί πρόσβασης κρυπτογραφούνται 
-                  και δεν αποθηκεύονται σε μορφή απλού κειμένου. Τα προσωπικά σας στοιχεία χρησιμοποιούνται μόνο για τους 
-                  σκοπούς λειτουργίας της πλατφόρμας και δεν κοινοποιούνται σε τρίτους χωρίς τη συγκατάθεσή σας. 
-                  Για περισσότερες πληροφορίες, ανατρέξτε στην Πολιτική Απορρήτου μας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-9">
-                <AccordionTrigger className="text-left">
-                  Μπορώ να επεκτείνω τη διάρκεια μιας ψηφοφορίας;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Ναι, αν είστε ο δημιουργός μιας ψηφοφορίας και έχετε επιλέξει να επιτρέπεται η επέκταση, μπορείτε να 
-                  παρατείνετε τη διάρκειά της. Για να το κάνετε αυτό, επισκεφθείτε τη σελίδα λεπτομερειών της ψηφοφορίας 
-                  και πατήστε το κουμπί "Επέκταση". Θα μπορέσετε να ορίσετε μια νέα ημερομηνία λήξης για την ψηφοφορία σας.
-                </AccordionContent>
-              </AccordionItem>
-              
-              <AccordionItem value="item-10">
-                <AccordionTrigger className="text-left">
-                  Πώς μπορώ να επικοινωνήσω με την ομάδα υποστήριξης;
-                </AccordionTrigger>
-                <AccordionContent>
-                  Για οποιαδήποτε απορία ή πρόβλημα, μπορείτε να επικοινωνήσετε με την ομάδα υποστήριξης του AgoraX 
-                  στέλνοντας email στο agoraxdemocracy@gmail.com. Εναλλακτικά, μπορείτε να μας καλέσετε στο +30 210 1234567 
-                  κατά τις εργάσιμες ώρες (Δευτέρα-Παρασκευή, 9:00-17:00). Θα χαρούμε να σας βοηθήσουμε με οποιοδήποτε 
-                  ζήτημα αντιμετωπίζετε.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            
-            <div className="bg-card rounded-lg p-6 shadow-sm mt-8">
-              <h2 className="text-2xl font-semibold mb-4">Έχετε άλλες ερωτήσεις;</h2>
-              <p className="mb-4">
-                Αν δεν βρήκατε την απάντηση που ψάχνετε, μπορείτε να επικοινωνήσετε μαζί μας μέσω email ή τηλεφώνου. 
-                Η ομάδα μας είναι πάντα διαθέσιμη να σας βοηθήσει και να απαντήσει σε οποιαδήποτε ερώτηση έχετε 
-                σχετικά με την πλατφόρμα AgoraX.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                <a 
-                  href="mailto:agoraxdemocracy@gmail.com" 
-                  className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-                >
-                  Επικοινωνήστε μέσω Email
-                </a>
-                <a 
-                  href="/how-it-works" 
-                  className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                >
-                  Δείτε πώς λειτουργεί
-                </a>
-              </div>
+          <Accordion type="single" collapsible className="w-full space-y-3">
+            <AccordionItem value="item-1" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι η AgoraX;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Η AgoraX είναι μια πλατφόρμα διαβουλευτικής δημοκρατίας. Δεν πρόκειται απλά για μια πλατφόρμα ψηφοφοριών — πρόκειται για ένα
+                πλήρες σύστημα συμμετοχικής λήψης αποφάσεων: υποβολή προτάσεων, επικύρωση μέσω AI,
+                τροπολογία από την κοινότητα, σύνθεση μέσω κληρωτού σώματος και τελική ψηφοφορία
+                επικύρωσης με επαληθευμένη ταυτότητα.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-2" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Ποια είναι η διαφορά της AgoraX από άλλες πλατφόρμες ψηφοφοριών;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Οι περισσότερες πλατφόρμες προσφέρουν απλώς ψηφοφορίες. Η AgoraX υποστηρίζει όλη την αλυσίδα της
+                διαβούλευσης: επεξεργασία των προτάσεων πριν την ψηφοφορία, διάλογος μέσω τροπολογιών,
+                σύνθεση τελικού κειμένου από τυχαία επιλεγμένο σώμα (αντί του πολιτικού ελίτ) και επαληθευμένη
+                ταυτότητα μέσω Gov.gr για αποφυγή των bots.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-3" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Πώς υποβάλλω μια πρόταση;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Μετά την εγγραφή σας, μπορείτε να υποβάλλετε μια πρόταση επιλέγοντας «Νέα Πρόταση» από το μενού.
+                Θα χρειαστεί να διατυπώσετε ένα συγκεκριμένο ερώτημα και μια προτεινόμενη λύση.
+                Η πρόταση ανήκει σε μια θεματική κατηγορία και υποβάλλεται σε μια κοινότητα πολιτών
+                (π.χ. γειτονιά, δήμος, επαγγελματικός κλάδος).
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-4" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι η «Επικύρωση LLM» και γιατί την χρησιμοποιείτε;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Πριν μπει σε διαβούλευση, κάθε πρόταση αξιολογείται αυτόματα από ένα μοντέλο γλωσσικής τεχνητής νοημοσύνης (LLM)
+                σε πέντε άξονες: δομή, συγκεκριμενοποίηση, εφικτότητα, πληρότητα και διαφάνεια. Αυτό μειώνει
+                το θόρυβο, εξασφαλίζει τη ποιότητα των προτάσεων πριν φτάσουν στην κοινότητα, και αυτοματοποιεί
+                την πορεία για προτάσεις υψηλής ποιότητας.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-5" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι οι τροπολογίες και πώς λειτουργούν;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Μετά την επικύρωση, τα μέλη της κοινότητας μπορούν να υποβάλλουν τροπολογίες — βελτιώσεις, προσθήκες ή αντιπροτάσεις
+                στην αρχική πρόταση. Ο συγγραφέας διατηρεί το βέτο: μπορεί να τις αποδεχτεί (ενσωματώνοντάς τις στην πρόταση) ή να τις απορρίψει
+                (με υποχρεωτική αιτιολόγηση). Αυτό διαφυλάττει τη συνοχή της πρότασης χωρίς να την υποβιβάζει η αρχή του πλήθους.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-6" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι το «Συμβουλή Κοινότητας»;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Αν ο συγγραφέας απορρίψει μια τροπ3b9ότητα, η κοινότητα έχει την ευκαιρία να την «ακυρώσει» αυτή την απόρριψη. Μέσω up/down voting,
+                η κοινότητα σήμαινει τις τροπολογίες που θεωρεί ότι αξίζουν να φτάσουν στο κληρωτό σώμα. Αυτός ο
+                μηχανισμός εξισορροπεί τη δυνατή υπερβολή της εξουσίας του συγγραφέα — η κοινότητα έχει
+                λόγο από το να την ακολουθήσει ακριβώς, μέχρι και να την απορρίψει.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-7" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι το «Κληρωτό Σώμα» και γιατί το χρησιμοποιείτε;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Μετά την ανασκόπηση και τη συμβουλή, ένα τυχαία επιλεγμένο σώμα πολιτών (κλήρωση) αναλαμβάνει να συνθέσει το
+                τελικό κείμενο της πρότασης. Η τυχαία επιλογή εξασφαλίζει αντιπροσωπευτικότητα
+                χωρίς κομματικό έλεγχο. Δεν πρόκειται για επαγγελματίες ή εργοδότες — πρόκειται για τυχαίους πολίτες
+                που αξιολογούν αντικειμενικά την πρόταση και τις τροπολογίες.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-8" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Πώς λειτουργεί η ψηφοφορία επικύρωσης;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Μετά τη σύνθεση του κληρωτού σώματος, το τελικό κείμενο τίθεται σε δυαδική ψηφοφορία Ναι/Όχι σε όλη την κοινότητα.
+                Το αποτέλεσμα είναι διαφανές και απαιτείται υψηλό ποσοστό συμμετοχής για να θεωρηθεί η απόφαση νομιμοποιημένη.
+                Κάθε ψηφοφόρος μπορεί να πιστοποιήσει την ταυτότητά του μέσω Gov.gr.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-9" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι σημαίνει η ταυτοποίηση μέσω Gov.gr;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Για να ψηφίσετε σε κρίσιμες ψηφοφορίες, ταυτοποιείστε την ταυτότητά σας μέσω του ελληνικού κράτους (Gov.gr ή
+                κρυπτογραφική υπογραφή). Αυτό εξασφαλίζει ότι κάθε ψήφος προέρχεται από πραγματικό πολίτη και όχι από bot
+                ή πολλαπλούς λογαριασμούς. Η ανωνυμία της ψήφου διατηρείται πλήρως — μόνο η ταυτότητα επαληθεύεται.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-10" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Τι είναι οι Κοινότητες στην AgoraX;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Οι κοινότητες είναι ομάδες πολιτών με κοινό ενδιαφέρον. Μπορεί να είναι γεωγραφική (π.χ. δήμος Αθηναίων),
+                επαγγελματική (π.χ. ιατρικός σύλλογος) ή θεματική (π.χ. περιβάλλον). Κάθε πρόταση υποβάλλεται
+                σε μια κοινότητα και οι ψήφοι μετρούν αποκλειστικά μέσα στην κοινότητα που την εκφράζει — χωρίς εξωτερικούς
+                παρεμβαίνοντες.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-11" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Πώς μπορώ να συμμετέχω σε κλήρωση;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Τα μέλη της κοινότητας μπορούν να δηλώσουν ενδιαφέρον για συμμετοχή σε κλήρωση. Όταν μια πρόταση φτάσει στην φάση σύνθεσης,
+                το σύστημα επιλέγει τυχαία ένα υποσύνολο πολιτών από όσους δήλωσαν ενδιαφέρον. Αν επιλεγείτε,
+                λαμβάνετε ειδοποίηση και έχετε προθεσμία (π.χ. 48 ώρες) να υποβάλλετε την αξιολόγησή σας.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-12" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Είναι δωρεάν η χρήση της AgoraX;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Ναι, η βασική χρήση της πλατφόρμας είναι δωρεάν. Μπορείτε να εγγραφείτε, να υποβάλλετε προτάσεις, να συμμετέχετε σε κοινότητες
+                και να ψηφίζετε χωρίς καμία οικονομική επιβάρυνση. Η πλατφόρμα χρηματοδοτείται από τις κοινότητες που τη χρησιμοποιούν
+                για να οργανώσουν την προσωπική τους διαβούλευση.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-13" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-left font-medium text-base">
+                Πώς επικοινωνώ με την ομάδα υποστήριξης;
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pb-4">
+                Για τεχνικά θέματα, ερωτήσεις ή προτάσεις σχετικά με την πλατφόρμα, μπορείτε να στείλετε email στο
+                {" "}
+                <a href="mailto:agoraxdemocracy@gmail.com" className="text-primary hover:underline">
+                  agoraxdemocracy@gmail.com
+                </a>.
+                {" "}
+                Αν επιθυμείτε να αποκτήσετε πρόσβαση στο demo ή να συζητήσετε συνεργασία, είμαστε ανοιχτοί.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          <div className="mt-12 text-center p-8 bg-muted/30 rounded-lg border">
+            <h2 className="text-xl font-semibold mb-3">Δεν βρήκατε την απάντησή σας;</h2>
+            <p className="text-muted-foreground mb-6">
+              Επισκεφθείτε την σελίδα για την προσωπική εξήγηση της διαδικασίας ή εγγραφείτε για να δείτε από κοντά.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="outline" onClick={() => navigate("/how-it-works")}>
+                Πώς Λειτουργεί
+              </Button>
+              <Button onClick={() => navigate("/walkthrough")}>
+                Διαδραστικό Walkthrough
+              </Button>
+              <Button variant="secondary" onClick={() => navigate("/auth?tab=register")}>
+                Εγγραφή
+              </Button>
             </div>
           </div>
         </div>

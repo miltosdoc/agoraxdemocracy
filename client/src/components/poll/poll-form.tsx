@@ -152,14 +152,10 @@ export function PollForm({ pollId }: { pollId?: number }) {
   useEffect(() => {
     if (isEditing && pollData) {
       // Debug what we're getting
-      console.log("Poll data for editing:", pollData);
-      
       // Update the form with poll data
       const startDate = new Date(pollData.startDate);
       const endDate = new Date(pollData.endDate);
-      
-      console.log("Parsed dates:", { startDate, endDate });
-      
+
       // Set all form values at once for better performance
       form.reset({
         poll: {
@@ -315,11 +311,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
           }
           
           processedData.poll.startDate = startDate.toISOString();
-          console.log("Processed start date:", startDate.toISOString());
         } catch (error) {
-          console.error("Error parsing start date/time:", error, 
-            typeof processedData.poll.startDate, processedData.poll.startDate, 
-            processedData.poll.startTime);
           throw new Error('Invalid start date or time. Please check the format.');
         }
       }
@@ -349,11 +341,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
           }
           
           processedData.poll.endDate = endDate.toISOString();
-          console.log("Processed end date:", endDate.toISOString());
         } catch (error) {
-          console.error("Error parsing end date/time:", error, 
-            typeof processedData.poll.endDate, processedData.poll.endDate, 
-            processedData.poll.endTime);
           throw new Error('Invalid end date or time. Please check the format.');
         }
       }
@@ -858,8 +846,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
                           form.setValue("poll.radiusKm", radius);
                         }}
                         onLocationInfoChange={(locationInfo) => {
-                          // Only log geocoded info for debugging, no longer storing hierarchical info
-                          console.log("Geocoded location info:", locationInfo);
+                          // Geocoded info received but not stored
                         }}
                       />
                     </div>

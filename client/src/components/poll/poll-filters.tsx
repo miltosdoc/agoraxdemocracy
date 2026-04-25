@@ -90,7 +90,6 @@ export function PollFilters({
             cities: result.cities
           });
         } catch (error) {
-          console.error("Error processing location data:", error);
           // Set empty arrays as fallback
           setLocationData({
             countries: [],
@@ -157,7 +156,6 @@ export function PollFilters({
     setSelectedCity("");
     
     if (value === "all") {
-      console.log("[LocationFilter] Clearing country filter");
       onFilterChange({
         locationCountry: "",
         locationRegion: "",
@@ -165,7 +163,6 @@ export function PollFilters({
       });
     } else {
       const country = locationData.countries.find(c => c.id === value);
-      console.log(`[LocationFilter] Setting country filter to: ${country?.name || "Unknown"} (ID: ${value})`);
       onFilterChange({
         locationCountry: country?.name || "",
         locationRegion: "",
@@ -173,38 +170,34 @@ export function PollFilters({
       });
     }
   };
-  
+
   const handleRegionChange = (value: string) => {
     setSelectedRegion(value === "all" ? "" : value);
     setSelectedCity("");
-    
+
     if (value === "all") {
-      console.log("[LocationFilter] Clearing region filter");
       onFilterChange({
         locationRegion: "",
         locationCity: ""
       });
     } else {
       const region = locationData.regions.find(r => r.id === value);
-      console.log(`[LocationFilter] Setting region filter to: ${region?.name || "Unknown"} (ID: ${value})`);
       onFilterChange({
         locationRegion: region?.name || "",
         locationCity: ""
       });
     }
   };
-  
+
   const handleCityChange = (value: string) => {
     setSelectedCity(value === "all" ? "" : value);
-    
+
     if (value === "all") {
-      console.log("[LocationFilter] Clearing city filter");
       onFilterChange({
         locationCity: ""
       });
     } else {
       const city = locationData.cities.find(c => c.id === value);
-      console.log(`[LocationFilter] Setting city filter to: ${city?.name || "Unknown"} (ID: ${value})`);
       onFilterChange({
         locationCity: city?.name || ""
       });

@@ -124,7 +124,7 @@ export function GeofenceMap({
         onLocationInfoChange(info);
       }
     } catch (error) {
-      console.error('Error fetching location info:', error);
+      // Error fetching location info
     }
   };
   
@@ -147,7 +147,6 @@ export function GeofenceMap({
         setGpsLoading(false);
       },
       (error) => {
-        console.error('Geolocation error:', error);
         setGpsLoading(false);
         // TODO: Show error toast
       }
@@ -173,10 +172,10 @@ export function GeofenceMap({
         onCenterChange(parseFloat(lat), parseFloat(lon));
         fetchLocationInfo(parseFloat(lat), parseFloat(lon));
       } else {
-        console.log('No results found for postal code:', postalCode);
+        // No results found for postal code
       }
     } catch (error) {
-      console.error('Error searching postal code:', error);
+      // Error searching postal code
     } finally {
       setSearchLoading(false);
     }

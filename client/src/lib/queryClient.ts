@@ -1,19 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getTranslationFunction } from "@/hooks/use-translation";
-const t = getTranslationFunction();
+import { ApiError } from "./api";
+export { ApiError };
 
 // Custom error type for API errors
-export class ApiError extends Error {
-  status: number;
-  errors?: Record<string, any>;
-  
-  constructor(status: number, message: string, errors?: Record<string, any>) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.errors = errors;
-  }
-}
 
 // Function to parse and format the error response
 async function parseErrorResponse(res: Response): Promise<ApiError> {
@@ -42,7 +31,7 @@ async function parseErrorResponse(res: Response): Promise<ApiError> {
   } catch (e) {
     // If we can't parse the response, use a generic error message
     console.error("Error parsing error response:", e);
-    errorMessage = t("An error occurred. Please try again later.");
+    errorMessage = "An error occurred. Please try again later.";
   }
   
   return new ApiError(res.status, errorMessage, errorDetails);

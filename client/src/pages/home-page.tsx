@@ -60,8 +60,8 @@ function HeroSection() {
               </>
             ) : (
               <>
-                <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/auth')}>
-                  {t('auth.login')}
+                <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/auth?tab=register')}>
+                  {t('auth.register')}
                 </Button>
                 <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
                   <Lightbulb className="w-5 h-5 mr-2" />
@@ -297,7 +297,7 @@ function HowItWorksSection() {
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 mb-4">
                   <Icon className="w-8 h-8" />
                 </div>
-                <div className="text-sm font-medium text-blue-600 mb-1">{step.stepNum} {index + 1}</div>
+                <div className="text-sm font-medium text-blue-600 mb-1">{step.stepNum}</div>
                 <h3 className="font-semibold text-lg mb-2">{step.title}</h3>
                 <p className="text-muted-foreground text-sm">{step.description}</p>
               </div>
@@ -327,8 +327,8 @@ function CTASection() {
             </Button>
           ) : (
             <>
-              <Button variant="solid" size="lg" onClick={() => navigate('/auth')}>
-                {t('auth.login')}
+              <Button variant="solid" size="lg" onClick={() => navigate('/auth?tab=register')}>
+                {t('auth.register')}
               </Button>
               <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
                 {t('home.learnMore')}

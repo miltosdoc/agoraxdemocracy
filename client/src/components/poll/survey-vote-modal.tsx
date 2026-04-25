@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -34,6 +35,7 @@ interface QuestionResponse {
 
 export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyVoteModalProps) {
   const { t, locale } = useTranslation();
+  const [, navigate] = useLocation();
   const [responses, setResponses] = useState<Record<number, QuestionResponse>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [error, setError] = useState<Error | ApiError | null>(null);
@@ -378,18 +380,20 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
             </Alert>
             
             <div className="flex flex-col space-y-2 mt-4">
-              <Button 
+              <Button
                 onClick={() => {
-                  window.location.href = `/auth?returnTo=/polls/${poll.id}`;
+                  onClose();
+                  navigate(`/auth?returnTo=/polls/${poll.id}`);
                 }}
                 className="w-full"
               >
                 {t('auth.login')}
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = `/auth?tab=register&returnTo=/polls/${poll.id}`;
+                  onClose();
+                  navigate(`/auth?tab=register&returnTo=/polls/${poll.id}`);
                 }}
                 className="w-full"
               >

@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Vote } from "lucide-react";
+import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Vote, Menu } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
@@ -52,8 +52,8 @@ export default function Header() {
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
   const handleLogout = () => {
-    logoutMutation.mutate();
     navigate("/");
+    logoutMutation.mutate();
   };
 
   const handleCreatePoll = () => {
@@ -126,23 +126,18 @@ export default function Header() {
         {!user ? (
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
+            {/* Desktop buttons */}
             <Button
               variant="outline"
-              onClick={() => {
-                const currentPath = window.location.pathname;
-                window.location.href = `/auth?returnTo=${encodeURIComponent(currentPath)}`;
-              }}
-              className="min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              onClick={() => navigate("/auth")}
+              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
               data-testid="button-login"
             >
               {t('auth.login')}
             </Button>
             <Button
-              onClick={() => {
-                const currentPath = window.location.pathname;
-                window.location.href = `/auth?tab=register&returnTo=${encodeURIComponent(currentPath)}`;
-              }}
-              className="min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
+              onClick={() => navigate("/auth?tab=register")}
+              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
               data-testid="button-register"
             >
               {t('auth.register')}
@@ -156,6 +151,27 @@ export default function Header() {
               <MessageSquare className="h-4 w-4" />
               <span>{t('nav.process')}</span>
             </Button>
+            {/* Mobile hamburger */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="sm:hidden min-h-[44px] min-w-[44px] p-2">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 mt-2">
+                <DropdownMenuItem onClick={() => navigate("/auth")} className="cursor-pointer">
+                  {t('auth.login')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/auth?tab=register")} className="cursor-pointer">
+                  {t('auth.register')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/walkthrough")} className="cursor-pointer">
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {t('nav.process')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
@@ -329,14 +345,6 @@ export default function Header() {
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   {t('nav.myPolls')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate("/groups")}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-groups"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  {t('nav.groups')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/communities")}

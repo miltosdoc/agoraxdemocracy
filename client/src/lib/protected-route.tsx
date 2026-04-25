@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
 
 // DEMO MODE: Set to true to bypass auth for all pages
-const DEMO_MODE = true;
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 export function ProtectedRoute({
   path,

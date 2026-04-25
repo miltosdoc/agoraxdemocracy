@@ -48,9 +48,6 @@ export default function PollExtendPage() {
   const extendMutation = useMutation({
     mutationFn: async () => {
       try {
-        console.log("End date:", newEndDate);
-        console.log("End time:", newEndTime);
-        
         // Direct approach: Parse the date components
         let newEndDateTime;
         
@@ -88,7 +85,6 @@ export default function PollExtendPage() {
           newEndDate: newEndDateTime.toISOString(),
         });
       } catch (error) {
-        console.error("Error parsing end date/time:", error, newEndDate, newEndTime);
         throw new Error('Invalid end date or time. Please check the format.');
       }
     },
@@ -180,7 +176,6 @@ export default function PollExtendPage() {
       // Call mutation if validation passes
       extendMutation.mutate();
     } catch (error) {
-      console.error("Error parsing date/time:", error);
       toast({
         title: t('general.error'),
         description: 'Invalid date or time format. Please check your input.',

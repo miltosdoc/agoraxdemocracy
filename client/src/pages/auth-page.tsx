@@ -35,14 +35,14 @@ async function getFingerprint(): Promise<string | undefined> {
 }
 
 export default function AuthPage() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [location, navigate] = useLocation();
-  const { user, loginMutation, registerMutation } = useAuth();
-  
+  const { user } = useAuth();
+
   // Extract URL parameters
   const params = new URLSearchParams(location.split("?")[1]);
   const returnTo = params.get("returnTo") || "/home";
-  
+
   const [tab, setTab] = useState(() => {
     // Check if URL has a tab parameter
     return params.get("tab") === "register" ? "register" : "login";
@@ -51,10 +51,7 @@ export default function AuthPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      // Use relative path without domain for internal navigation
-      const path = returnTo.startsWith('http') ? 
-        new URL(returnTo).pathname : 
-        returnTo;
+      const path = returnTo.startsWith('http') ? new URL(returnTo).pathname : returnTo;
       navigate(path);
     }
   }, [user, navigate, returnTo]);
@@ -66,10 +63,10 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex flex-col items-center">
-              <img 
-                src={logoImage} 
-                alt="AgoraX Logo" 
-                className="h-20 w-auto mb-3" 
+              <img
+                src={logoImage}
+                alt="AgoraX Logo"
+                className="h-20 w-auto mb-3"
               />
               <h1 className="text-3xl font-bold text-primary">AgoraX</h1>
               <p className="text-muted-foreground mt-2">
@@ -84,22 +81,22 @@ export default function AuthPage() {
               <TabsTrigger value="register">{t('auth.register')}</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              <LoginForm onSubmit={() => {
-                // Use relative path without domain for internal navigation
-                const path = returnTo.startsWith('http') ? 
-                  new URL(returnTo).pathname : 
-                  returnTo;
-                navigate(path);
-              }} />
+              <LoginForm
+                onSubmit={() => {
+                  const path = returnTo.startsWith('http') ? new URL(returnTo).pathname : returnTo;
+                  navigate(path);
+                }}
+                onSwitchToRegister={() => setTab("register")}
+              />
             </TabsContent>
             <TabsContent value="register">
-              <RegisterForm onSubmit={() => {
-                // Use relative path without domain for internal navigation
-                const path = returnTo.startsWith('http') ? 
-                  new URL(returnTo).pathname : 
-                  returnTo;
-                navigate(path);
-              }} />
+              <RegisterForm
+                onSubmit={() => {
+                  const path = returnTo.startsWith('http') ? new URL(returnTo).pathname : returnTo;
+                  navigate(path);
+                }}
+                onSwitchToLogin={() => setTab("login")}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -109,11 +106,10 @@ export default function AuthPage() {
       <div className="hidden lg:w-1/2 lg:flex flex-col bg-primary text-white p-10 items-center justify-center">
         <div className="max-w-lg">
           <h2 className="text-4xl font-bold mb-6">
-            Καλωσορίσατε στην πλατφόρμα διαβούλευσης και συμμετοχικής διακυβέρνησης
+            {t('auth.heroTitle')}
           </h2>
           <p className="text-lg mb-8">
-            Η AgoraX είναι μια πλατφόρμα για διαβούλευση, τροπολογίες και αποφάσεις μέσω κληρωτών σωμάτων. 
-            Υποβάλετε προτάσεις, συζητάτε με την κοινότητα, και αποφασίζετε μαζί.
+            {t('auth.heroSubtitle')}
           </p>
           <div className="space-y-4">
             <div className="flex items-start">
@@ -126,8 +122,8 @@ export default function AuthPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Υποβάλετε προτάσεις</h3>
-                <p>Προτείνετε ιδέες και λύσεις — η κοινότητα τις αξιολογεί και τις βελτιώνει</p>
+                <h3 className="font-semibold text-xl">{t('auth.heroFeature1Title')}</h3>
+                <p>{t('auth.heroFeature1Desc')}</p>
               </div>
             </div>
             <div className="flex items-start">
@@ -137,8 +133,8 @@ export default function AuthPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Διαβουλεύεστε με την κοινότητα</h3>
-                <p>Τροπολογίες, συζήτηση και κριτική — ο συγγραφέας συνθέτει την τελική πρόταση</p>
+                <h3 className="font-semibold text-xl">{t('auth.heroFeature2Title')}</h3>
+                <p>{t('auth.heroFeature2Desc')}</p>
               </div>
             </div>
             <div className="flex items-start">
@@ -151,8 +147,8 @@ export default function AuthPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-xl">Κληρωτά σώματα αποφασίζουν</h3>
-                <p>Τυχαία επιλεγμένοι πολίτες συνθέτουν την τελική πρόταση και η κοινότητα επικυρώνει</p>
+                <h3 className="font-semibold text-xl">{t('auth.heroFeature3Title')}</h3>
+                <p>{t('auth.heroFeature3Desc')}</p>
               </div>
             </div>
           </div>
@@ -162,13 +158,9 @@ export default function AuthPage() {
   );
 }
 
-function LoginForm({ onSubmit }: { onSubmit: () => void }) {
+function LoginForm({ onSubmit, onSwitchToRegister }: { onSubmit: () => void; onSwitchToRegister: () => void }) {
+  const { t } = useTranslation();
   const { loginMutation } = useAuth();
-  const [location] = useLocation();
-  
-  // Extract the returnTo parameter from URL
-  const params = new URLSearchParams(location.split("?")[1]);
-  const returnTo = params.get("returnTo");
 
   const form = useForm<z.infer<typeof loginUserSchema>>({
     resolver: zodResolver(loginUserSchema),
@@ -179,24 +171,12 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
   });
 
   const handleSubmit = async (values: z.infer<typeof loginUserSchema>) => {
-    // Capture device fingerprint
     const deviceFingerprint = await getFingerprint();
-    
-    // Extract returnTo parameter directly from URL for more reliability
-    const searchParams = new URLSearchParams(window.location.search);
-    const urlReturnTo = searchParams.get('returnTo');
-    
-    // Use URL param first, then component state, then default
-    const finalReturnTo = urlReturnTo || returnTo || '/home';
-    
-    // Log returnTo parameter for debugging
-    console.log('Login form attempting to pass returnTo:', finalReturnTo);
-    
-    // Pass the returnTo parameter with the login request
+    const urlReturnTo = new URLSearchParams(window.location.search).get('returnTo') || '/home';
     loginMutation.mutate({
       ...values,
       deviceFingerprint,
-      returnTo: finalReturnTo
+      returnTo: urlReturnTo
     }, {
       onSuccess: onSubmit,
     });
@@ -212,7 +192,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
             <FormItem>
               <FormLabel>{t('auth.username')}</FormLabel>
               <FormControl>
-                <Input placeholder="username" {...field} />
+                <Input placeholder={t('auth.usernamePlaceholder') as string} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -232,8 +212,8 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           )}
         />
         <div className="flex justify-end">
-          <Button variant="link" className="px-0 text-sm">
-            {t('auth.forgotPassword')}
+          <Button variant="link" className="px-0 text-sm" onClick={onSwitchToRegister}>
+            {t('auth.noAccount')}
           </Button>
         </div>
         <Button
@@ -243,7 +223,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
         >
           {loginMutation.isPending ? t('general.loading') + "..." : t('auth.login')}
         </Button>
-        
+
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
@@ -254,7 +234,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
             </span>
           </div>
         </div>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -262,10 +242,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           onClick={() => {
             const currentUrl = new URL(window.location.href);
             const returnToParam = currentUrl.searchParams.get('returnTo') || '/home';
-            // Clean up returnTo URL if it's a full URL
-            const path = returnToParam.startsWith('http') ? 
-              new URL(returnToParam).pathname : 
-              returnToParam;
+            const path = returnToParam.startsWith('http') ? new URL(returnToParam).pathname : returnToParam;
             window.location.href = `/auth/google?returnTo=${encodeURIComponent(path)}`;
           }}
         >
@@ -277,14 +254,10 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
   );
 }
 
-function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
+function RegisterForm({ onSubmit, onSwitchToLogin }: { onSubmit: () => void; onSwitchToLogin: () => void }) {
+  const { t } = useTranslation();
   const { registerMutation } = useAuth();
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [location] = useLocation();
-  
-  // Extract the returnTo parameter from URL
-  const params = new URLSearchParams(location.split("?")[1]);
-  const returnTo = params.get("returnTo");
 
   const form = useForm<z.infer<typeof registerUserSchema>>({
     resolver: zodResolver(registerUserSchema),
@@ -298,25 +271,12 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
 
   const handleSubmit = async (values: z.infer<typeof registerUserSchema>) => {
     if (!acceptTerms) return;
-    
-    // Capture device fingerprint
     const deviceFingerprint = await getFingerprint();
-    
-    // Extract returnTo parameter directly from URL for more reliability
-    const searchParams = new URLSearchParams(window.location.search);
-    const urlReturnTo = searchParams.get('returnTo');
-    
-    // Use URL param first, then component state, then default
-    const finalReturnTo = urlReturnTo || returnTo || '/home';
-    
-    // Log returnTo parameter for debugging
-    console.log('Register form attempting to pass returnTo:', finalReturnTo);
-    
-    // Pass the returnTo parameter with the register request
+    const urlReturnTo = new URLSearchParams(window.location.search).get('returnTo') || '/home';
     registerMutation.mutate({
       ...values,
       deviceFingerprint,
-      returnTo: finalReturnTo
+      returnTo: urlReturnTo
     }, {
       onSuccess: onSubmit,
     });
@@ -332,7 +292,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             <FormItem>
               <FormLabel>{t('auth.fullName')}</FormLabel>
               <FormControl>
-                <Input placeholder="Όνομα Επώνυμο" {...field} />
+                <Input placeholder={t('auth.fullNamePlaceholder') as string} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -345,7 +305,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             <FormItem>
               <FormLabel>{t('auth.email')}</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="email@example.com" {...field} />
+                <Input type="email" placeholder={t('auth.emailPlaceholder') as string} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -358,7 +318,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             <FormItem>
               <FormLabel>{t('auth.username')}</FormLabel>
               <FormControl>
-                <Input placeholder="username" {...field} />
+                <Input placeholder={t('auth.usernamePlaceholder') as string} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -390,14 +350,19 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
             {t('auth.acceptTerms')}{" "}
-            <a href="/terms" className="text-primary hover:underline">
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
               {t('auth.termsOfService')}
             </a>{" "}
             {t('auth.and')}{" "}
-            <a href="/privacy" className="text-primary hover:underline">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
               {t('auth.privacyPolicy')}
             </a>
           </label>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="link" className="px-0 text-sm" onClick={onSwitchToLogin}>
+            {t('auth.haveAccount')}
+          </Button>
         </div>
         <Button
           type="submit"
@@ -408,7 +373,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             ? t('general.loading') + "..."
             : t('auth.register')}
         </Button>
-        
+
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
@@ -419,7 +384,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             </span>
           </div>
         </div>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -427,10 +392,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           onClick={() => {
             const currentUrl = new URL(window.location.href);
             const returnToParam = currentUrl.searchParams.get('returnTo') || '/home';
-            // Clean up returnTo URL if it's a full URL
-            const path = returnToParam.startsWith('http') ? 
-              new URL(returnToParam).pathname : 
-              returnToParam;
+            const path = returnToParam.startsWith('http') ? new URL(returnToParam).pathname : returnToParam;
             window.location.href = `/auth/google?returnTo=${encodeURIComponent(path)}`;
           }}
         >

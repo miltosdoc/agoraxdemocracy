@@ -478,7 +478,7 @@ export default function PollDetailsPage() {
                   {isActive && !user && (
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => window.location.href = `/?tab=login&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
+                        onClick={() => navigate(`/auth?returnTo=${encodeURIComponent(`/polls/${pollId}`)}`)}
                         variant="outline"
                         className="flex items-center"
                       >
@@ -486,7 +486,7 @@ export default function PollDetailsPage() {
                         {t('auth.loginToVote')}
                       </Button>
                       <Button
-                        onClick={() => window.location.href = `/?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
+                        onClick={() => navigate(`/auth?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`)}
                         variant="secondary"
                         className="flex items-center"
                       >
@@ -611,13 +611,13 @@ export default function PollDetailsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.location.href = `/?tab=login&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
+                          onClick={() => navigate(`/auth?returnTo=${encodeURIComponent(`/polls/${pollId}`)}`)}
                         >
                           {t('auth.login')}
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => window.location.href = `/?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
+                          onClick={() => navigate(`/auth?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`)}
                         >
                           {t('auth.signUp')}
                         </Button>

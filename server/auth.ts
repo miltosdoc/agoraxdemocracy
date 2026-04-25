@@ -10,6 +10,7 @@ import { User as SelectUser } from "@shared/schema";
 import { db, pool } from "./db";
 import { users, User } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
 
 // Extend session interface to include returnTo property
 declare module "express-session" {
@@ -48,7 +49,10 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSecret = process.env.SESSION_SECRET || "agorax-secret-key-change-in-production";
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET is required");
+  }
 
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
@@ -64,6 +68,14 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method === "GET",
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
@@ -85,7 +97,7 @@ export function setupAuth(app: Express) {
     new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || "https://agoraxdemocracy.com/auth/google/callback",
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
       scope: ["profile", "email"],
       proxy: true // This helps with proxied requests
     },
@@ -164,13 +176,10 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", authLimiter, async (req, res, next) => {
     try {
       // Store any returnTo info
       const returnTo = req.body.returnTo || '/home';
-
-      // Log for debugging
-      console.log('Register endpoint received returnTo:', returnTo);
 
       // Extract client IP
       const clientIp = (req.ip || req.headers['x-forwarded-for'] || (req.connection as any).remoteAddress) as string;
@@ -186,14 +195,9 @@ export function setupAuth(app: Express) {
 
       // Check for existing user
       const existingUsername = await storage.getUserByUsername(req.body.username);
-      if (existingUsername) {
-        return res.status(400).send("Το όνομα χρήστη υπάρχει ήδη");
-      }
-
-      // Check for existing email
       const existingEmail = await storage.getUserByEmail(req.body.email);
-      if (existingEmail) {
-        return res.status(400).send("Το email χρησιμοποιείται ήδη");
+      if (existingUsername || existingEmail) {
+        return res.status(400).send("Invalid registration data");
       }
 
       // Remove returnTo and deviceFingerprint from the data saved to the database
@@ -234,12 +238,9 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
+  app.post("/api/login", authLimiter, (req, res, next) => {
     // Store any returnTo info from the session or request body
     const returnTo = req.body.returnTo || '/home';
-
-    // Log for debugging
-    console.log('Login endpoint received returnTo:', returnTo);
 
     // Extract client IP and device fingerprint
     const clientIp = (req.ip || req.headers['x-forwarded-for'] || (req.connection as any).remoteAddress) as string;
@@ -349,8 +350,6 @@ export function setupAuth(app: Express) {
   app.get('/auth/google', (req, res, next) => {
     // Store the returnTo URL in the session
     if (req.query.returnTo) {
-      // Log the returnTo URL for debugging
-      console.log('Setting returnTo in session:', req.query.returnTo);
       req.session.returnTo = req.query.returnTo as string;
     }
 
@@ -380,9 +379,6 @@ export function setupAuth(app: Express) {
         // Get the returnTo URL from the session and clear it
         const returnTo = req.session.returnTo || '/home';
         delete req.session.returnTo;
-
-        // Log for debugging
-        console.log('Redirecting after Google auth to:', returnTo);
 
         // Redirect to the original URL or homepage after successful authentication
         return res.redirect(returnTo);
