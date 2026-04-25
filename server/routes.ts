@@ -9,7 +9,6 @@ import {
   insertVoteSchema,
   rankingVoteSchema,
   insertCommentSchema,
-  insertGroupSchema,
   users,
   votes,
   insertPollUserResponseSchema,
@@ -30,10 +29,6 @@ import {
 import { INITIAL_PROPOSAL_STATE, isProposalState } from "@shared/proposal-lifecycle";
 import { sanitizeCommunityCreateInput, sanitizeCommunityUpdateInput } from "@shared/community-settings";
 import { buildCommunitySummary } from "@shared/community-summary";
-
-const addGroupMemberSchema = z.object({
-  email: z.string().email("Invalid email format")
-});
 
 /**
  * Helper function to format Zod validation errors in a more user-friendly way.
@@ -282,7 +277,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationCountry,
         locationRegion,
         locationCity,
-        groupId
       } = req.query;
 
       const filters = {
@@ -296,7 +290,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationCountry: locationCountry as string,
         locationRegion: locationRegion as string,
         locationCity: locationCity as string,
-        groupId: groupId ? parseInt(groupId as string) : undefined
       };
 
       const polls = await storage.getPolls(filters);
@@ -370,29 +363,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...poll,
           creatorId
         }, options);
-
-        // Notify group members if poll is in a group
-        if (createdPoll.groupId) {
-          try {
-            const group = await storage.getGroup(createdPoll.groupId);
-            if (group && group.members) {
-              // Create notifications for all group members except the creator
-              const notificationPromises = group.members
-                .filter(member => member.userId !== creatorId)
-                .map(member =>
-                  storage.createPollNotification({
-                    userId: member.userId,
-                    pollId: createdPoll.id
-                  })
-                );
-
-              await Promise.all(notificationPromises);
-              console.log(`Created ${notificationPromises.length} notifications for poll ${createdPoll.id}`);
-            }
-          } catch (notificationError) {
-            console.error("Error creating notifications:", notificationError);
-          }
-        }
 
         res.status(201).json(createdPoll);
       } catch (storageError) {
@@ -576,14 +546,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const poll = await storage.getPoll(pollId, userId);
       if (!poll) {
         return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
-      }
-
-      // SECURITY: Group membership check for voting
-      if (poll.groupId) {
-        const isMember = await storage.isGroupMember(poll.groupId, userId);
-        if (!isMember) {
-          return res.status(403).json({ message: "You must be a member of this group to vote" });
-        }
       }
 
       if (!poll.isActive) {
@@ -812,183 +774,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Group routes
-  app.post("/api/groups", requireAuth, async (req, res) => {
-    try {
-      const parsedData = insertGroupSchema.safeParse({
-        ...req.body,
-        creatorId: req.user.id
-      });
-
-      if (!parsedData.success) {
-        return res.status(400).json({
-          message: "Λανθασμένα δεδομένα ομάδας",
-          errors: parsedData.error.format()
-        });
-      }
-
-      const { name } = parsedData.data;
-      const creatorId = req.user.id;
-      const group = await storage.createGroup(name, creatorId);
-
-      res.status(201).json(group);
-    } catch (error) {
-      console.error("Error creating group:", error);
-      res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία ομάδας" });
-    }
-  });
-
-  app.get("/api/groups", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const groups = await storage.getUserGroups(userId);
-      res.json(groups);
-    } catch (error) {
-      console.error("Error fetching user groups:", error);
-      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ομάδων" });
-    }
-  });
-
-  app.get("/api/groups/:id", requireAuth, async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.id;
-
-      const group = await storage.getGroup(groupId);
-
-      if (!group) {
-        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
-      }
-
-      const isMember = await storage.isGroupMember(groupId, userId);
-      if (!isMember) {
-        return res.status(403).json({ message: "Δεν έχετε πρόσβαση σε αυτή την ομάδα" });
-      }
-
-      res.json(group);
-    } catch (error) {
-      console.error("Error fetching group:", error);
-      res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ομάδας" });
-    }
-  });
-
-  app.post("/api/groups/:id/members", requireAuth, async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const requesterId = req.user.id;
-
-      const validation = addGroupMemberSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({
-          message: "Μη έγκυρα δεδομένα",
-          errors: validation.error.flatten()
-        });
-      }
-
-      const { email } = validation.data;
-
-      const group = await storage.getGroup(groupId);
-      if (!group) {
-        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
-      }
-
-      const isCreator = group.creatorId === requesterId;
-      const isMember = await storage.isGroupMember(groupId, requesterId);
-
-      if (!isCreator && !isMember) {
-        return res.status(403).json({ message: "Δεν έχετε δικαίωμα να προσθέσετε μέλη σε αυτή την ομάδα" });
-      }
-
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "User with this email is not registered" });
-      }
-
-      const member = await storage.addGroupMember(groupId, email);
-      res.status(201).json({ success: true, message: "Το μέλος προστέθηκε επιτυχώς", member });
-    } catch (error: any) {
-      console.error("Error adding group member:", error);
-
-      if (error.message === "User is already a member of this group") {
-        return res.status(400).json({ message: "Ο χρήστης είναι ήδη μέλος της ομάδας" });
-      }
-
-      res.status(500).json({ message: "Σφάλμα κατά την προσθήκη μέλους" });
-    }
-  });
-
-  app.delete("/api/groups/:id/members/:userId", requireAuth, async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userIdToRemove = parseInt(req.params.userId);
-      const requesterId = req.user.id;
-
-      const group = await storage.getGroup(groupId);
-      if (!group) {
-        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
-      }
-
-      if (group.creatorId !== requesterId) {
-        return res.status(403).json({ message: "Μόνο ο δημιουργός της ομάδας μπορεί να αφαιρέσει μέλη" });
-      }
-
-      const result = await storage.removeGroupMember(groupId, userIdToRemove);
-
-      if (result) {
-        res.json({ success: true, message: "Το μέλος αφαιρέθηκε επιτυχώς" });
-      } else {
-        res.status(404).json({ message: "Το μέλος δεν βρέθηκε στην ομάδα" });
-      }
-    } catch (error) {
-      console.error("Error removing group member:", error);
-      res.status(500).json({ message: "Σφάλμα κατά την αφαίρεση μέλους" });
-    }
-  });
-
-  app.delete("/api/groups/:id/leave", requireAuth, async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.id;
-
-      const result = await storage.removeGroupMember(groupId, userId);
-
-      if (result) {
-        res.json({ success: true, message: "Αποχωρήσατε από την ομάδα επιτυχώς" });
-      } else {
-        res.status(404).json({ message: "Δεν είστε μέλος αυτής της ομάδας" });
-      }
-    } catch (error) {
-      console.error("Error leaving group:", error);
-      res.status(500).json({ message: "Σφάλμα κατά την αποχώρηση από την ομάδα" });
-    }
-  });
-
-  app.delete("/api/groups/:id", requireAuth, async (req, res) => {
-    try {
-      const groupId = parseInt(req.params.id);
-      const userId = req.user.id;
-
-      const result = await storage.deleteGroup(groupId, userId);
-
-      if (result) {
-        res.json({ success: true, message: "Η ομάδα διαγράφηκε επιτυχώς" });
-      } else {
-        res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή ομάδας" });
-      }
-    } catch (error) {
-      console.error("Error deleting group:", error);
-
-      if (error.message === "Group not found") {
-        return res.status(404).json({ message: "Η ομάδα δεν βρέθηκε" });
-      }
-
-      if (error.message === "Only the group creator can delete the group") {
-        return res.status(403).json({ message: "Μόνο ο δημιουργός μπορεί να διαγράψει την ομάδα" });
-      }
-
-      res.status(500).json({ message: "Σφάλμα κατά τη διαγραφή ομάδας" });
-    }
-  });
+  // Group routes were retired. The `groups` and `group_members` tables remain in
+  // the schema for backwards compatibility, but groups are no longer a primary
+  // civic surface — communities are. See ROADMAP §1.3.
 
   // Notification routes
   app.get("/api/notifications", requireAuth, async (req, res) => {
@@ -1210,29 +998,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           creatorId
         }, questionData, questionAnswers);
 
-        // Notify group members if poll is in a group
-        if (createdPoll.groupId) {
-          try {
-            const group = await storage.getGroup(createdPoll.groupId);
-            if (group && group.members) {
-              // Create notifications for all group members except the creator
-              const notificationPromises = group.members
-                .filter(member => member.userId !== creatorId)
-                .map(member =>
-                  storage.createPollNotification({
-                    userId: member.userId,
-                    pollId: createdPoll.id
-                  })
-                );
-
-              await Promise.all(notificationPromises);
-              console.log(`Created ${notificationPromises.length} notifications for survey poll ${createdPoll.id}`);
-            }
-          } catch (notificationError) {
-            console.error("Error creating notifications:", notificationError);
-          }
-        }
-
         res.status(201).json(createdPoll);
       } catch (storageError) {
         console.error("Error in storage.createSurveyPoll:", storageError);
@@ -1270,14 +1035,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const poll = await storage.getSurveyPoll(pollId, userId);
       if (!poll) {
         return res.status(404).json({ message: "Η δημοσκόπηση δεν βρέθηκε" });
-      }
-
-      // SECURITY: Group membership check for survey responses
-      if (poll.groupId) {
-        const isMember = await storage.isGroupMember(poll.groupId, userId);
-        if (!isMember) {
-          return res.status(403).json({ message: "You must be a member of this group to respond to this survey" });
-        }
       }
 
       if (!poll.isActive) {
