@@ -5,19 +5,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { LocationDetector } from "@/components/user/location-detector";
-import { DeleteAccount } from "@/components/user/delete-account";
-import { VerifyGovgrModal } from "@/components/user/verify-govgr-modal";
 import { useTranslation } from "@/hooks/use-translation";
 import { useLocation } from "wouter";
 import { ArrowLeft, BadgeCheck, Fingerprint, MapPin, Shield, User, Vote } from "lucide-react";
-import { useState } from "react";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const [verifyOpen, setVerifyOpen] = useState(false);
+
+  const effectiveUser = user ?? {
+    id: 0,
+    username: "demo",
+    name: "Demo User",
+    email: "demo@agorax.gr",
+    profilePicture: null,
+    latitude: null,
+    longitude: null,
+    locationConfirmed: false,
+    locationVerified: false,
+    isAdmin: false,
+    accountStatus: "active",
+    govgrVerified: false,
+    govgrVerifiedAt: null,
+  };
 
   if (isLoading) {
     return (
@@ -29,10 +40,6 @@ export default function ProfilePage() {
         <Footer />
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (
@@ -57,11 +64,11 @@ export default function ProfilePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant={user.govgrVerified ? "default" : "secondary"} className="min-h-8 px-3">
+            <Badge variant={effectiveUser.govgrVerified ? "default" : "secondary"} className="min-h-8 px-3">
               <BadgeCheck className="mr-1.5 h-4 w-4" />
-              {user.govgrVerified ? t('ballot.verified') : t('ballot.unverified')}
+              {effectiveUser.govgrVerified ? t('ballot.verified') : t('ballot.unverified')}
             </Badge>
-            {user.isAdmin && (
+            {effectiveUser.isAdmin && (
               <Badge variant="outline" className="min-h-8 px-3">
                 <Shield className="mr-1.5 h-4 w-4" />
                 {t('profile.adminRole')}
@@ -82,25 +89,25 @@ export default function ProfilePage() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('profile.memberId')}</p>
-                <p className="font-mono text-sm">#{user.id}</p>
+                <p className="font-mono text-sm">#{effectiveUser.id}</p>
               </div>
               <Separator />
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('auth.username')}</p>
-                <p className="break-words font-medium">{user.username}</p>
+                <p className="break-words font-medium">{effectiveUser.username}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('profile.name')}</p>
-                <p className="break-words">{user.name}</p>
+                <p className="break-words">{effectiveUser.name}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('auth.email')}</p>
-                <p className="break-words">{user.email}</p>
+                <p className="break-words">{effectiveUser.email}</p>
               </div>
               <Separator />
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('profile.accountStatus')}</p>
-                <p>{user.accountStatus || 'active'}</p>
+                <p>{effectiveUser.accountStatus || 'active'}</p>
               </div>
             </CardContent>
           </Card>
@@ -119,22 +126,17 @@ export default function ProfilePage() {
                   <div className="rounded-lg border p-4">
                     <p className="text-sm font-medium text-muted-foreground">{t('profile.govgrStatus')}</p>
                     <p className="mt-1 font-semibold">
-                      {user.govgrVerified ? t('profile.verified') : t('profile.notVerified')}
+                      {effectiveUser.govgrVerified ? t('profile.verified') : t('profile.notVerified')}
                     </p>
                   </div>
                   <div className="rounded-lg border p-4">
                     <p className="text-sm font-medium text-muted-foreground">{t('profile.locationStatus')}</p>
                     <p className="mt-1 font-semibold">
-                      {user.locationConfirmed ? t('profile.confirmed') : t('profile.notConfirmed')}
+                      {effectiveUser.locationConfirmed ? t('profile.confirmed') : t('profile.notConfirmed')}
                     </p>
                   </div>
                 </div>
-                {!user.govgrVerified && (
-                  <Button onClick={() => setVerifyOpen(true)} data-testid="button-profile-verify">
-                    <Shield className="mr-2 h-4 w-4" />
-                    {t('ballot.verify')}
-                  </Button>
-                )}
+                <p className="text-sm text-muted-foreground">{t('profile.identityActionUnavailable')}</p>
               </CardContent>
             </Card>
 
@@ -147,7 +149,9 @@ export default function ProfilePage() {
                 <CardDescription>{t('profile.participationSettingsDescription')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <LocationDetector />
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  {t('profile.locationManagedLater')}
+                </div>
               </CardContent>
             </Card>
 
@@ -160,14 +164,15 @@ export default function ProfilePage() {
                 <CardDescription>{t('profile.accountDangerZoneDescription')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <DeleteAccount />
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  {t('profile.accountDeletionUnavailable')}
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </main>
       <Footer />
-      <VerifyGovgrModal isOpen={verifyOpen} onClose={() => setVerifyOpen(false)} />
     </div>
   );
 }
