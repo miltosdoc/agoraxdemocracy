@@ -46,6 +46,8 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 - **Database:** PostgreSQL 15 with Drizzle ORM
 - **Authentication:** Sessions + cookies (PostgreSQL-backed), Google OAuth, Gov.gr ballot verification
 - **LLM Validation:** Configurable (NVIDIA Nemotron free tier, OpenRouter, Anthropic, local Ollama)
+- **Internationalization:** Greek (default) + English with runtime switching, locale-aware date formatting
+- **Notifications:** Sortition assignment alerts, deadline reminders, proposal lifecycle events, per-user preferences
 - **Image Generation:** Canvas (Node.js) for Open Graph social preview images
 - **Deployment:** Docker Compose (PostgreSQL + Node.js API + Python Ballot Service)
 - **Device Fingerprinting:** FingerprintJS for one-person-one-vote enforcement
@@ -155,7 +157,9 @@ Submitted → LLM Validation → Valid/Returned → Scoring → Under Review →
 
 **Security:** `ballot_votes`, `account_activity`, `admin_actions`, `device_fingerprint`, `govgr_verified`
 
-**Supporting:** `groups`, `group_members`, `poll_notifications`, `poll_notifications`, `jobs`
+**Notifications:** `poll_notifications`, `sortition_notifications`, `notification_preferences`
+
+**Supporting:** `groups`, `group_members`, `jobs`
 
 ---
 
@@ -243,8 +247,8 @@ agoraxdemo/
 │   ├── src/
 │   │   ├── pages/             # Route components (20+ pages)
 │   │   ├── components/        # Reusable UI components (shadcn/ui + custom)
-│   │   ├── hooks/             # Custom React hooks (auth, share, toast)
-│   │   ├── lib/               # Utilities (api client, query client, geofencing)
+│   │   ├── hooks/             # Custom React hooks (auth, translation, share, toast)
+│   │   ├── lib/               # Utilities (api client, query client, geofencing, i18n types)
 │   │   └── App.tsx            # Router configuration
 ├── server/                    # Express backend
 │   ├── index.ts               # Entry point
@@ -259,6 +263,7 @@ agoraxdemo/
 │       ├── amendment-processor.ts     # Amendment workflow
 │       ├── amendment-merger.ts        # AI-assisted merge
 │       ├── sortition.ts             # Random selection
+│       ├── notifications.ts        # Sortition notification system
 │       ├── democracy-score.ts       # Community governance score
 │       ├── job-queue.ts             # Background job processing
 │       ├── ballot-client.ts         # Gov.gr ballot verification
@@ -341,15 +346,52 @@ agoraxdemo/
 - `GET /api/ballot/stats/:pollId` — Get ballot voting statistics
 - `GET /api/ballot/health` — Ballot service status
 
+### Sortition Notifications
+- `GET /api/sortition-notifications` — List user's notifications (with unread count)
+- `GET /api/sortition-notifications/unread-count` — Lightweight unread count
+- `POST /api/sortition-notifications/:id/read` — Mark notification as read
+- `POST /api/sortition-notifications/mark-all-read` — Mark all as read
+- `GET /api/notification-preferences` — Get user notification preferences
+- `PATCH /api/notification-preferences` — Update notification preferences
+
+### Poll Notifications
+- `GET /api/notifications` — List poll notifications
+- `POST /api/notifications/:id/read` — Mark poll notification as read
+- `GET /api/notifications/unread/count` — Get unread poll notification count
+
 ### Social Sharing
 - `GET /api/og-image/:id` — Generate Open Graph preview image for poll sharing
+
+---
+
+## Internationalization (i18n)
+
+AgoraX supports **Greek (el)** as the default language and **English (en)** with runtime switching.
+
+**How it works:**
+- `I18nProvider` wraps the app, providing `useTranslation()` hook
+- `t('key.subkey')` returns the translated string for the current locale
+- Locale detection priority: localStorage → URL `?lang=` param → browser language → Greek default
+- `LanguageSwitcher` component (🇬🇷/🇬🇧) in the header for manual switching
+- `getStatusLabel()`, `getCommunityTypeLabel()` helpers for dynamic content
+- date-fns locale-aware formatting (Greek/English relative times)
+
+**Translation files:**
+- `client/src/locales/en.ts` — English translations (130+ keys)
+- `client/src/locales/el.ts` — Greek translations (130+ keys)
+
+**Adding a new language:**
+1. Create `client/src/locales/xx.ts` with the same keys
+2. Add the locale to `SUPPORTED_LOCALES` in `client/src/lib/i18n-types.ts`
+3. Add flag + name to `LOCALE_FLAGS` / `LOCALE_NAMES`
+4. Import in `use-translation.tsx`
 
 ---
 
 ## Roadmap
 
 ### Completed ✅
-- [x] Database schema (21+ tables) with Drizzle ORM
+- [x] Database schema (26 tables) with Drizzle ORM
 - [x] Full backend API (Express.js + PostgreSQL)
 - [x] LLM validation pipeline (configurable providers)
 - [x] Proposal state machine (9 states)
@@ -360,16 +402,20 @@ agoraxdemo/
 - [x] Sortition API routes (create, preview, list, get, complete, score, synthesize)
 - [x] Sortition active member exclusion (prevents power concentration)
 - [x] Sortition scoring interface
+- [x] Sortition notification system (6 notification types, per-user preferences, deadline reminders)
+- [x] Auto-transition: sortition_synthesis → voting (when final text is saved)
+- [x] Multilingual i18n (Greek default + English, runtime switching, locale-aware dates)
+- [x] Language switcher in header (🇬🇷/🇬🇧 dropdown with flags)
 - [x] Frontend pages (20+ pages: proposals, amendments, debate, sortition, communities)
 - [x] Demo mode for testing without auth
 - [x] Docker Compose deployment (PostgreSQL + API + Ballot Service)
+- [x] Frontend build in Docker (Vite → Express serveStatic)
 - [x] Open Graph image generation for social sharing
 - [x] Social bot SEO (Facebook, Twitter, WhatsApp, Telegram previews)
 - [x] Health check endpoints (API + Ballot Service)
 - [x] Device fingerprinting + IP tracking
 - [x] Gov.gr ballot verification (Python microservice, 4-gate PDF validation)
 - [x] Ballot client HTTP proxy (Node.js → Python ballot service)
-- [x] Auto-transition: sortition_synthesis → voting (when final text is saved)
 - [x] Demo seed data (3 communities, 5 proposals, debate arguments)
 - [x] Survey polls (multi-question with branching logic)
 - [x] Geofencing support (location-based polls)
@@ -379,22 +425,21 @@ agoraxdemo/
 - [x] Rich text editor (TipTap) for proposals
 
 ### In Progress ⏳
-- [ ] Sortition synthesis output (aggregating scores into final text)
-- [ ] Automated state transitions (e.g., sortition complete → voting)
 - [ ] Production authentication (Google OAuth credentials)
-- [ ] Notification system for sortition assignments
+- [ ] Notification frontend UI (sortition notifications in header bell)
+- [ ] i18n coverage for remaining pages (auth, proposal-detail, sortition pages)
 - [ ] Analytics for deliberation metrics
-- [ ] Frontend build in Docker (currently API-only deployment)
 
 ### Future 🚀
 - [ ] AI-assisted proposal merging (detect similar proposals)
 - [ ] Live debate mode (real-time argument exchange)
 - [ ] Video debate integration
 - [ ] Community verification (prove you represent a real institution)
-- [ ] Multi-language support (Greek/English/Swedish)
 - [ ] Cryptographic voting (Helios/ElectionGuard)
 - [ ] Multi-community federation
 - [ ] Legal status of outcomes (advisory vs. binding)
+- [ ] Push notifications / email digests
+- [ ] WebSocket real-time updates for sortition deadlines
 
 ---
 
