@@ -65,7 +65,7 @@ Current baseline:
 - `npm run check` is **not yet green**; the TypeScript burn-down is tracked in [ROADMAP.md](ROADMAP.md).
 - Docker defaults are now safer: demo mode is off by default and production mode blocks default secrets.
 
-See [ROADMAP.md](ROADMAP.md) for the current engineering and product roadmap.
+See [ROADMAP.md](ROADMAP.md) for the current engineering and product roadmap, including the 2026-04-25 core architecture audit covering auth, communities, proposals, deliberation, sortition, voting, notifications, and admin flows.
 
 ---
 

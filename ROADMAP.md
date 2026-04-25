@@ -114,6 +114,193 @@ Status: Not started
 
 ---
 
+## Core architecture audit — 2026-04-25
+
+The current codebase has many working pieces, but the app is not yet a coherent end-to-end deliberation product. The central issue is not lack of features; it is that several subsystems use different concepts for the same thing.
+
+### Core flow target
+
+The intended user journey should be:
+
+1. User registers/logs in.
+2. User joins or creates a community.
+3. User creates a proposal inside a selected community.
+4. Proposal enters a single lifecycle.
+5. Community deliberates and proposes amendments.
+6. Author reviews amendments.
+7. Community signals on rejected amendments.
+8. Sortition body synthesizes final text when needed.
+9. Community performs final ratification vote.
+10. Proposal is decided/archived with a public record.
+11. Notifications and dashboards show each user what action is required.
+
+### Current incoherences to resolve
+
+#### 1. Proposal lifecycle is split across incompatible vocabularies
+
+Current competing lifecycles:
+
+- README/schema legacy lifecycle: `submitted → validating → valid/returned/rejected → scoring → under_review → amendments → debate → voting → resolved`
+- submit route lifecycle: `draft → returned | approved | valid | validating`
+- v2 state-machine lifecycle: `draft → review → author_review → community_signal → sortition_synthesis → voting → decided | archived`
+
+Decision:
+
+- Use the v2 lifecycle as canonical unless explicitly superseded:
+  `draft → review → author_review → community_signal → sortition_synthesis → voting → decided | archived`.
+
+Required work:
+
+- [ ] Update README lifecycle text.
+- [ ] Update schema comments.
+- [ ] Update seed statuses.
+- [ ] Rewrite `POST /api/proposals/:id/submit` to transition into v2 states.
+- [ ] Ensure `POST /api/proposals/:id/transition` calls `triggerSideEffects`.
+- [ ] Add API tests for all valid/invalid transitions.
+
+#### 2. Communities and groups are conflated
+
+Current state:
+
+- `groups` and `group_members` still exist.
+- `communities` and `community_members` exist.
+- `polls` has `communityId`, but routes/components still reference `groupId`.
+- Poll notifications depend on group semantics.
+
+Decision required:
+
+- Either migrate groups into communities, or keep groups as private poll-distribution lists with explicit `groupId` support.
+
+Recommended decision:
+
+- Communities are the primary civic unit.
+- Groups become private poll-distribution lists only, or are removed from the main deliberation UX.
+
+Required work:
+
+- [ ] Decide groups vs communities.
+- [ ] Fix `groupId`/`communityId` schema-route mismatch.
+- [ ] Update navigation labels accordingly.
+- [ ] Update access control accordingly.
+
+#### 3. Proposal final voting is not a real final vote
+
+Current state:
+
+- Proposal detail uses `proposal_support` as “Vote”.
+- `proposal_support` also represents deliberation support/oppose.
+- No distinct final ratification ballot model exists.
+- Unique constraint allows same user to both support and oppose because `type` is part of uniqueness.
+- No quorum/finalization transition exists.
+
+Required work:
+
+- [ ] Add `proposal_votes` or equivalent final ratification table.
+- [ ] Enforce one final vote per user/proposal.
+- [ ] Check community membership and voting state.
+- [ ] Add quorum/min-participation calculation.
+- [ ] Add close/finalize endpoint.
+- [ ] Transition `voting → decided` when vote completes.
+
+#### 4. Frontend/backend contracts do not match
+
+Examples:
+
+- Community dashboard expects `memberCount`; community endpoint returns raw community.
+- Proposal lists expect `title/state`; proposal model uses `question/status`.
+- Proposal creation defaults to community `1` when no community is selected.
+- Proposal cards render blank titles.
+
+Required work:
+
+- [ ] Define API DTOs for community cards, proposal cards, proposal detail, user task items.
+- [ ] Stop exposing raw DB rows directly to UI.
+- [ ] Make proposal creation require an explicit community.
+- [ ] Add contract tests for seeded demo data rendering.
+
+#### 5. Deliberation/amendment endpoints reference missing storage methods
+
+Current issues:
+
+- Routes call `storage.getAmendment`, but `DatabaseStorage`/`IStorage` do not expose it.
+- Amendment submission lacks strict proposal-state checks.
+- Rejected-amendment voting lacks community-membership checks.
+- Rejection reason is not enforced.
+
+Required work:
+
+- [ ] Add `getAmendment` to storage or refactor routes to existing methods.
+- [ ] Enforce amendment state windows.
+- [ ] Enforce author-only review.
+- [ ] Enforce community-member-only signal voting.
+- [ ] Require rejection reason for rejection.
+
+#### 6. Sortition is partly detached from proposals
+
+Current issues:
+
+- Manual sortition creation can create bodies without proposal linkage.
+- State-machine side effects enqueue sortition but are not wired into route transitions.
+- Sortition seed transparency is claimed but seed is not stored.
+- Some sortition GET routes are too open.
+
+Required work:
+
+- [ ] Require/record proposal linkage for proposal sortition bodies.
+- [ ] Store random seed or audit material if transparency is claimed.
+- [ ] Wire state-machine side effects.
+- [ ] Lock sortition body/member routes to eligible community/admin/assigned users.
+
+#### 7. Notifications are split and partially outside Drizzle schema
+
+Current state:
+
+- Legacy poll notifications are in Drizzle schema.
+- Sortition notifications/preferences are SQL migration tables but not Drizzle schema tables.
+- Deadline reminder function exists but no scheduler wiring was identified.
+
+Required work:
+
+- [ ] Add notification tables to Drizzle schema.
+- [ ] Replace raw SQL preference updates with typed queries.
+- [ ] Wire proposal/sortition lifecycle notifications.
+- [ ] Add scheduler or job runner for deadline reminders.
+
+#### 8. UI flow has visible coherence breaks
+
+Observed runtime issues:
+
+- `/proposals` returns 404 even though proposals are central.
+- Proposal cards show blank titles.
+- Some proposal cards/calls-to-action do not navigate as expected.
+- `/communities` lacks app shell/header/footer.
+- `/proposals/:id` lacks app shell/header.
+- Proposal detail status and default tab disagree (`sortition_synthesis` opens Vote tab).
+- Debate/Sortition tabs did not switch reliably in browser dogfood pass.
+- Multiple redundant Submit Proposal actions exist.
+
+Required work:
+
+- [ ] Add `/proposals` index route.
+- [ ] Fix proposal card title/action rendering.
+- [ ] Add shared app shell to all protected pages.
+- [ ] Default proposal detail tab from proposal status.
+- [ ] Fix Tabs interactions if reproducible.
+- [ ] Consolidate CTAs into one Create action.
+
+### Core architecture priority order
+
+1. Canonical proposal lifecycle.
+2. Schema/storage/route mismatch fixes.
+3. Real proposal final vote model.
+4. Community/group decision and migration path.
+5. API DTO contract layer.
+6. App shell/navigation coherence.
+7. Notifications and admin audit integration.
+
+
+---
+
 ## Phase 1 — UI coherence and trust
 
 Goal: make the web/mobile app feel coherent, modern, and finished.
