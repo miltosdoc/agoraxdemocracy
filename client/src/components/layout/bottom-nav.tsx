@@ -1,13 +1,6 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, PlusCircle, FileText, Users, User } from "lucide-react";
 import { SafeUser } from "@shared/schema";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/use-translation";
 
@@ -17,8 +10,7 @@ interface BottomNavProps {
 
 export default function BottomNav({ user }: BottomNavProps) {
   const { t } = useTranslation();
-  const [location, navigate] = useLocation();
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [location] = useLocation();
 
   if (!user) {
     return null;
@@ -32,17 +24,16 @@ export default function BottomNav({ user }: BottomNavProps) {
       testId: "nav-home",
     },
     {
-      label: t('nav.create'),
+      label: t('nav.newProposal'),
       icon: PlusCircle,
-      path: "/polls/create",
-      testId: "nav-create",
-      hasDropdown: true,
+      path: "/proposals/new",
+      testId: "nav-create-proposal",
     },
     {
-      label: t('nav.myPolls'),
+      label: t('nav.walkthrough'),
       icon: FileText,
-      path: "/my-polls",
-      testId: "nav-my-polls",
+      path: "/walkthrough",
+      testId: "nav-process",
     },
     {
       label: t('nav.communities'),
@@ -58,22 +49,7 @@ export default function BottomNav({ user }: BottomNavProps) {
     },
   ];
 
-  const isActive = (path: string) => {
-    if (path === "/polls/create") {
-      return location === "/polls/create" || location === "/surveys/create";
-    }
-    return location === path;
-  };
-
-  const handleCreatePoll = () => {
-    navigate("/polls/create");
-    setIsCreateMenuOpen(false);
-  };
-
-  const handleCreateSurvey = () => {
-    navigate("/surveys/create");
-    setIsCreateMenuOpen(false);
-  };
+  const isActive = (path: string) => location === path;
 
   return (
     <nav
@@ -84,48 +60,6 @@ export default function BottomNav({ user }: BottomNavProps) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-
-          if (item.hasDropdown) {
-            return (
-              <DropdownMenu
-                key={item.path}
-                open={isCreateMenuOpen}
-                onOpenChange={setIsCreateMenuOpen}
-              >
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={cn(
-                      "flex flex-col items-center justify-center min-h-[44px] min-w-[44px] flex-1 relative tap-highlight-none transition-smooth",
-                      active ? "text-primary" : "text-muted-foreground"
-                    )}
-                    data-testid={item.testId}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-6 w-6 mb-1 transition-smooth",
-                        active && "text-primary"
-                      )}
-                    />
-                    <span className="text-xs font-medium">{item.label}</span>
-                    {active && (
-                      <span className="absolute top-0 w-12 h-1 bg-primary rounded-b-full transition-smooth" />
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-56 mb-2">
-                  <DropdownMenuItem onClick={handleCreatePoll}>
-                    {t('ballot.standardPoll')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleCreateSurvey}>
-                    {t('ballot.surveyPoll')}{" "}
-                    <span className="text-xs text-muted-foreground ml-1">
-                      ({t('ballot.beta')})
-                    </span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            );
-          }
 
           return (
             <Link

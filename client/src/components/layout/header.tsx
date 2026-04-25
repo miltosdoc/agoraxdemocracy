@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Vote, Menu } from "lucide-react";
+import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Menu } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
@@ -54,14 +54,6 @@ export default function Header() {
   const handleLogout = () => {
     navigate("/");
     logoutMutation.mutate();
-  };
-
-  const handleCreatePoll = () => {
-    navigate("/polls/create");
-  };
-
-  const handleCreateSurvey = () => {
-    navigate("/surveys/create");
   };
 
   // Fetch unread notification count
@@ -175,42 +167,22 @@ export default function Header() {
           </div>
         ) : (
           <div className="flex items-center gap-2 sm:gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  className="hidden sm:flex items-center bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md min-h-[44px] gap-2"
-                  data-testid="button-new-poll"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>{t('nav.newPoll')}</span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mt-2">
-                <DropdownMenuItem
-                  onClick={handleCreatePoll}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-create-standard"
-                >
-                  {t('ballot.standardPoll')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleCreateSurvey}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-create-survey"
-                >
-                  {t('ballot.surveyPoll')} <span className="text-xs text-muted-foreground ml-1">({t('ballot.beta')})</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button
-              variant="outline"
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              className="hidden sm:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
               onClick={() => navigate("/proposals/new")}
               data-testid="button-new-proposal"
             >
-              <FileText className="h-4 w-4" />
+              <PlusCircle className="h-4 w-4" />
               <span>{t('nav.newProposal')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              onClick={() => navigate("/communities")}
+              data-testid="button-communities"
+            >
+              <Users className="h-4 w-4" />
+              <span>{t('nav.communities')}</span>
             </Button>
 
             {/* Notification Bell */}
@@ -337,14 +309,6 @@ export default function Header() {
                 >
                   <User className="mr-2 h-4 w-4" />
                   {t('nav.profile')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate("/my-polls")}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-my-polls"
-                >
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  {t('nav.myPolls')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/communities")}
