@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Users, FileText, Vote, Shield } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Vote, Shield, Settings } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -38,6 +38,7 @@ interface Proposal {
 export default function CommunityDashboardPage() {
   const params = useParams();
   const communityId = params.id;
+  const [, setLocation] = useLocation();
   const { t } = useTranslation();
   
   const [community, setCommunity] = useState<Community | null>(null);
@@ -88,11 +89,19 @@ export default function CommunityDashboardPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {community.name}
-            <Badge variant="secondary">{community.governanceModel}</Badge>
-          </CardTitle>
-          <CardDescription>{community.description}</CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                {community.name}
+                <Badge variant="secondary">{community.governanceModel}</Badge>
+              </CardTitle>
+              <CardDescription>{community.description}</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setLocation(`/communities/${communityId}/settings`)}>
+              <Settings className="w-4 h-4 mr-2" />
+              {t('community.settings_title')}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

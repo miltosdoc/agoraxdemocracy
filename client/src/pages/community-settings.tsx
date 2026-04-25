@@ -1,0 +1,272 @@
+/**
+ * Community Settings Page
+ *
+ * Low-cost, high-leverage admin screen: exposes the community parametrization
+ * contract already enforced by the backend without introducing a new design
+ * system or expensive custom UI.
+ */
+
+import { useEffect, useState } from 'react';
+import { useLocation, useParams } from 'wouter';
+import Header from '@/components/layout/header';
+import Footer from '@/components/layout/footer';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Save, Settings } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/hooks/use-translation';
+import type { Community } from '@shared/schema';
+import type { CommunityGovernanceModel, CommunitySortitionMode, CommunityType } from '@shared/community-settings';
+
+interface CommunitySettingsForm {
+  name: string;
+  description: string;
+  type: CommunityType;
+  governanceModel: CommunityGovernanceModel;
+  maxConcurrentVotes: number;
+  minParticipationPct: string;
+  sortitionSize: number;
+  sortitionMode: CommunitySortitionMode;
+  sortitionResponseHours: number;
+  amendmentThreshold: string;
+  maxAmendmentsPerProposal: number;
+  requireGovgrVerification: boolean;
+}
+
+function toForm(community: Community): CommunitySettingsForm {
+  return {
+    name: community.name ?? '',
+    description: community.description ?? '',
+    type: (community.type as CommunityType) || 'autonomous',
+    governanceModel: (community.governanceModel as CommunityGovernanceModel) || 'no_admin',
+    maxConcurrentVotes: community.maxConcurrentVotes ?? -1,
+    minParticipationPct: String(community.minParticipationPct ?? '0'),
+    sortitionSize: community.sortitionSize ?? 12,
+    sortitionMode: (community.sortitionMode as CommunitySortitionMode) || 'absolute',
+    sortitionResponseHours: community.sortitionResponseHours ?? 72,
+    amendmentThreshold: String(community.amendmentThreshold ?? '0.5'),
+    maxAmendmentsPerProposal: community.maxAmendmentsPerProposal ?? -1,
+    requireGovgrVerification: community.requireGovgrVerification ?? false,
+  };
+}
+
+export default function CommunitySettingsPage() {
+  const params = useParams();
+  const communityId = params.id;
+  const [, navigate] = useLocation();
+  const { t } = useTranslation();
+  const { toast } = useToast();
+
+  const [form, setForm] = useState<CommunitySettingsForm | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!communityId) return;
+
+    api.get<Community>(`/api/communities/${communityId}`)
+      .then((resp) => setForm(toForm(resp.data)))
+      .catch((err) => setError(err instanceof Error ? err.message : t('community.settings_load_error')))
+      .finally(() => setLoading(false));
+  }, [communityId, t]);
+
+  function update<K extends keyof CommunitySettingsForm>(key: K, value: CommunitySettingsForm[K]) {
+    setForm((current) => current ? { ...current, [key]: value } : current);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!communityId || !form) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const payload = {
+        ...form,
+        minParticipationPct: form.minParticipationPct.trim(),
+        amendmentThreshold: form.amendmentThreshold.trim(),
+      };
+
+      const resp = await api.patch<Community>(`/api/communities/${communityId}`, payload);
+      setForm(toForm(resp.data));
+      toast({ title: t('community.settings_saved'), description: t('community.settings_saved_description') });
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error
+        ? err.message
+        : t('community.settings_save_error');
+      setError(message);
+      toast({ title: t('community.settings_save_error'), description: message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
+        <Button variant="ghost" className="mb-4" onClick={() => navigate(`/communities/${communityId}`)}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          {t('common.back')}
+        </Button>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              {t('community.settings_title')}
+            </CardTitle>
+            <CardDescription>{t('community.settings_description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="py-8 text-center text-muted-foreground">{t('common.loading')}</div>
+            ) : !form ? (
+              <div className="py-8 text-center text-muted-foreground">{t('community.not_found')}</div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">{t('community.settings_identity')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('community.settings_identity_help')}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{t('community.name_label')}</Label>
+                      <Input id="name" value={form.name} onChange={(e) => update('name', e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="type">{t('community.type_label')}</Label>
+                      <Select value={form.type} onValueChange={(value) => update('type', value as CommunityType)}>
+                        <SelectTrigger id="type"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="autonomous">{t('community.type_autonomous')}</SelectItem>
+                          <SelectItem value="managed">{t('community.type_managed')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">{t('community.description_label')}</Label>
+                    <Textarea id="description" value={form.description} rows={3} onChange={(e) => update('description', e.target.value)} />
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">{t('community.settings_governance')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('community.settings_governance_help')}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="governanceModel">{t('community.governance_label')}</Label>
+                      <Select value={form.governanceModel} onValueChange={(value) => update('governanceModel', value as CommunityGovernanceModel)}>
+                        <SelectTrigger id="governanceModel"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no_admin">{t('community.governance_no_admin')}</SelectItem>
+                          <SelectItem value="admin_team">{t('community.governance_admin_team')}</SelectItem>
+                          <SelectItem value="hybrid">{t('community.governance_hybrid')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxConcurrentVotes">{t('community.max_concurrent_votes')}</Label>
+                      <Input id="maxConcurrentVotes" type="number" value={form.maxConcurrentVotes} onChange={(e) => update('maxConcurrentVotes', Number(e.target.value))} />
+                      <p className="text-xs text-muted-foreground">{t('community.unlimited_hint')}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="minParticipationPct">{t('community.min_participation_pct')}</Label>
+                      <Input id="minParticipationPct" type="number" min="0" max="100" value={form.minParticipationPct} onChange={(e) => update('minParticipationPct', e.target.value)} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="requireGovgrVerification">{t('community.require_govgr')}</Label>
+                        <p className="text-xs text-muted-foreground">{t('community.require_govgr_help')}</p>
+                      </div>
+                      <Switch id="requireGovgrVerification" checked={form.requireGovgrVerification} onCheckedChange={(checked) => update('requireGovgrVerification', checked)} />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">{t('community.settings_deliberation')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('community.settings_deliberation_help')}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="amendmentThreshold">{t('community.amendment_threshold')}</Label>
+                      <Input id="amendmentThreshold" type="number" min="0" max="1" step="0.05" value={form.amendmentThreshold} onChange={(e) => update('amendmentThreshold', e.target.value)} />
+                      <p className="text-xs text-muted-foreground">{t('community.amendment_threshold_help')}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maxAmendmentsPerProposal">{t('community.max_amendments')}</Label>
+                      <Input id="maxAmendmentsPerProposal" type="number" value={form.maxAmendmentsPerProposal} onChange={(e) => update('maxAmendmentsPerProposal', Number(e.target.value))} />
+                      <p className="text-xs text-muted-foreground">{t('community.unlimited_hint')}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">{t('community.settings_sortition')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('community.settings_sortition_help')}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="sortitionSize">{t('community.sortition_size')}</Label>
+                      <Input id="sortitionSize" type="number" min="3" max="500" value={form.sortitionSize} onChange={(e) => update('sortitionSize', Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sortitionMode">{t('community.sortition_mode')}</Label>
+                      <Select value={form.sortitionMode} onValueChange={(value) => update('sortitionMode', value as CommunitySortitionMode)}>
+                        <SelectTrigger id="sortitionMode"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="absolute">{t('community.sortition_mode_absolute')}</SelectItem>
+                          <SelectItem value="percentage">{t('community.sortition_mode_percentage')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sortitionResponseHours">{t('community.sortition_response_hours')}</Label>
+                      <Input id="sortitionResponseHours" type="number" min="1" max="720" value={form.sortitionResponseHours} onChange={(e) => update('sortitionResponseHours', Number(e.target.value))} />
+                    </div>
+                  </div>
+                </section>
+
+                {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => navigate(`/communities/${communityId}`)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit" disabled={saving || !form.name.trim()}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {saving ? t('community.settings_saving') : t('community.settings_save')}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+      <Footer />
+    </div>
+  );
+}

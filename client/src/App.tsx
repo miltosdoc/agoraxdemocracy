@@ -21,6 +21,7 @@ import PrivacyPage from "@/pages/privacy";
 import AnalyticsDashboard from "@/pages/analytics-dashboard";
 import AdminAccountsPage from "@/pages/admin-accounts";
 import CommunityDashboardPage from "@/pages/community-dashboard";
+import CommunitySettingsPage from "@/pages/community-settings";
 import ProposalDetailPage from "@/pages/proposal-detail";
 import SortitionScoringPage from "@/pages/sortition-scoring";
 import SortitionSynthesisPage from "@/pages/sortition-synthesis";
@@ -88,6 +89,7 @@ function Router() {
         <ProtectedRoute path="/groups" component={GroupsPage} />
         <ProtectedRoute path="/communities" component={CommunitiesPage} />
         <ProtectedRoute path="/communities/new" component={CommunityFormPage} />
+        <ProtectedRoute path="/communities/:id/settings" component={CommunitySettingsPage} />
         <ProtectedRoute path="/communities/:id" component={CommunityDashboardPage} />
         <ProtectedRoute path="/proposals/new" component={ProposalFormPage} />
         <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />
