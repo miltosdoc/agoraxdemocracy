@@ -53,17 +53,16 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  // Handle bcrypt-format demo hashes (e.g. $2b$10$dummyhash)
-  if (stored.startsWith("$2b$")) {
-    return process.env.DEMO_MODE === "true";
-  }
   const [hashed, salt] = stored.split(".");
-  // Handle demo hashes (e.g. demo_hash_1) that don't use scrypt format
   if (!hashed || !salt) {
-    return process.env.DEMO_MODE === "true";
+    // Stored value isn't in the scrypt "<hex>.<salt>" format we produce.
+    // This includes legacy/demo placeholder hashes (e.g. "$2b$10$demo").
+    // Fail closed — never accept a password against a malformed hash, regardless of env.
+    return false;
   }
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  if (hashedBuf.length !== suppliedBuf.length) return false;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
@@ -73,6 +72,7 @@ export function setupAuth(app: Express) {
     throw new Error("SESSION_SECRET is required");
   }
 
+  const isProduction = process.env.APP_ENV === "production";
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
     resave: false,
@@ -80,7 +80,10 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    }
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+    },
   };
 
   app.set("trust proxy", 1);
@@ -100,11 +103,19 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !user.password || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
+        if (!user) return done(null, false);
+
+        // Demo mode: allow login by username alone for seeded demo accounts.
+        // APP_ENV=production blocks DEMO_MODE in config.ts, so this branch is
+        // unreachable in production by construction.
+        if (process.env.DEMO_MODE === "true") {
           return done(null, user);
         }
+
+        if (!user.password || !(await comparePasswords(password, user.password))) {
+          return done(null, false);
+        }
+        return done(null, user);
       } catch (error) {
         return done(error);
       }
