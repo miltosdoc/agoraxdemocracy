@@ -8,10 +8,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   canTransition,
   getNextStates,
+  transitionProposal,
   triggerSideEffects,
   ProposalState,
 } from '../../server/utils/proposal-state-machine';
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from '../../server/utils/job-queue';
+
+function createMockStorage() {
+  return {
+    updateProposal: vi.fn(async (id: number, updates: Record<string, unknown>) => ({
+      id,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: updates.status,
+    })),
+  };
+}
 
 // Mock the job queue functions
 vi.mock('../../server/utils/job-queue', () => ({
@@ -99,6 +113,42 @@ describe('State Machine - Valid Next States', () => {
 });
 
 // ─── Transition Function Tests ───────────────────────────────────────────────
+
+describe('State Machine - Transition Execution', () => {
+  it('updates proposal state through storage', async () => {
+    const storage = createMockStorage();
+    const proposal = {
+      id: 1,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: 'draft' as ProposalState,
+    };
+
+    const updated = await transitionProposal(proposal as any, 'review', storage as any);
+
+    expect(storage.updateProposal).toHaveBeenCalledWith(1, { status: 'review' });
+    expect(updated.status).toBe('review');
+  });
+
+  it('rejects invalid transition execution', async () => {
+    const storage = createMockStorage();
+    const proposal = {
+      id: 1,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: 'draft' as ProposalState,
+    };
+
+    await expect(transitionProposal(proposal as any, 'voting', storage as any)).rejects.toThrow(
+      'Invalid transition: draft → voting',
+    );
+    expect(storage.updateProposal).not.toHaveBeenCalled();
+  });
+});
 
 describe('State Machine - Side Effects', () => {
   const mockProposal = {

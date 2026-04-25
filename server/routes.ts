@@ -2399,7 +2399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Import state machine
-      const { transitionProposal, canTransition, getNextStates } = await import('./utils/proposal-state-machine');
+      const { transitionProposal, canTransition, getNextStates, triggerSideEffects } = await import('./utils/proposal-state-machine');
 
       // Validate transition
       if (!canTransition(proposal.status, newState)) {
@@ -2420,6 +2420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { storage: storageInstance } = await import('./storage');
       const updated = await transitionProposal(proposal, newState, storageInstance);
+      await triggerSideEffects(proposal.status, newState, updated);
       res.json(updated);
     } catch (error) {
       console.error("Error transitioning proposal:", error);

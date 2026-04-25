@@ -157,7 +157,8 @@ Required work:
 - [x] Add contract tests rejecting legacy/prototype states.
 - [x] Attach proposal id/purpose to sortition creation jobs.
 - [ ] Update seed statuses.
-- [ ] Ensure `POST /api/proposals/:id/transition` calls `triggerSideEffects`.
+- [x] Ensure `POST /api/proposals/:id/transition` calls `triggerSideEffects`.
+- [x] Add unit coverage for transition execution and invalid transition rejection.
 - [ ] Add API tests for all valid/invalid transitions.
 
 #### 2. Communities and groups are conflated
