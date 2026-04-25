@@ -130,6 +130,8 @@ describe('State Machine - Side Effects', () => {
     expect(enqueueCreateSortition).toHaveBeenCalledWith(
       mockProposal.communityId,
       12,
+      mockProposal.id,
+      'text_synthesis',
     );
   });
 

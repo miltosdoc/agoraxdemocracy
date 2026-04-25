@@ -151,10 +151,12 @@ Decision:
 
 Required work:
 
-- [ ] Update README lifecycle text.
-- [ ] Update schema comments.
+- [x] Add shared canonical lifecycle module: `shared/proposal-lifecycle.ts`.
+- [x] Update schema comments and DB default to `draft`.
+- [x] Rewrite `POST /api/proposals/:id/submit` away from legacy `validating/valid/approved/returned` statuses.
+- [x] Add contract tests rejecting legacy/prototype states.
+- [x] Attach proposal id/purpose to sortition creation jobs.
 - [ ] Update seed statuses.
-- [ ] Rewrite `POST /api/proposals/:id/submit` to transition into v2 states.
 - [ ] Ensure `POST /api/proposals/:id/transition` calls `triggerSideEffects`.
 - [ ] Add API tests for all valid/invalid transitions.
 

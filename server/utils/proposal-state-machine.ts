@@ -11,23 +11,20 @@
  * This ensures proposals follow the deliberation cycle strictly.
  */
 
-import type { Proposal, InsertProposal } from '@shared/schema';
+import type { Proposal } from '@shared/schema';
 import type { IStorage } from '../storage';
+import {
+  PROPOSAL_STATE_DESCRIPTIONS,
+  VALID_PROPOSAL_TRANSITIONS,
+  assertProposalState,
+  canTransitionProposal,
+  getNextProposalStates,
+  isTerminalProposalState,
+  type ProposalState,
+} from '@shared/proposal-lifecycle';
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
-import { validateProposal } from './proposal-structuring';
-import { createSortitionBody } from './sortition';
 
-// ─── State Definitions ──────────────────────────────────────────────────────
-
-export type ProposalState = 
-  | 'draft'                // Author is still editing
-  | 'review'               // Submitted for LLM structuring + validation
-  | 'author_review'        // Author reviews amendments, accepts/rejects each
-  | 'community_signal'     // Community votes ⬆️/⬇️ on rejected amendments
-  | 'sortition_synthesis'  // Sortition body composes final text
-  | 'voting'               // Final vote — community ratifies the sortition's version
-  | 'decided'              // Vote completed, outcome recorded
-  | 'archived';            // Closed without reaching decision
+export type { ProposalState } from '@shared/proposal-lifecycle';
 
 // ─── Valid Transitions ──────────────────────────────────────────────────────
 // 
@@ -50,16 +47,7 @@ export type ProposalState =
 // Note: No backward transitions from voting → sortition_synthesis.
 // Once voting starts, the proposal is locked.
 
-const VALID_TRANSITIONS: Record<ProposalState, ProposalState[]> = {
-  draft: ['review', 'archived'],
-  review: ['author_review', 'draft', 'archived'],
-  author_review: ['community_signal', 'archived'],
-  community_signal: ['sortition_synthesis', 'voting', 'archived'],
-  sortition_synthesis: ['voting', 'author_review', 'archived'],
-  voting: ['decided', 'archived'],
-  decided: [],  // Terminal state — no transitions out
-  archived: [], // Terminal state — no transitions out
-};
+const VALID_TRANSITIONS = VALID_PROPOSAL_TRANSITIONS;
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -67,14 +55,14 @@ const VALID_TRANSITIONS: Record<ProposalState, ProposalState[]> = {
  * Check if a state transition is valid.
  */
 export function canTransition(from: ProposalState, to: ProposalState): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+  return canTransitionProposal(from, to);
 }
 
 /**
  * Get all valid next states from the current state.
  */
 export function getNextStates(current: ProposalState): ProposalState[] {
-  return VALID_TRANSITIONS[current] || [];
+  return [...getNextProposalStates(current)];
 }
 
 /**
@@ -88,42 +76,16 @@ export async function transitionProposal(
   newState: ProposalState,
   storage: IStorage,
 ): Promise<Proposal> {
-  if (!canTransition(proposal.status as ProposalState, newState)) {
+  const currentState = assertProposalState(proposal.status);
+
+  if (!canTransition(currentState, newState)) {
     throw new Error(
       `Invalid transition: ${proposal.status} → ${newState}. ` +
-      `Valid transitions from ${proposal.status}: ${getNextStates(proposal.status as ProposalState).join(', ')}`
+      `Valid transitions from ${proposal.status}: ${getNextStates(currentState).join(', ')}`
     );
   }
 
-  const updates: Partial<Proposal> = {
-    status: newState,
-    updatedAt: new Date(),
-  };
-
-  // Set state-specific timestamps
-  if (newState === 'review') {
-    updates.reviewStartedAt = new Date();
-  }
-  if (newState === 'author_review') {
-    updates.authorReviewStartedAt = new Date();
-  }
-  if (newState === 'community_signal') {
-    updates.communitySignalStartedAt = new Date();
-  }
-  if (newState === 'sortition_synthesis') {
-    updates.sortitionSynthesisStartedAt = new Date();
-  }
-  if (newState === 'voting') {
-    updates.votingStartedAt = new Date();
-  }
-  if (newState === 'decided') {
-    updates.decidedAt = new Date();
-  }
-  if (newState === 'archived') {
-    updates.archivedAt = new Date();
-  }
-
-  return await storage.updateProposal(proposal.id, updates);
+  return await storage.updateProposal(proposal.id, { status: newState });
 }
 
 /**
@@ -131,24 +93,14 @@ export async function transitionProposal(
  * Used for UI display and notifications.
  */
 export function getStateDescription(state: ProposalState): string {
-  const descriptions: Record<ProposalState, string> = {
-    draft: 'Under author revision',
-    review: 'Being validated by LLM',
-    author_review: 'Author reviewing amendments',
-    community_signal: 'Community voting on rejected amendments',
-    sortition_synthesis: 'Sortition body composing final text',
-    voting: 'Final ratification vote in progress',
-    decided: 'Decision reached',
-    archived: 'Closed without decision',
-  };
-  return descriptions[state];
+  return PROPOSAL_STATE_DESCRIPTIONS[state];
 }
 
 /**
  * Check if a proposal is in a terminal state (no further transitions possible).
  */
 export function isTerminalState(state: ProposalState): boolean {
-  return state === 'decided' || state === 'archived';
+  return isTerminalProposalState(state);
 }
 
 /**
@@ -238,7 +190,7 @@ export async function triggerSideEffects(
     
     case 'community_signal->sortition_synthesis':
       // Create sortition body for text synthesis
-      await enqueueCreateSortition(proposal.communityId, 12);
+      await enqueueCreateSortition(proposal.communityId, 12, proposal.id, 'text_synthesis');
       break;
     
     case 'sortition_synthesis->voting':

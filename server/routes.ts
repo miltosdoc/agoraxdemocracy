@@ -26,6 +26,7 @@ import {
   buildSortitionInput,
   saveFinalText,
 } from "./utils/amendment-processor";
+import { INITIAL_PROPOSAL_STATE, isProposalState } from "@shared/proposal-lifecycle";
 
 const addGroupMemberSchema = z.object({
   email: z.string().email("Invalid email format")
@@ -2004,7 +2005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         question,
         solution,
         category,
-        status: 'draft',
+        status: INITIAL_PROPOSAL_STATE,
       });
 
       res.status(201).json(proposal);
@@ -2058,7 +2059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let llmScore: string | undefined;
       let llmFeedback: string | undefined;
       let llmValidatedAt: Date | undefined;
-      let nextStatus = 'validating';
+      let nextStatus = 'review';
 
       try {
         const { validateProposal } = await import('./utils/llm-validation');
@@ -2068,18 +2069,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         llmFeedback = result.feedback;
         llmValidatedAt = new Date();
 
-        // Determine next state based on LLM score
+        // Canonical lifecycle mapping:
+        // - return: back to draft for author revision
+        // - auto_approve/sortition: validated, now ready for amendment author review
         if (result.category === 'return') {
-          nextStatus = 'returned';
-        } else if (result.category === 'auto_approve') {
-          nextStatus = 'approved';
+          nextStatus = 'draft';
         } else {
-          nextStatus = 'valid';
+          nextStatus = 'author_review';
         }
       } catch (llmError) {
         console.error('LLM validation failed:', llmError);
-        // Fall back to manual review if LLM is unavailable
-        nextStatus = 'validating';
+        // Fall back to canonical review state if LLM is unavailable.
+        nextStatus = 'review';
         llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
       }
 
@@ -2387,8 +2388,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
 
       const { newState } = req.body;
-      if (!newState) {
-        return res.status(400).json({ message: "New state is required" });
+      if (!isProposalState(newState)) {
+        return res.status(400).json({ message: "A valid canonical proposal state is required" });
+      }
+      if (!isProposalState(proposal.status)) {
+        return res.status(409).json({
+          message: `Proposal has legacy or invalid status: ${proposal.status}`,
+          current_status: proposal.status,
+        });
       }
 
       // Import state machine

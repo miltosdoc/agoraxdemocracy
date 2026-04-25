@@ -243,9 +243,10 @@ export const proposals = pgTable("proposals", {
   finalText: text("final_text"),              // Τελικό κείμενο από κληρωτό σώμα (null until synthesis)
 
   // State machine
-  status: text("status").notNull().default("submitted"),
-  // 'submitted' → 'validating' → 'valid' | 'returned' | 'rejected'
-  //   → 'scoring' → 'under_review' → 'amendments' → 'debate' → 'voting' → 'resolved'
+  status: text("status").notNull().default("draft"),
+  // Canonical lifecycle lives in shared/proposal-lifecycle.ts:
+  // draft → review → author_review → community_signal → sortition_synthesis → voting → decided
+  // plus archived as a terminal non-decision state.
 
   // LLM validation
   llmScore: numeric("llm_score"),              // 0-100 score from LLM validation

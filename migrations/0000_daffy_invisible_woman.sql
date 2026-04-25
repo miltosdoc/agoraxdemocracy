@@ -180,7 +180,7 @@ CREATE TABLE "proposals" (
 	"author_id" integer NOT NULL,
 	"question" text NOT NULL,
 	"solution" text NOT NULL,
-	"status" text DEFAULT 'submitted' NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
 	"llm_score" numeric,
 	"llm_feedback" text,
 	"llm_validated_at" timestamp,

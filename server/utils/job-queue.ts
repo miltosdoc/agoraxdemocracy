@@ -312,10 +312,12 @@ export async function enqueueNotification(
 export async function enqueueCreateSortition(
   communityId: number,
   size: number,
+  proposalId?: number,
+  purpose: string = 'text_synthesis',
 ): Promise<string> {
   return enqueueJob({
     type: 'create_sortition',
-    data: { communityId, size },
+    data: { communityId, size, proposalId, purpose },
     priority: 'high',
   });
 }
