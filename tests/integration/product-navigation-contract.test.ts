@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+const appSource = readFileSync(resolve(process.cwd(), 'client/src/App.tsx'), 'utf8');
 const headerSource = readFileSync(resolve(process.cwd(), 'client/src/components/layout/header.tsx'), 'utf8');
 const bottomNavSource = readFileSync(resolve(process.cwd(), 'client/src/components/layout/bottom-nav.tsx'), 'utf8');
 
@@ -29,5 +30,12 @@ describe('product navigation contract', () => {
     expect(bottomNavSource).not.toContain('hasDropdown: true');
     expect(bottomNavSource).not.toContain('handleCreatePoll');
     expect(bottomNavSource).toContain('path: "/proposals/new"');
+  });
+
+  it('does not route authenticated users into legacy poll management screens', () => {
+    expect(appSource).not.toContain('component={MyPollsPage}');
+    expect(appSource).not.toContain('component={PollCreatePage}');
+    expect(appSource).not.toContain('component={SurveyCreatePage}');
+    expect(appSource).toContain('<Redirect to="/proposals/new" />');
   });
 });

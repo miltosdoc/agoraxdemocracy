@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,10 +8,6 @@ import AuthPage from "@/pages/auth-page";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import PollDetailsPage from "@/pages/poll-details";
-import MyPollsPage from "@/pages/my-polls";
-import PollCreatePage from "@/pages/poll-create";
-import PollExtendPage from "@/pages/poll-extend";
-import SurveyCreatePage from "@/pages/survey-create";
 import ProfilePage from "@/pages/profile-page";
 import GroupsPage from "@/pages/groups-page";
 import HowItWorksPage from "@/pages/how-it-works";
@@ -77,12 +73,24 @@ function Router() {
         <Route path="/" component={HomePage} />
         <Route path="/auth" component={AuthPage} />
         <ProtectedRoute path="/home" component={HomePage} />
-        <ProtectedRoute path="/my-polls" component={MyPollsPage} />
-        <ProtectedRoute path="/polls/create" component={PollCreatePage} />
-        <ProtectedRoute path="/polls/:id/edit" component={PollCreatePage} />
-        <ProtectedRoute path="/polls/:id/extend" component={PollExtendPage} />
-        <ProtectedRoute path="/surveys/create" component={SurveyCreatePage} />
-        <ProtectedRoute path="/surveys/:id/edit" component={SurveyCreatePage} />
+        <Route path="/my-polls">
+          <Redirect to="/home" />
+        </Route>
+        <Route path="/polls/create">
+          <Redirect to="/proposals/new" />
+        </Route>
+        <Route path="/polls/:id/edit">
+          <Redirect to="/home" />
+        </Route>
+        <Route path="/polls/:id/extend">
+          <Redirect to="/home" />
+        </Route>
+        <Route path="/surveys/create">
+          <Redirect to="/proposals/new" />
+        </Route>
+        <Route path="/surveys/:id/edit">
+          <Redirect to="/home" />
+        </Route>
         <ProtectedRoute path="/analytics" component={AnalyticsDashboard} />
         <ProtectedRoute path="/admin/accounts" component={AdminAccountsPage} />
         <ProtectedRoute path="/profile" component={ProfilePage} />
