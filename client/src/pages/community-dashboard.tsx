@@ -16,24 +16,8 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Users, FileText, Vote, Shield, Settings } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useTranslation } from '@/hooks/use-translation';
-
-interface Community {
-  id: number;
-  name: string;
-  description: string;
-  governanceModel: string;
-  memberCount: number;
-  democracyScore: number;
-}
-
-interface Proposal {
-  id: number;
-  title: string;
-  state: string;
-  authorName: string;
-  createdAt: string;
-}
+import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
+import type { CommunitySummary } from '@shared/community-summary';
 
 export default function CommunityDashboardPage() {
   const params = useParams();
@@ -41,21 +25,16 @@ export default function CommunityDashboardPage() {
   const [, setLocation] = useLocation();
   const { t } = useTranslation();
   
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [summary, setSummary] = useState<CommunitySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!communityId) return;
     
-    Promise.all([
-      api.get(`/api/communities/${communityId}`),
-      api.get(`/api/communities/${communityId}/proposals`),
-    ]).then(([commResp, propResp]) => {
-      setCommunity(commResp.data);
-      setProposals(propResp.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    api.get<CommunitySummary>(`/api/communities/${communityId}/summary`)
+      .then((resp) => setSummary(resp.data))
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false));
   }, [communityId]);
 
   if (loading) {
@@ -68,7 +47,7 @@ export default function CommunityDashboardPage() {
     );
   }
 
-  if (!community) {
+  if (!summary) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
@@ -77,6 +56,9 @@ export default function CommunityDashboardPage() {
       </div>
     );
   }
+
+  const { community, proposals, memberCount, canManageSettings } = summary;
+  const democracyScore = Number(community.democracyScore ?? 0);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -97,17 +79,19 @@ export default function CommunityDashboardPage() {
               </CardTitle>
               <CardDescription>{community.description}</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setLocation(`/communities/${communityId}/settings`)}>
-              <Settings className="w-4 h-4 mr-2" />
-              {t('community.settings_title')}
-            </Button>
+            {canManageSettings && (
+              <Button variant="outline" size="sm" onClick={() => setLocation(`/communities/${communityId}/settings`)}>
+                <Settings className="w-4 h-4 mr-2" />
+                {t('community.settings_title')}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
-              <span>{community.memberCount} {t('community.members')}</span>
+              <span>{memberCount} {t('community.members')}</span>
             </div>
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
@@ -126,9 +110,9 @@ export default function CommunityDashboardPage() {
           <div className="mt-4">
             <div className="flex justify-between text-sm mb-1">
               <span>{t('community.democracy_score')}</span>
-              <span>{community.democracyScore}/100</span>
+              <span>{democracyScore}/100</span>
             </div>
-            <Progress value={community.democracyScore} />
+            <Progress value={democracyScore} />
           </div>
         </CardContent>
       </Card>
@@ -151,19 +135,19 @@ export default function CommunityDashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {proposals.map((proposal) => (
-                    <div key={proposal.id} className="flex items-center justify-between p-3 border rounded">
+                    <div key={proposal.id} className="flex items-center justify-between gap-3 p-3 border rounded">
                       <div>
-                        <div className="font-medium">{proposal.title}</div>
+                        <div className="font-medium">{proposal.question}</div>
                         <div className="text-sm text-muted-foreground">
-                          {t('common.by')} {proposal.authorName} · {new Date(proposal.createdAt).toLocaleDateString()}
+                          {t('common.by')} {proposal.authorLabel} · {new Date(proposal.createdAt).toLocaleDateString()}
                         </div>
                       </div>
                       <Badge variant={
-                        proposal.state === 'voting' ? 'default' :
-                        proposal.state === 'deliberation' ? 'secondary' :
+                        proposal.status === 'voting' ? 'default' :
+                        proposal.status === 'community_signal' || proposal.status === 'sortition_synthesis' ? 'secondary' :
                         'outline'
                       }>
-                        {proposal.state}
+                        {getStatusLabel(proposal.status, t)}
                       </Badge>
                     </div>
                   ))}

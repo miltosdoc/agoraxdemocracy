@@ -28,6 +28,7 @@ import {
 } from "./utils/amendment-processor";
 import { INITIAL_PROPOSAL_STATE, isProposalState } from "@shared/proposal-lifecycle";
 import { sanitizeCommunityCreateInput, sanitizeCommunityUpdateInput } from "@shared/community-settings";
+import { buildCommunitySummary } from "@shared/community-summary";
 
 const addGroupMemberSchema = z.object({
   email: z.string().email("Invalid email format")
@@ -1872,12 +1873,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get community details
   app.get("/api/communities/:id", async (req, res) => {
     try {
-      const community = await storage.getCommunity(parseInt(req.params.id));
+      const communityId = parseInt(req.params.id);
+      const community = await storage.getCommunity(communityId);
       if (!community) return res.status(404).json({ message: "Community not found" });
       res.json(community);
     } catch (error) {
       console.error("Error fetching community:", error);
       res.status(500).json({ message: "Failed to fetch community" });
+    }
+  });
+
+  // Get coherent community dashboard summary
+  app.get("/api/communities/:id/summary", async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const community = await storage.getCommunity(communityId);
+      if (!community) return res.status(404).json({ message: "Community not found" });
+
+      const [members, proposals] = await Promise.all([
+        storage.getCommunityMembers(communityId),
+        storage.getProposals(communityId),
+      ]);
+      const currentUserRole = req.user?.id
+        ? await storage.getCommunityMemberRole(communityId, req.user.id)
+        : undefined;
+
+      res.json(buildCommunitySummary(community, proposals, members.length, currentUserRole));
+    } catch (error) {
+      console.error("Error fetching community summary:", error);
+      res.status(500).json({ message: "Failed to fetch community summary" });
     }
   });
 
