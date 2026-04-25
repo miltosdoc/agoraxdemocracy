@@ -2173,6 +2173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Only the proposal author can review amendments
       const proposal = await storage.getProposal(amendment.proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) {
         return res.status(403).json({ message: "Only the proposal author can review amendments" });
       }

@@ -235,6 +235,7 @@ export interface IStorage {
 
   // ─── Demopolis: Amendment methods ──────────────────────────────────────────
   createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
+  getAmendment(id: number): Promise<ProposalAmendment | undefined>;
   getAmendments(proposalId: number): Promise<ProposalAmendment[]>;
   updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment>;
   countAmendmentsForProposal(proposalId: number): Promise<number>;
@@ -2650,6 +2651,11 @@ export class DatabaseStorage implements IStorage {
       .insert(proposalAmendments)
       .values(insertAmendment)
       .returning();
+    return amendment;
+  }
+
+  async getAmendment(id: number): Promise<ProposalAmendment | undefined> {
+    const [amendment] = await db.select().from(proposalAmendments).where(eq(proposalAmendments.id, id));
     return amendment;
   }
 
