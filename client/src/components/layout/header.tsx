@@ -19,10 +19,11 @@ import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Be
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
-import { el } from "date-fns/locale";
-import t from "@/i18n";
+import { el as dateFnsEl, enUS as dateFnsEn } from "date-fns/locale";
+import { useTranslation } from "@/hooks/use-translation";
 import logoImage from "../../assets/logo.png";
 import { VerifyGovgrModal } from "../user/verify-govgr-modal";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 interface NotificationWithPoll {
   id: number;
@@ -43,7 +44,9 @@ interface NotificationWithPoll {
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
+  const { t, locale } = useTranslation();
   const [, navigate] = useLocation();
+  const dateFnsLocale = locale === 'el' ? dateFnsEl : dateFnsEn;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
@@ -65,7 +68,7 @@ export default function Header() {
   const { data: unreadCountData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread/count"],
     enabled: !!user,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
 
   // Fetch all notifications
@@ -80,22 +83,16 @@ export default function Header() {
       return await apiRequest("POST", `/api/notifications/${notificationId}/read`);
     },
     onSuccess: () => {
-      // Invalidate both queries to update count and list
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
     },
   });
 
   const handleNotificationClick = (notification: NotificationWithPoll) => {
-    // Mark as read
     if (!notification.read) {
       markAsReadMutation.mutate(notification.id);
     }
-
-    // Close popover
     setIsNotificationsOpen(false);
-
-    // Navigate to poll details
     navigate(`/polls/${notification.pollId}`);
   };
 
@@ -120,7 +117,7 @@ export default function Header() {
                 AgoraX
               </span>
               <span className="text-muted-foreground text-xs sm:text-sm hidden sm:block leading-tight mt-0.5">
-                {t("Digital Democracy Platform")}
+                {t('general.digitalDemocracy')}
               </span>
             </div>
           </Link>
@@ -128,6 +125,7 @@ export default function Header() {
 
         {!user ? (
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher />
             <Button
               variant="outline"
               onClick={() => {
@@ -137,7 +135,7 @@ export default function Header() {
               className="min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
               data-testid="button-login"
             >
-              {t("Login")}
+              {t('auth.login')}
             </Button>
             <Button
               onClick={() => {
@@ -147,7 +145,7 @@ export default function Header() {
               className="min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
               data-testid="button-register"
             >
-              {t("Register")}
+              {t('auth.register')}
             </Button>
             <Button
               variant="ghost"
@@ -156,7 +154,7 @@ export default function Header() {
               data-testid="button-walkthrough"
             >
               <MessageSquare className="h-4 w-4" />
-              <span>Διαδικασία</span>
+              <span>{t('nav.process')}</span>
             </Button>
           </div>
         ) : (
@@ -168,7 +166,7 @@ export default function Header() {
                   data-testid="button-new-poll"
                 >
                   <PlusCircle className="h-4 w-4" />
-                  <span>{t("New Poll")}</span>
+                  <span>{t('nav.newPoll')}</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -178,14 +176,14 @@ export default function Header() {
                   className="cursor-pointer transition-smooth"
                   data-testid="menu-create-standard"
                 >
-                  {t("Standard Poll")}
+                  {t('ballot.standardPoll')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleCreateSurvey}
                   className="cursor-pointer transition-smooth"
                   data-testid="menu-create-survey"
                 >
-                  {t("Survey Poll (Δημοσκοπική Ψηφοφορία)")} <span className="text-xs text-muted-foreground ml-1">(Beta)</span>
+                  {t('ballot.surveyPoll')} <span className="text-xs text-muted-foreground ml-1">({t('ballot.beta')})</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -196,7 +194,7 @@ export default function Header() {
               data-testid="button-new-proposal"
             >
               <FileText className="h-4 w-4" />
-              <span>Υπόβαλε Πρόταση</span>
+              <span>{t('nav.newProposal')}</span>
             </Button>
 
             {/* Notification Bell */}
@@ -221,12 +219,12 @@ export default function Header() {
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0 mt-2" data-testid="popover-notifications">
                 <div className="border-b p-4">
-                  <h3 className="font-semibold text-sm">{t("Notifications")}</h3>
+                  <h3 className="font-semibold text-sm">{t('notification.title')}</h3>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto">
                   {notificationsLoading ? (
                     <div className="p-4 text-center text-sm text-muted-foreground" data-testid="text-loading-notifications">
-                      {t("Loading notifications...")}
+                      {t('notification.loading')}
                     </div>
                   ) : notifications && notifications.length > 0 ? (
                     <div className="divide-y" data-testid="list-notifications">
@@ -234,8 +232,7 @@ export default function Header() {
                         <div
                           key={notification.id}
                           onClick={() => handleNotificationClick(notification)}
-                          className={`p-4 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-blue-50 dark:bg-blue-950" : ""
-                            }`}
+                          className={`p-4 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-blue-50 dark:bg-blue-950" : ""}`}
                           data-testid={`notification-item-${notification.id}`}
                         >
                           <div className="flex items-start gap-2">
@@ -245,8 +242,8 @@ export default function Header() {
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
                                 {notification.poll.group
-                                  ? `${t("New poll in")} ${notification.poll.group.name}`
-                                  : `${t("New poll in")} ${t("community")}`
+                                  ? `${t('notification.newPollIn')} ${notification.poll.group.name}`
+                                  : `${t('notification.newPollIn')} ${t('notification.community')}`
                                 }
                               </p>
                               <p className="text-sm text-primary font-medium truncate mt-1" data-testid={`text-poll-title-${notification.id}`}>
@@ -255,7 +252,7 @@ export default function Header() {
                               <p className="text-xs text-muted-foreground mt-1" data-testid={`text-time-ago-${notification.id}`}>
                                 {formatDistanceToNow(new Date(notification.createdAt), {
                                   addSuffix: true,
-                                  locale: el
+                                  locale: dateFnsLocale
                                 })}
                               </p>
                             </div>
@@ -265,12 +262,14 @@ export default function Header() {
                     </div>
                   ) : (
                     <div className="p-8 text-center text-sm text-muted-foreground" data-testid="text-no-notifications">
-                      {t("No notifications")}
+                      {t('notification.empty')}
                     </div>
                   )}
                 </div>
               </PopoverContent>
             </Popover>
+
+            <LanguageSwitcher />
 
             <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild>
@@ -293,10 +292,10 @@ export default function Header() {
                   {user.govgrVerified ? (
                     <div className="flex items-center text-green-600 font-medium">
                       <Shield className="mr-1 h-3 w-3" />
-                      {t("Verified Citizen")}
+                      {t('ballot.verified')}
                     </div>
                   ) : (
-                    <span className="text-amber-600">{t("Unverified")}</span>
+                    <span className="text-amber-600">{t('ballot.unverified')}</span>
                   )}
                 </div>
                 <DropdownMenuSeparator />
@@ -311,7 +310,7 @@ export default function Header() {
                     data-testid="menu-verify"
                   >
                     <Shield className="mr-2 h-4 w-4" />
-                    {t("Verify with Gov.gr")}
+                    {t('ballot.verify')}
                   </DropdownMenuItem>
                 )}
 
@@ -321,7 +320,7 @@ export default function Header() {
                   data-testid="menu-profile"
                 >
                   <User className="mr-2 h-4 w-4" />
-                  {t("My Profile")}
+                  {t('nav.profile')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/my-polls")}
@@ -329,7 +328,7 @@ export default function Header() {
                   data-testid="menu-my-polls"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  {t("My Polls")}
+                  {t('nav.myPolls')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/groups")}
@@ -337,7 +336,7 @@ export default function Header() {
                   data-testid="menu-groups"
                 >
                   <Users className="mr-2 h-4 w-4" />
-                  {t("Groups")}
+                  {t('nav.groups')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/communities")}
@@ -345,7 +344,7 @@ export default function Header() {
                   data-testid="menu-communities"
                 >
                   <Users className="mr-2 h-4 w-4" />
-                  Κοινότητες
+                  {t('nav.communities')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/proposals/new")}
@@ -353,7 +352,7 @@ export default function Header() {
                   data-testid="menu-new-proposal"
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  Υπόβαλε Πρόταση
+                  {t('nav.newProposal')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/walkthrough")}
@@ -361,7 +360,7 @@ export default function Header() {
                   data-testid="menu-walkthrough"
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  Διαδικασία Διαβούλευσης
+                  {t('nav.walkthrough')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/analytics")}
@@ -369,7 +368,7 @@ export default function Header() {
                   data-testid="menu-analytics"
                 >
                   <BarChart3 className="mr-2 h-4 w-4" />
-                  {t("Analytics Dashboard")}
+                  {t('nav.analytics')}
                 </DropdownMenuItem>
                 {user.isAdmin && (
                   <DropdownMenuItem
@@ -378,7 +377,7 @@ export default function Header() {
                     data-testid="menu-admin-accounts"
                   >
                     <Users className="mr-2 h-4 w-4" />
-                    {t("Account Management Admin")}
+                    {t('nav.adminAccounts')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -388,7 +387,7 @@ export default function Header() {
                   data-testid="menu-logout"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  {t("Logout")}
+                  {t('auth.logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

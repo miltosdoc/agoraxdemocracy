@@ -1,5 +1,6 @@
 import { useToast } from "@/hooks/use-toast";
-import t from "@/i18n";
+import { getTranslationFunction } from "@/hooks/use-translation";
+const t = getTranslationFunction();
 
 interface ShareOptions {
   pollId: number;

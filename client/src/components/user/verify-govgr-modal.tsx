@@ -19,7 +19,7 @@ import {
     ArrowRight
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -38,6 +38,7 @@ interface ValidationResult {
 }
 
 export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
+  const { t, locale } = useTranslation();
     const [step, setStep] = useState<Step>("intro");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);

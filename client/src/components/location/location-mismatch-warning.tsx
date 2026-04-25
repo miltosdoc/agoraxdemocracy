@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface LocationMismatchWarningProps {
   type: 'gps-when-list-required' | 'list-when-gps-required';
@@ -8,6 +8,7 @@ interface LocationMismatchWarningProps {
 }
 
 export function LocationMismatchWarning({ type, onDismiss }: LocationMismatchWarningProps) {
+  const { t, locale } = useTranslation();
   let title = '';
   let description = '';
   

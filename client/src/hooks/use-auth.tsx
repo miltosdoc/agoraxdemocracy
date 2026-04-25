@@ -7,7 +7,8 @@ import {
 import { RegisterUser, LoginUser, User as SelectUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import t from "@/i18n";
+import { getTranslationFunction } from "@/hooks/use-translation";
+const t = getTranslationFunction();
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       queryClient.setQueryData(["/api/user"], user);
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Login successful"),
         variant: "default",
       });
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       queryClient.setQueryData(["/api/user"], user);
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Registration successful"),
         variant: "default",
       });
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -115,14 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], null);
       window.location.href = "/";
       toast({
-        title: t("Success"),
-        description: t("Logout"),
+        title: t('general.success'),
+        description: t('auth.logout'),
         variant: "default",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });

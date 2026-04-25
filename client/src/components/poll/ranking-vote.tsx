@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "react-beautiful-dnd";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface RankableItem {
   id: number;
@@ -13,6 +13,7 @@ interface RankingVoteProps {
 }
 
 export function RankingVote({ options, onChange }: RankingVoteProps) {
+  const { t, locale } = useTranslation();
   // We create a copy of the options array because we'll be reordering it
   const [items, setItems] = useState<RankableItem[]>([...options]);
 

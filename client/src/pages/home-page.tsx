@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Users, FileText, Vote, Shield, ArrowRight, Plus, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
+import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
 
 interface Community {
   id: number;
@@ -29,18 +30,9 @@ interface Proposal {
   createdAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Σχέδιο', color: 'bg-gray-100 text-gray-700' },
-  review: { label: 'Έλεγχος', color: 'bg-blue-100 text-blue-700' },
-  author_review: { label: 'Ανασκόπηση', color: 'bg-yellow-100 text-yellow-700' },
-  community_signal: { label: 'Συμβουλή', color: 'bg-green-100 text-green-700' },
-  sortition_synthesis: { label: 'Σύνθεση', color: 'bg-purple-100 text-purple-700' },
-  voting: { label: 'Ψηφοφορία', color: 'bg-orange-100 text-orange-700' },
-  decided: { label: 'Απόφαση', color: 'bg-emerald-100 text-emerald-700' },
-};
-
 function HeroSection() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
 
   return (
@@ -49,32 +41,31 @@ function HeroSection() {
       <div className="relative container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
-            Δημιουργήστε τη Δημοκρατία του Αύριο
+            {t('home.heroTitle')}
           </h1>
           <p className="text-xl md:text-2xl text-blue-100 mb-8 leading-relaxed">
-            Πλατφόρμα διαβούλευσης και συμμετοχικής διακυβέρνησης.
-            Υποβάλετε προτάσεις, συζητάτε με την κοινότητα, και αποφασίζετε μαζί.
+            {t('home.heroSubtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {user ? (
               <>
                 <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/proposals/new')}>
                   <Plus className="w-5 h-5 mr-2" />
-                  Υπόβαλε Πρόταση
+                  {t('home.submitProposal')}
                 </Button>
                 <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/communities/new')}>
                   <Users className="w-5 h-5 mr-2" />
-                  Δημιούργησε Κοινότητα
+                  {t('home.createCommunity')}
                 </Button>
               </>
             ) : (
               <>
                 <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/auth')}>
-                  Σύνδεση
+                  {t('auth.login')}
                 </Button>
                 <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
                   <Lightbulb className="w-5 h-5 mr-2" />
-                  Πώς Λειτουργεί
+                  {t('home.howItWorks')}
                 </Button>
               </>
             )}
@@ -86,6 +77,7 @@ function HeroSection() {
 }
 
 function StatsBar({ communities, proposals }: { communities: Community[]; proposals: Proposal[] }) {
+  const { t } = useTranslation();
   const activeDeliberations = proposals.filter(p => p.status !== 'decided' && p.status !== 'draft').length;
 
   return (
@@ -98,7 +90,7 @@ function StatsBar({ communities, proposals }: { communities: Community[]; propos
             </div>
             <div>
               <p className="text-2xl font-bold">{communities.length}</p>
-              <p className="text-sm text-muted-foreground">Κοινότητες</p>
+              <p className="text-sm text-muted-foreground">{t('home.communities')}</p>
             </div>
           </CardContent>
         </Card>
@@ -109,7 +101,7 @@ function StatsBar({ communities, proposals }: { communities: Community[]; propos
             </div>
             <div>
               <p className="text-2xl font-bold">{proposals.length}</p>
-              <p className="text-sm text-muted-foreground">Προτάσεις</p>
+              <p className="text-sm text-muted-foreground">{t('home.proposals')}</p>
             </div>
           </CardContent>
         </Card>
@@ -120,7 +112,7 @@ function StatsBar({ communities, proposals }: { communities: Community[]; propos
             </div>
             <div>
               <p className="text-2xl font-bold">{activeDeliberations}</p>
-              <p className="text-sm text-muted-foreground">Ενεργές Διαβουλεύσεις</p>
+              <p className="text-sm text-muted-foreground">{t('home.activeDeliberations')}</p>
             </div>
           </CardContent>
         </Card>
@@ -130,6 +122,7 @@ function StatsBar({ communities, proposals }: { communities: Community[]; propos
 }
 
 function CommunitiesSection({ communities }: { communities: Community[] }) {
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
 
   if (communities.length === 0) {
@@ -137,14 +130,14 @@ function CommunitiesSection({ communities }: { communities: Community[] }) {
       <section className="py-12">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Κοινότητες</h2>
+            <h2 className="text-2xl font-bold">{t('home.communities')}</h2>
           </div>
           <Card className="text-center py-12">
             <CardContent>
-              <p className="text-muted-foreground mb-4">Δεν υπάρχουν κοινότητες ακόμα.</p>
+              <p className="text-muted-foreground mb-4">{t('home.noCommunities')}</p>
               <Button onClick={() => navigate('/communities/new')}>
                 <Plus className="w-4 h-4 mr-2" />
-                Δημιούργησε Κοινότητα
+                {t('home.createCommunity')}
               </Button>
             </CardContent>
           </Card>
@@ -157,9 +150,9 @@ function CommunitiesSection({ communities }: { communities: Community[] }) {
     <section className="py-12">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Κοινότητες</h2>
+          <h2 className="text-2xl font-bold">{t('home.communities')}</h2>
           <Button variant="ghost" onClick={() => navigate('/communities')}>
-            Όλες οι κοινότητες <ArrowRight className="w-4 h-4 ml-2" />
+            {t('home.allCommunities')} <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -176,13 +169,13 @@ function CommunitiesSection({ communities }: { communities: Community[] }) {
                 <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    {community.memberCount} μέλη
+                    {community.memberCount} {t('community.members')}
                   </span>
                   <Badge variant="outline">{community.type}</Badge>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span>Βαθμός Δημοκρατίας</span>
+                    <span>{t('community.democracyScore')}</span>
                     <span className="font-medium">{community.democracyScore}%</span>
                   </div>
                   <Progress value={community.democracyScore} className="h-2" />
@@ -197,6 +190,7 @@ function CommunitiesSection({ communities }: { communities: Community[] }) {
 }
 
 function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
 
   if (proposals.length === 0) {
@@ -204,14 +198,14 @@ function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
       <section className="py-12 bg-slate-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Πρόσφατες Προτάσεις</h2>
+            <h2 className="text-2xl font-bold">{t('home.proposals')}</h2>
           </div>
           <Card className="text-center py-12">
             <CardContent>
-              <p className="text-muted-foreground mb-4">Δεν υπάρχουν προτάσεις ακόμα.</p>
+              <p className="text-muted-foreground mb-4">{t('home.noProposals')}</p>
               <Button onClick={() => navigate('/proposals/new')}>
                 <Plus className="w-4 h-4 mr-2" />
-                Υπόβαλε Πρόταση
+                {t('home.submitProposal')}
               </Button>
             </CardContent>
           </Card>
@@ -220,19 +214,29 @@ function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
     );
   }
 
+  const STATUS_COLOR: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-700',
+    review: 'bg-blue-100 text-blue-700',
+    author_review: 'bg-yellow-100 text-yellow-700',
+    community_signal: 'bg-green-100 text-green-700',
+    sortition_synthesis: 'bg-purple-100 text-purple-700',
+    voting: 'bg-orange-100 text-orange-700',
+    decided: 'bg-emerald-100 text-emerald-700',
+  };
+
   return (
     <section className="py-12 bg-slate-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Πρόσφατες Προτάσεις</h2>
+          <h2 className="text-2xl font-bold">{t('home.proposals')}</h2>
           <Button variant="ghost" onClick={() => navigate('/proposals/new')}>
             <Plus className="w-4 h-4 mr-2" />
-            Υπόβαλε Πρόταση
+            {t('home.submitProposal')}
           </Button>
         </div>
         <div className="space-y-4">
           {proposals.slice(0, 6).map((proposal) => {
-            const statusConfig = STATUS_CONFIG[proposal.status] || STATUS_CONFIG.draft;
+            const color = STATUS_COLOR[proposal.status] || STATUS_COLOR.draft;
             return (
               <Card key={proposal.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/proposals/${proposal.id}`)}>
                 <CardContent className="p-6">
@@ -242,12 +246,11 @@ function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <FileText className="w-4 h-4" />
-                          {proposal.communityName || `Κοινότητα #${proposal.communityId}`}
+                          {proposal.communityName || `#${proposal.communityId}`}
                         </span>
-                        <span>{new Date(proposal.createdAt).toLocaleDateString('el-GR')}</span>
                       </div>
                     </div>
-                    <Badge className={statusConfig.color}>{statusConfig.label}</Badge>
+                    <Badge className={color}>{getStatusLabel(proposal.status, t)}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -260,29 +263,32 @@ function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
 }
 
 function HowItWorksSection() {
+  const { t } = useTranslation();
   const steps = [
     {
       icon: FileText,
-      title: 'Υπόβαλε Πρόταση',
-      description: 'Δημιούργησε μια πρόταση πολιτικής και υποβέ την στην κοινότητα σου.',
+      title: t('home.step1Title'),
+      description: t('home.step1Desc'),
+      stepNum: t('home.step1'),
     },
     {
       icon: MessageSquare,
-      title: 'Διαβούλευση',
-      description: 'Η κοινότητα συζητά, προτείνει τροποποιήσεις, και ψηφίζει για τις ιδέες.',
+      title: t('home.step2Title'),
+      description: t('home.step2Desc'),
+      stepNum: t('home.step2'),
     },
     {
       icon: CheckCircle,
-      title: 'Τελική Απόφαση',
-      description: 'Το σώμα κλήρωσης συνθέτει την τελική πρόταση και η κοινότητα ψηφίζει.',
+      title: t('home.step3Title'),
+      description: t('home.step3Desc'),
+      stepNum: t('home.step3'),
     },
   ];
 
   return (
     <section className="py-12">
       <div className="container mx-auto px-4">
-        <h2 className="text-2xl font-bold text-center mb-2">Πώς Λειτουργεί</h2>
-        <p className="text-center text-muted-foreground mb-8">Τρία βήματα για συμμετοχική διακυβέρνηση</p>
+        <h2 className="text-2xl font-bold text-center mb-2">{t('home.howItWorks')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {steps.map((step, index) => {
             const Icon = step.icon;
@@ -291,7 +297,7 @@ function HowItWorksSection() {
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 mb-4">
                   <Icon className="w-8 h-8" />
                 </div>
-                <div className="text-sm font-medium text-blue-600 mb-1">Βήμα {index + 1}</div>
+                <div className="text-sm font-medium text-blue-600 mb-1">{step.stepNum} {index + 1}</div>
                 <h3 className="font-semibold text-lg mb-2">{step.title}</h3>
                 <p className="text-muted-foreground text-sm">{step.description}</p>
               </div>
@@ -305,26 +311,27 @@ function HowItWorksSection() {
 
 function CTASection() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
 
   return (
     <section className="py-16 bg-gradient-to-r from-blue-600 to-blue-500 text-white">
       <div className="container mx-auto px-4 text-center">
-        <h2 className="text-3xl font-bold mb-4">Έτοιμος να συμμετάσχεις;</h2>
-        <p className="text-xl text-blue-100 mb-8">Γίνε μέρος της πλατφόρμας και συνεισφέρεις στη διαμόρφωση πολιτικής.</p>
+        <h2 className="text-3xl font-bold mb-4">{t('home.readyTitle')}</h2>
+        <p className="text-xl text-blue-100 mb-8">{t('home.readyDesc')}</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           {user ? (
             <Button variant="solid" size="lg" onClick={() => navigate('/proposals/new')}>
               <Plus className="w-5 h-5 mr-2" />
-              Υπόβαλε Πρόταση
+              {t('home.submitProposal')}
             </Button>
           ) : (
             <>
               <Button variant="solid" size="lg" onClick={() => navigate('/auth')}>
-                Σύνδεση
+                {t('auth.login')}
               </Button>
               <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
-                Μάθε Περισσότερα
+                {t('home.learnMore')}
               </Button>
             </>
           )}
@@ -341,8 +348,8 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/communities').catch(() => ({ data: [] })),
-      api.get('/api/proposals?limit=10').catch(() => ({ data: [] })),
+      api.get('/api/communities').catch(() => ({ data: [] as Community[] })),
+      api.get('/api/proposals?limit=10').catch(() => ({ data: [] as Proposal[] })),
     ]).then(([commResp, propResp]) => {
       setCommunities(commResp.data || []);
       setProposals(propResp.data || []);

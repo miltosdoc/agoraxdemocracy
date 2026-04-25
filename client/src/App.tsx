@@ -31,6 +31,7 @@ import { CommunityForm } from "@/components/community/community-form";
 import { CommunityList } from "@/components/community/community-list";
 import { ProposalForm } from "@/components/proposal/proposal-form";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
+import { I18nProvider } from "./hooks/use-translation";
 import { ProtectedRoute } from "./lib/protected-route";
 import BottomNav from "@/components/layout/bottom-nav";
 
@@ -110,10 +111,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router />
-        <Toaster />
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

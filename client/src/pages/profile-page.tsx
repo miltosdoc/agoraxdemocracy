@@ -5,12 +5,13 @@ import Footer from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocationDetector } from "@/components/user/location-detector";
 import { DeleteAccount } from "@/components/user/delete-account";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, User, MapPin, Shield } from "lucide-react";
 
 export default function ProfilePage() {
+  const { t, locale } = useTranslation();
   const { user, isLoading } = useAuth();
   const [_, setLocation] = useLocation();
 
@@ -51,9 +52,9 @@ export default function ProfilePage() {
           onClick={() => setLocation("/home")}
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          {t("Back")}
+          {t('general.back')}
         </Button>
-        <h1 className="text-2xl font-bold">{t("My Profile")}</h1>
+        <h1 className="text-2xl font-bold">{t('header.myProfile')}</h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -62,28 +63,28 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <User className="h-5 w-5 mr-2" />
-                {t("User Information")}
+                {t('profile.userInformation')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t("Username")}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('auth.username')}</p>
                   <p>{user.username}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t("Name")}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('profile.name')}</p>
                   <p>{user.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t("Email")}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('auth.email')}</p>
                   <p>{user.email}</p>
                 </div>
                 {user.locationConfirmed && (
                   <div className="pt-2 border-t">
                     <p className="text-sm font-medium text-muted-foreground flex items-center">
                       <MapPin className="h-3.5 w-3.5 mr-1 inline" />
-                      {t("Location")}
+                      {t('notification.location')}
                     </p>
                     <p className="text-sm mt-1">
                       {[(user as any).city, (user as any).region, (user as any).country].filter(Boolean).join(", ")}
@@ -91,7 +92,7 @@ export default function ProfilePage() {
                     
                     {user.latitude && user.longitude && (
                       <div className="mt-2">
-                        <p className="text-sm font-medium text-muted-foreground">{t("Coordinates")}</p>
+                        <p className="text-sm font-medium text-muted-foreground">{t('profile.coordinates')}</p>
                         <p className="text-sm font-mono">
                           {user.latitude}, {user.longitude}
                         </p>
@@ -108,9 +109,9 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{t("Location Settings")}</CardTitle>
+                <CardTitle>{t('profile.locationSettings')}</CardTitle>
                 <CardDescription>
-                  {t("Update your location to participate in location-restricted polls")}
+                  {t('profile.updateLocation')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -122,10 +123,10 @@ export default function ProfilePage() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Shield className="h-5 w-5 mr-2" />
-                  {t("Account Management")}
+                  {t('admin.manageAccounts')}
                 </CardTitle>
                 <CardDescription>
-                  {t("Manage your account settings and preferences")}
+                  {t('admin.manageAccountsDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>

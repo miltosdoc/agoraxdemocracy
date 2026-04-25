@@ -9,13 +9,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface BottomNavProps {
   user: SelectUser | null;
 }
 
 export default function BottomNav({ user }: BottomNavProps) {
+  const { t } = useTranslation();
   const [location, navigate] = useLocation();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
 
@@ -25,32 +26,32 @@ export default function BottomNav({ user }: BottomNavProps) {
 
   const navItems = [
     {
-      label: t("Home"),
+      label: t('nav.home'),
       icon: Home,
       path: "/home",
       testId: "nav-home",
     },
     {
-      label: t("Create"),
+      label: t('nav.create'),
       icon: PlusCircle,
       path: "/polls/create",
       testId: "nav-create",
       hasDropdown: true,
     },
     {
-      label: t("My Polls"),
+      label: t('nav.myPolls'),
       icon: FileText,
       path: "/my-polls",
       testId: "nav-my-polls",
     },
     {
-      label: t("Communities"),
+      label: t('nav.communities'),
       icon: Users,
       path: "/communities",
       testId: "nav-communities",
     },
     {
-      label: t("Profile"),
+      label: t('nav.profile'),
       icon: User,
       path: "/profile",
       testId: "nav-profile",
@@ -113,12 +114,12 @@ export default function BottomNav({ user }: BottomNavProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-56 mb-2">
                   <DropdownMenuItem onClick={handleCreatePoll}>
-                    {t("Standard Poll")}
+                    {t('ballot.standardPoll')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleCreateSurvey}>
-                    {t("Survey Poll (Δημοσκοπική Ψηφοφορία)")}{" "}
+                    {t('ballot.surveyPoll')}{" "}
                     <span className="text-xs text-muted-foreground ml-1">
-                      (Beta)
+                      ({t('ballot.beta')})
                     </span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

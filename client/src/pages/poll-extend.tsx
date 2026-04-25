@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Calendar, ChevronLeft, Loader2 } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import type { Poll, User } from "@shared/schema";
 
 type PollExtendData = Poll & {
@@ -19,6 +19,7 @@ type PollExtendData = Poll & {
 };
 
 export default function PollExtendPage() {
+  const { t, locale } = useTranslation();
   const params = useParams();
   const pollId = params.id ? parseInt(params.id) : 0;
   const [, navigate] = useLocation();
@@ -93,7 +94,7 @@ export default function PollExtendPage() {
     },
     onSuccess: () => {
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Poll extended successfully"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/polls"] });
@@ -101,7 +102,7 @@ export default function PollExtendPage() {
     },
     onError: (error: Error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -114,7 +115,7 @@ export default function PollExtendPage() {
 
     if (!newEndDate) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: "Παρακαλώ επιλέξτε νέα ημερομηνία λήξης",
         variant: "destructive",
       });
@@ -123,7 +124,7 @@ export default function PollExtendPage() {
 
     if (!newEndTime) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: "Παρακαλώ επιλέξτε νέα ώρα λήξης",
         variant: "destructive",
       });
@@ -169,7 +170,7 @@ export default function PollExtendPage() {
       // Validate that the new end date is after the current end date
       if (!isAfter(newEndDateTime, currentEndDate)) {
         toast({
-          title: t("Error"),
+          title: t('general.error'),
           description: "Η νέα ημερομηνία και ώρα λήξης πρέπει να είναι μετά την τρέχουσα",
           variant: "destructive",
         });
@@ -181,7 +182,7 @@ export default function PollExtendPage() {
     } catch (error) {
       console.error("Error parsing date/time:", error);
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: 'Invalid date or time format. Please check your input.',
         variant: "destructive",
       });
@@ -203,7 +204,7 @@ export default function PollExtendPage() {
   useEffect(() => {
     if (poll?.creator && poll.isCreator === false) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: "Δεν έχετε δικαίωμα να επεκτείνετε αυτή την ψηφοφορία",
         variant: "destructive",
       });
@@ -215,7 +216,7 @@ export default function PollExtendPage() {
   useEffect(() => {
     if (poll && (!poll.isActive || !poll.allowExtension)) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: !poll.isActive 
           ? "Δεν μπορείτε να επεκτείνετε μια ολοκληρωμένη ψηφοφορία" 
           : "Η επέκταση δεν επιτρέπεται για αυτή την ψηφοφορία",
@@ -249,7 +250,7 @@ export default function PollExtendPage() {
           onClick={handleBackClick}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
-          {t("Back")}
+          {t('general.back')}
         </Button>
 
         <h1 className="text-2xl font-bold mb-6">{t("Extend Poll Duration")}</h1>
@@ -303,13 +304,13 @@ export default function PollExtendPage() {
                     variant="outline"
                     onClick={handleBackClick}
                   >
-                    {t("Cancel")}
+                    {t('general.cancel')}
                   </Button>
                   <Button
                     type="submit"
                     disabled={extendMutation.isPending}
                   >
-                    {extendMutation.isPending ? t("Loading") + "..." : t("Extend")}
+                    {extendMutation.isPending ? t('general.loading') + "..." : t('general.next')}
                   </Button>
                 </div>
               </form>

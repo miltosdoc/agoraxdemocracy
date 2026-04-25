@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { t } from "@/i18n";
+import { getTranslationFunction } from "@/hooks/use-translation";
+const t = getTranslationFunction();
 
 // Custom error type for API errors
 export class ApiError extends Error {

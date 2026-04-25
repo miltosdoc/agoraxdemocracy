@@ -40,7 +40,7 @@ import {
   ArrowLeft,
   AlertCircle
 } from "lucide-react";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { 
   getCountries, 
   getRegionsByCountry, 
@@ -56,6 +56,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 
 export function SurveyPollForm({ pollId }: { pollId?: number }) {
+  const { t, locale } = useTranslation();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -233,7 +234,7 @@ export function SurveyPollForm({ pollId }: { pollId?: number }) {
     },
     onError: (error: Error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -847,7 +848,7 @@ export function SurveyPollForm({ pollId }: { pollId?: number }) {
           
           {/* Location Settings */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t("Location Settings")}</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('profile.locationSettings')}</h3>
             
             <FormField
               control={form.control}
@@ -1426,7 +1427,7 @@ export function SurveyPollForm({ pollId }: { pollId?: number }) {
               variant="outline"
               onClick={() => navigate("/home")}
             >
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
             <Button 
               type="submit" 

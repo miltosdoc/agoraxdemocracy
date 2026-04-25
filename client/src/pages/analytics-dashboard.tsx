@@ -4,7 +4,7 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Area, AreaChart } from "recharts";
 import { Users, MessageSquare, Vote, BarChart3, TrendingUp, Clock, Calendar, Activity, UserPlus, Percent } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 
@@ -48,6 +48,7 @@ interface UsagePattern {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function AnalyticsDashboard() {
+  const { t, locale } = useTranslation();
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery<AnalyticsOverview>({
     queryKey: ["/api/analytics/overview"],
     retry: false,
@@ -97,55 +98,55 @@ export default function AnalyticsDashboard() {
       <Header />
       <div className="container mx-auto p-6 pb-16 sm:pb-6 flex-grow">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">{t("Analytics Dashboard")}</h1>
-        <p className="text-muted-foreground">{t("Platform insights and usage statistics")}</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">{t('header.analyticsDashboard')}</h1>
+        <p className="text-muted-foreground">{t('analytics.adminRequiredDesc')}</p>
       </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Total Users")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.totalUsers')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.totalUsers.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("Registered community members")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.registeredMembers')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Total Polls")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.totalPolls')}</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.totalPolls.toLocaleString('el-GR')}</div>
             <p className="text-xs text-muted-foreground">
-              {overview?.activePolls} {t("currently active")}
+              {overview?.activePolls} {t('analytics.currentlyActive')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Total Votes")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.totalVotes')}</CardTitle>
             <Vote className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.totalVotes.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("Community participation")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.communityParticipation')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Total Comments")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.totalComments')}</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.totalComments.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("Discussion engagement")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.discussionEngagement')}</p>
           </CardContent>
         </Card>
       </div>
@@ -154,45 +155,45 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("New Users (7 Days)")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.newUsers7Days')}</CardTitle>
             <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.newUsers7Days.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("New signups this week")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.newSignupsWeek')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("New Users (30 Days)")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.newUsers30Days')}</CardTitle>
             <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.newUsers30Days.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("New signups this month")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.newSignupsMonth')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Active Users (7 Days)")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.activeUsers7Days')}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.activeUsers7Days.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("Users who voted or commented this week")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.usersVotedCommentedWeek')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Active Users (30 Days)")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.activeUsers30Days')}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.activeUsers30Days.toLocaleString('el-GR')}</div>
-            <p className="text-xs text-muted-foreground">{t("Users who voted or commented this month")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.usersVotedCommentedMonth')}</p>
           </CardContent>
         </Card>
       </div>
@@ -201,34 +202,34 @@ export default function AnalyticsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Participation Rate")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.participationRate')}</CardTitle>
             <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.participationRate}%</div>
-            <p className="text-xs text-muted-foreground">{t("% of users who have voted")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.pctUsersVoted')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Avg Votes per Poll")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.avgVotesPerPoll')}</CardTitle>
             <Vote className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.avgVotesPerPoll}</div>
-            <p className="text-xs text-muted-foreground">{t("Average participation per poll")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.avgParticipationPerPoll')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("Avg Comments per Poll")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('notification.avgCommentsPerPoll')}</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overview?.avgCommentsPerPoll}</div>
-            <p className="text-xs text-muted-foreground">{t("Average discussion per poll")}</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.avgDiscussionPerPoll')}</p>
           </CardContent>
         </Card>
       </div>
@@ -240,7 +241,7 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <TrendingUp className="h-5 w-5 mr-2" />
-              {t("Activity Trends (Last 30 Days)")}
+              {t('analytics.activityTrends30')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -269,7 +270,7 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <BarChart3 className="h-5 w-5 mr-2" />
-              {t("Popular Categories")}
+              {t('analytics.popularCategories')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -300,7 +301,7 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Clock className="h-5 w-5 mr-2" />
-              {t("Hourly Activity Pattern")}
+              {t('analytics.hourlyPattern')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -311,7 +312,7 @@ export default function AnalyticsDashboard() {
                 <YAxis />
                 <Tooltip 
                   labelFormatter={(value) => `${value}:00 - ${value + 1}:00`}
-                  formatter={(value) => [value, t("Activity")]}
+                  formatter={(value) => [value, t('notification.activity')]}
                 />
                 <Bar dataKey="activity" fill="#8884d8" />
               </BarChart>
@@ -324,7 +325,7 @@ export default function AnalyticsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
-              {t("Daily Activity Pattern")}
+              {t('analytics.dailyPattern')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -333,7 +334,7 @@ export default function AnalyticsDashboard() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis />
-                <Tooltip formatter={(value) => [value, t("Activity")]} />
+                <Tooltip formatter={(value) => [value, t('notification.activity')]} />
                 <Bar dataKey="activity" fill="#82ca9d" />
               </BarChart>
             </ResponsiveContainer>
@@ -346,7 +347,7 @@ export default function AnalyticsDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Activity className="h-5 w-5 mr-2" />
-            {t("Most Popular Polls")}
+            {t('analytics.mostPopularPolls')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -364,17 +365,17 @@ export default function AnalyticsDashboard() {
                   </div>
                   <h3 className="font-medium text-foreground mb-1">{poll.title}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {t("Created on")} {format(new Date(poll.createdAt), "d MMMM yyyy", { locale: el })}
+                    {t('analytics.createdOn')} {format(new Date(poll.createdAt), "d MMMM yyyy", { locale: el })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end space-y-1">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Vote className="h-4 w-4 mr-1" />
-                    {poll.votes} {t("votes")}
+                    {poll.votes} {t('analytics.votes')}
                   </div>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MessageSquare className="h-4 w-4 mr-1" />
-                    {poll.comments} {t("comments")}
+                    {poll.comments} {t('analytics.comments_')}
                   </div>
                 </div>
               </div>

@@ -42,17 +42,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { GroupWithMembers } from "@shared/schema";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 const createGroupFormSchema = z.object({ name: z.string().min(1, "Το όνομα είναι υποχρεωτικό") });
 type CreateGroupForm = z.infer<typeof createGroupFormSchema>;
 
 const addMemberFormSchema = z.object({
-  email: z.string().email(t("Invalid email format")),
+  email: z.string().email(t('groups.invalidEmail')),
 });
 type AddMemberForm = z.infer<typeof addMemberFormSchema>;
 
 export default function GroupsPage() {
+  const { t, locale } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
@@ -85,16 +86,16 @@ export default function GroupsPage() {
     },
     onSuccess: () => {
       toast({
-        title: t("Group Created"),
-        description: t("Group created successfully"),
+        title: t('groups.groupCreated'),
+        description: t('groups.groupCreatedSuccess'),
       });
       createGroupForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
-        description: error.message || t("Failed to create group"),
+        title: t('general.error'),
+        description: error.message || t('groups.failedToCreateGroup'),
         variant: "destructive",
       });
     },
@@ -107,8 +108,8 @@ export default function GroupsPage() {
     },
     onSuccess: () => {
       toast({
-        title: t("Member Added"),
-        description: t("Member added successfully"),
+        title: t('groups.memberAdded'),
+        description: t('groups.memberAddedSuccess'),
       });
       addMemberForm.reset();
       setAddMemberDialogOpen(false);
@@ -117,10 +118,10 @@ export default function GroupsPage() {
     },
     onError: (error: any) => {
       const message = error.message === "User with this email is not registered"
-        ? t("User with this email is not registered")
-        : t("Failed to add member");
+        ? t('groups.userNotRegistered')
+        : t('groups.failedToAddMember');
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: message,
         variant: "destructive",
       });
@@ -134,8 +135,8 @@ export default function GroupsPage() {
     },
     onSuccess: () => {
       toast({
-        title: t("Left Group"),
-        description: t("You have left the group"),
+        title: t('groups.leftGroup'),
+        description: t('groups.leftGroupSuccess'),
       });
       setLeaveGroupDialogOpen(false);
       setSelectedGroup(null);
@@ -143,8 +144,8 @@ export default function GroupsPage() {
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
-        description: error.message || t("Failed to leave group"),
+        title: t('general.error'),
+        description: error.message || t('groups.failedToLeaveGroup'),
         variant: "destructive",
       });
     },
@@ -157,8 +158,8 @@ export default function GroupsPage() {
     },
     onSuccess: () => {
       toast({
-        title: t("Group Deleted"),
-        description: t("Group deleted successfully"),
+        title: t('groups.groupDeleted'),
+        description: t('groups.groupDeletedSuccess'),
       });
       setDeleteGroupDialogOpen(false);
       setSelectedGroup(null);
@@ -166,8 +167,8 @@ export default function GroupsPage() {
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
-        description: error.message || t("Failed to delete group"),
+        title: t('general.error'),
+        description: error.message || t('groups.failedToDeleteGroup'),
         variant: "destructive",
       });
     },
@@ -236,8 +237,8 @@ export default function GroupsPage() {
       <main className="flex-grow container mx-auto px-4 py-6 pb-16 sm:pb-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">{t("Groups Management")}</h1>
-            <p className="text-muted-foreground">{t("Manage your groups and members")}</p>
+            <h1 className="text-3xl font-bold mb-2">{t('groups.management')}</h1>
+            <p className="text-muted-foreground">{t('groups.manageGroups')}</p>
           </div>
 
           {/* Create New Group Section */}
@@ -245,10 +246,10 @@ export default function GroupsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                {t("Create New Group")}
+                {t('groups.createNewGroup')}
               </CardTitle>
               <CardDescription>
-                {t("Create your first group to collaborate with others")}
+                {t('groups.createFirstGroup')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -262,10 +263,10 @@ export default function GroupsPage() {
                     name="name"
                     render={({ field }) => (
                       <FormItem className="flex-1">
-                        <FormLabel>{t("Group Name")}</FormLabel>
+                        <FormLabel>{t('groups.groupName')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t("Enter group name")}
+                            placeholder={t('groups.enterGroupName')}
                             data-testid="input-group-name"
                             {...field}
                           />
@@ -279,7 +280,7 @@ export default function GroupsPage() {
                     disabled={createGroupMutation.isPending}
                     data-testid="button-create-group"
                   >
-                    {createGroupMutation.isPending ? t("Loading") : t("Create Group")}
+                    {createGroupMutation.isPending ? t('general.loading') : t('groups.createGroup')}
                   </Button>
                 </form>
               </Form>
@@ -288,7 +289,7 @@ export default function GroupsPage() {
 
           {/* Groups List */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">{t("My Groups")}</h2>
+            <h2 className="text-2xl font-bold mb-4">{t('groups.myGroups')}</h2>
 
             {isLoading ? (
               <div className="space-y-4">
@@ -308,9 +309,9 @@ export default function GroupsPage() {
               <Card data-testid="card-empty-state">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Users className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">{t("No groups yet")}</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t('groups.noGroups')}</h3>
                   <p className="text-muted-foreground text-center">
-                    {t("Create your first group to collaborate with others")}
+                    {t('groups.createFirstGroup')}
                   </p>
                 </CardContent>
               </Card>
@@ -328,12 +329,12 @@ export default function GroupsPage() {
                             {isCreator(group) && (
                               <Badge variant="secondary" data-testid={`badge-creator-${group.id}`}>
                                 <Shield className="h-3 w-3 mr-1" />
-                                {t("Creator")}
+                                {t('groups.creator')}
                               </Badge>
                             )}
                           </CardTitle>
                           <CardDescription data-testid={`text-member-count-${group.id}`}>
-                            {group.memberCount} {group.memberCount === 1 ? t("member") : t("members")}
+                            {group.memberCount} {group.memberCount === 1 ? t('groups.member') : t('groups.members')}
                           </CardDescription>
                         </div>
                         <div className="flex gap-2">
@@ -345,7 +346,7 @@ export default function GroupsPage() {
                               data-testid={`button-add-member-${group.id}`}
                             >
                               <UserPlus className="h-4 w-4 mr-1" />
-                              {t("Add Member")}
+                              {t('groups.addMember')}
                             </Button>
                           )}
                           {isCreator(group) && (
@@ -356,7 +357,7 @@ export default function GroupsPage() {
                               data-testid={`button-delete-group-${group.id}`}
                             >
                               <Trash2 className="h-4 w-4 mr-1" />
-                              {t("Delete")}
+                              {t('general.delete')}
                             </Button>
                           )}
                           {!isCreator(group) && (
@@ -367,7 +368,7 @@ export default function GroupsPage() {
                               data-testid={`button-leave-group-${group.id}`}
                             >
                               <LogOut className="h-4 w-4 mr-1" />
-                              {t("Leave Group")}
+                              {t('groups.leaveGroup')}
                             </Button>
                           )}
                         </div>
@@ -375,7 +376,7 @@ export default function GroupsPage() {
                     </CardHeader>
                     <CardContent>
                       <div>
-                        <h4 className="font-semibold mb-3 text-sm">{t("Members")}</h4>
+                        <h4 className="font-semibold mb-3 text-sm">{t('sortition.members')}</h4>
                         <div className="space-y-2">
                           {group.members.map((member) => (
                             <div
@@ -407,7 +408,7 @@ export default function GroupsPage() {
                                       data-testid={`badge-member-creator-${member.userId}`}
                                     >
                                       <Shield className="h-3 w-3 mr-1" />
-                                      {t("Creator")}
+                                      {t('groups.creator')}
                                     </Badge>
                                   )}
                                 </p>
@@ -434,9 +435,9 @@ export default function GroupsPage() {
         <Dialog open={addMemberDialogOpen} onOpenChange={setAddMemberDialogOpen}>
           <DialogContent data-testid="dialog-add-member">
             <DialogHeader>
-              <DialogTitle>{t("Add Member")}</DialogTitle>
+              <DialogTitle>{t('groups.addMember')}</DialogTitle>
               <DialogDescription>
-                {t("Enter member email")}
+                {t('groups.enterMemberEmail')}
               </DialogDescription>
             </DialogHeader>
             <Form {...addMemberForm}>
@@ -446,11 +447,11 @@ export default function GroupsPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("Member Email")}</FormLabel>
+                      <FormLabel>{t('groups.memberEmail')}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder={t("Enter member email")}
+                          placeholder={t('groups.enterMemberEmail')}
                           data-testid="input-member-email"
                           {...field}
                         />
@@ -469,14 +470,14 @@ export default function GroupsPage() {
                     }}
                     data-testid="button-cancel-add-member"
                   >
-                    {t("Cancel")}
+                    {t('general.cancel')}
                   </Button>
                   <Button
                     type="submit"
                     disabled={addMemberMutation.isPending}
                     data-testid="button-submit-add-member"
                   >
-                    {addMemberMutation.isPending ? t("Loading") : t("Add")}
+                    {addMemberMutation.isPending ? t('general.loading') : t('groups.add')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -488,21 +489,21 @@ export default function GroupsPage() {
         <AlertDialog open={leaveGroupDialogOpen} onOpenChange={setLeaveGroupDialogOpen}>
           <AlertDialogContent data-testid="dialog-leave-group">
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("Confirm Leave Group")}</AlertDialogTitle>
+              <AlertDialogTitle>{t('groups.confirmLeaveGroup')}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("Are you sure you want to leave")} "{selectedGroup?.name}"?
+                {t('groups.areYouSureLeave')} "{selectedGroup?.name}"?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel data-testid="button-cancel-leave-group">
-                {t("Cancel")}
+                {t('general.cancel')}
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleLeaveGroup}
                 disabled={leaveGroupMutation.isPending}
                 data-testid="button-confirm-leave-group"
               >
-                {leaveGroupMutation.isPending ? t("Loading") : t("Leave Group")}
+                {leaveGroupMutation.isPending ? t('general.loading') : t('groups.leaveGroup')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -512,14 +513,14 @@ export default function GroupsPage() {
         <AlertDialog open={deleteGroupDialogOpen} onOpenChange={setDeleteGroupDialogOpen}>
           <AlertDialogContent data-testid="dialog-delete-group">
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("Confirm Delete Group")}</AlertDialogTitle>
+              <AlertDialogTitle>{t('groups.confirmDeleteGroup')}</AlertDialogTitle>
               <AlertDialogDescription>
                 {t("Are you sure you want to delete")} "{selectedGroup?.name}"? {t("This action cannot be undone")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel data-testid="button-cancel-delete-group">
-                {t("Cancel")}
+                {t('general.cancel')}
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDeleteGroup}
@@ -527,7 +528,7 @@ export default function GroupsPage() {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 data-testid="button-confirm-delete-group"
               >
-                {deleteGroupMutation.isPending ? t("Loading") : t("Delete")}
+                {deleteGroupMutation.isPending ? t('general.loading') : t('general.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

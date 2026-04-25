@@ -13,7 +13,7 @@ import { Vote, Clock, MapPin, AlertTriangle, ChevronRight, Loader2 } from "lucid
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LocationDetector } from "@/components/user/location-detector";
 import { isWithinGeofence } from "@/lib/geofencing";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { HtmlContent } from "@/components/ui/html-content";
 import { RankingVote } from "./ranking-vote";
@@ -33,6 +33,7 @@ interface QuestionResponse {
 }
 
 export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyVoteModalProps) {
+  const { t, locale } = useTranslation();
   const [responses, setResponses] = useState<Record<number, QuestionResponse>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [error, setError] = useState<Error | ApiError | null>(null);
@@ -228,7 +229,7 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
     },
     onSuccess: () => {
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Your responses have been submitted successfully."),
       });
       queryClient.invalidateQueries({ queryKey: [`/api/surveys/${poll.id}`] });
@@ -239,7 +240,7 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
     onError: (error: any) => {
       setError(error);
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error instanceof ApiError 
           ? error.message 
           : t("An error occurred. Please try again."),
@@ -383,7 +384,7 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
                 }}
                 className="w-full"
               >
-                {t("Login")}
+                {t('auth.login')}
               </Button>
               <Button 
                 variant="outline"
@@ -392,14 +393,14 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
                 }}
                 className="w-full"
               >
-                {t("Register")}
+                {t('auth.register')}
               </Button>
             </div>
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -587,7 +588,7 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
           <div className="flex gap-2">
             {currentQuestionIndex < visibleQuestions.length - 1 ? (
               <Button onClick={handleNext}>
-                {t("Next")}
+                {t('general.next')}
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
@@ -596,7 +597,7 @@ export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyV
                 disabled={submitMutation.isPending}
               >
                 {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("Submit")}
+                {t('general.submit')}
               </Button>
             )}
           </div>

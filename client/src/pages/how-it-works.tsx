@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function HowItWorksPage() {
+  const { t, locale } = useTranslation();
   // Set page title when component mounts
   useEffect(() => {
-    document.title = `AgoraX - ${t("How it works")}`;
+    document.title = `AgoraX - ${t('footer.howItWorks')}`;
   }, []);
 
   return (
@@ -14,7 +15,7 @@ export default function HowItWorksPage() {
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 pb-16 sm:pb-6">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">{t("How it works")}</h1>
+          <h1 className="text-3xl font-bold mb-6">{t('footer.howItWorks')}</h1>
           
           <div className="space-y-8">
             <section className="bg-card rounded-lg p-6 shadow-sm">

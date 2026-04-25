@@ -3,11 +3,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { useLocation } from "wouter";
 import { Trash2 } from "lucide-react";
 
 export function DeleteAccount() {
+  const { t, locale } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [deletePolls, setDeletePolls] = useState(false);
   const [open, setOpen] = useState(false);
@@ -25,7 +26,7 @@ export function DeleteAccount() {
       });
       
       if (!response.ok) {
-        throw new Error(t("Failed to delete account. Please try again."));
+        throw new Error(t('notification.failedDeleteAccount'));
       }
       
       const data = await response.json();
@@ -35,7 +36,7 @@ export function DeleteAccount() {
       
       // Show success toast
       toast({
-        title: t("Account Deleted"),
+        title: t('notification.accountDeleted'),
         description: data.message,
         variant: "default",
       });
@@ -48,8 +49,8 @@ export function DeleteAccount() {
     } catch (error: any) {
       console.error("Error deleting account:", error);
       toast({
-        title: t("Error"),
-        description: error.message || t("Failed to delete account. Please try again."),
+        title: t('general.error'),
+        description: error.message || t('notification.failedDeleteAccount'),
         variant: "destructive",
       });
     } finally {
@@ -62,14 +63,14 @@ export function DeleteAccount() {
       <AlertDialogTrigger asChild>
         <Button variant="destructive" className="w-full">
           <Trash2 className="h-4 w-4 mr-2" />
-          {t("Delete Account")}
+          {t('notification.deleteAccount')}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("Delete Your Account")}</AlertDialogTitle>
+          <AlertDialogTitle>{t('notification.deleteYourAccount')}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("This action cannot be undone. This will permanently delete your account and remove your data from our servers.")}
+            {t('notification.deleteAccountWarning')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         
@@ -85,16 +86,16 @@ export function DeleteAccount() {
               htmlFor="delete-polls"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              {t("Also delete all polls I created")}
+              {t('notification.alsoDeletePolls')}
             </label>
             <p className="text-sm text-muted-foreground">
-              {t("If unchecked, your polls will be transferred to the community but remain available.")}
+              {t('notification.pollsTransferNote')}
             </p>
           </div>
         </div>
         
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{t('general.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             disabled={isLoading}
             onClick={(e) => {
@@ -106,10 +107,10 @@ export function DeleteAccount() {
             {isLoading ? (
               <div className="flex items-center">
                 <div className="h-4 w-4 mr-2 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
-                {t("Deleting...")}
+                {t('notification.deleting')}
               </div>
             ) : (
-              t("Delete Account")
+              t('notification.deleteAccount')
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, CheckCircle, MapPin, Navigation, Crosshair } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -264,7 +264,7 @@ export function LocationDetector({ onComplete }: { onComplete?: () => void }) {
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>{t("Error")}</AlertTitle>
+            <AlertTitle>{t('general.error')}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}

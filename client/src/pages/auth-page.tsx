@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { loginUserSchema, registerUserSchema } from "@shared/schema";
 import { FcGoogle } from "react-icons/fc";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import logoImage from "../assets/logo.png";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
@@ -35,6 +35,7 @@ async function getFingerprint(): Promise<string | undefined> {
 }
 
 export default function AuthPage() {
+  const { t, locale } = useTranslation();
   const [location, navigate] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
   
@@ -72,15 +73,15 @@ export default function AuthPage() {
               />
               <h1 className="text-3xl font-bold text-primary">AgoraX</h1>
               <p className="text-muted-foreground mt-2">
-                {t("Digital Democracy Platform")}
+                {t('header.digitalDemocracy')}
               </p>
             </div>
           </div>
 
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             <TabsList className="grid grid-cols-2 w-full mb-6">
-              <TabsTrigger value="login">{t("Login")}</TabsTrigger>
-              <TabsTrigger value="register">{t("Register")}</TabsTrigger>
+              <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
+              <TabsTrigger value="register">{t('auth.register')}</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
               <LoginForm onSubmit={() => {
@@ -209,7 +210,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Username")}</FormLabel>
+              <FormLabel>{t('auth.username')}</FormLabel>
               <FormControl>
                 <Input placeholder="username" {...field} />
               </FormControl>
@@ -222,7 +223,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Password")}</FormLabel>
+              <FormLabel>{t('auth.password')}</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
@@ -232,7 +233,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
         />
         <div className="flex justify-end">
           <Button variant="link" className="px-0 text-sm">
-            {t("Forgot Password?")}
+            {t('auth.forgotPassword')}
           </Button>
         </div>
         <Button
@@ -240,7 +241,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           className="w-full"
           disabled={loginMutation.isPending}
         >
-          {loginMutation.isPending ? t("Loading") + "..." : t("Login")}
+          {loginMutation.isPending ? t('general.loading') + "..." : t('auth.login')}
         </Button>
         
         <div className="relative my-4">
@@ -249,7 +250,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           </div>
           <div className="relative flex justify-center">
             <span className="bg-background px-2 text-sm text-muted-foreground">
-              {t("Or continue with")}
+              {t('auth.orContinueWith')}
             </span>
           </div>
         </div>
@@ -269,7 +270,7 @@ function LoginForm({ onSubmit }: { onSubmit: () => void }) {
           }}
         >
           <FcGoogle className="h-5 w-5" />
-          {t("Sign in with Google")}
+          {t('auth.signInWithGoogle')}
         </Button>
       </form>
     </Form>
@@ -329,7 +330,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Full Name")}</FormLabel>
+              <FormLabel>{t('auth.fullName')}</FormLabel>
               <FormControl>
                 <Input placeholder="Όνομα Επώνυμο" {...field} />
               </FormControl>
@@ -342,7 +343,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Email")}</FormLabel>
+              <FormLabel>{t('auth.email')}</FormLabel>
               <FormControl>
                 <Input type="email" placeholder="email@example.com" {...field} />
               </FormControl>
@@ -355,7 +356,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Username")}</FormLabel>
+              <FormLabel>{t('auth.username')}</FormLabel>
               <FormControl>
                 <Input placeholder="username" {...field} />
               </FormControl>
@@ -368,12 +369,12 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t("Password")}</FormLabel>
+              <FormLabel>{t('auth.password')}</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
               <FormMessage className="text-xs">
-                {t("Password must be at least 8 characters")}
+                {t('auth.passwordMinLength')}
               </FormMessage>
             </FormItem>
           )}
@@ -388,13 +389,13 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
             htmlFor="terms"
             className="text-sm text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            {t("I accept the")}{" "}
+            {t('auth.acceptTerms')}{" "}
             <a href="/terms" className="text-primary hover:underline">
-              {t("Terms of Service")}
+              {t('auth.termsOfService')}
             </a>{" "}
-            {t("and")}{" "}
+            {t('auth.and')}{" "}
             <a href="/privacy" className="text-primary hover:underline">
-              {t("Privacy Policy")}
+              {t('auth.privacyPolicy')}
             </a>
           </label>
         </div>
@@ -404,8 +405,8 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           disabled={registerMutation.isPending || !acceptTerms}
         >
           {registerMutation.isPending
-            ? t("Loading") + "..."
-            : t("Register")}
+            ? t('general.loading') + "..."
+            : t('auth.register')}
         </Button>
         
         <div className="relative my-4">
@@ -414,7 +415,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           </div>
           <div className="relative flex justify-center">
             <span className="bg-background px-2 text-sm text-muted-foreground">
-              {t("Or continue with")}
+              {t('auth.orContinueWith')}
             </span>
           </div>
         </div>
@@ -434,7 +435,7 @@ function RegisterForm({ onSubmit }: { onSubmit: () => void }) {
           }}
         >
           <FcGoogle className="h-5 w-5" />
-          {t("Sign up with Google")}
+          {t('auth.signUpWithGoogle')}
         </Button>
       </form>
     </Form>

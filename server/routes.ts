@@ -2428,6 +2428,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { createSortitionBody } = await import('./utils/sortition');
       const result = await createSortitionBody(communityId, panelSize, storage);
 
+      // Notify selected members
+      try {
+        const { notifySortitionMembers } = await import('./utils/notifications');
+        const notified = await notifySortitionMembers(
+          result.bodyId,
+          communityId,
+          null,
+          72
+        );
+        console.log(`Notified ${notified} sortition members for body ${result.bodyId}`);
+      } catch (notifError) {
+        console.error('Failed to send sortition notifications:', notifError);
+        // Don't fail the sortition creation if notifications fail
+      }
+
       res.status(201).json(result);
     } catch (error) {
       console.error("Error creating sortition body:", error);
@@ -2706,6 +2721,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to calculate democracy score" });
     }
   });
+
+  // ─── Sortition Notification Routes ──────────────────────────────────────
+
+  // Get user's sortition notifications
+  app.get("/api/sortition-notifications", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const unreadOnly = req.query.unread === 'true';
+
+      let query = sql`
+        SELECT * FROM sortition_notifications
+        WHERE user_id = ${userId}
+      `;
+      if (unreadOnly) {
+        query = sql`
+          SELECT * FROM sortition_notifications
+          WHERE user_id = ${userId} AND read = FALSE
+        `;
+      }
+
+      const result = await db.execute(sql`
+        SELECT * FROM sortition_notifications
+        WHERE user_id = ${userId}${unreadOnly ? sql` AND read = FALSE` : sql``}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      // Get unread count
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM sortition_notifications
+        WHERE user_id = ${userId} AND read = FALSE
+      `);
+
+      res.json({
+        notifications: result.rows,
+        unreadCount: parseInt(countResult.rows[0]?.count as string) || 0,
+        total: result.rows.length,
+      });
+    } catch (error) {
+      console.error("Error fetching sortition notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get unread notification count (lightweight)
+  app.get("/api/sortition-notifications/unread-count", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as count FROM sortition_notifications
+        WHERE user_id = ${userId} AND read = FALSE
+      `);
+      res.json({ count: parseInt(result.rows[0]?.count as string) || 0 });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // Mark single notification as read
+  app.post("/api/sortition-notifications/:id/read", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const notificationId = parseInt(req.params.id);
+
+      // Verify ownership
+      const existing = await db.execute(sql`
+        SELECT user_id FROM sortition_notifications WHERE id = ${notificationId}
+      `);
+
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      if ((existing.rows[0].user_id as number) !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      await db.execute(sql`
+        UPDATE sortition_notifications SET read = TRUE, read_at = NOW() WHERE id = ${notificationId}
+      `);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark as read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.post("/api/sortition-notifications/mark-all-read", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await db.execute(sql`
+        UPDATE sortition_notifications SET read = TRUE, read_at = NOW()
+        WHERE user_id = ${userId} AND read = FALSE
+      `);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+      res.status(500).json({ message: "Failed to mark all as read" });
+    }
+  });
+
+  // Get notification preferences
+  app.get("/api/notification-preferences", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { getOrCreatePreferences } = await import('./utils/notifications');
+      const prefs = await getOrCreatePreferences(userId);
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error fetching preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update notification preferences
+  app.patch("/api/notification-preferences", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { updatePreferences } = await import('./utils/notifications');
+      await updatePreferences(userId, req.body);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  // ─── End Sortition Notification Routes ──────────────────────────────────
 
   const httpServer = createServer(app);
 

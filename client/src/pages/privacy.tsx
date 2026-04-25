@@ -1,16 +1,17 @@
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Separator } from "@/components/ui/separator";
 
 export default function PrivacyPage() {
+  const { t, locale } = useTranslation();
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pt-16 pb-16 sm:pb-6">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-6">{t("Privacy Policy")}</h1>
+            <h1 className="text-3xl font-bold mb-6">{t('auth.privacyPolicy')}</h1>
             
             <div className="space-y-8">
               <section>

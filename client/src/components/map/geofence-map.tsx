@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { reverseGeocode, LocationInfo } from '@/lib/geofencing';
-import { t } from '@/i18n';
+import { useTranslation } from "@/hooks/use-translation";
 
 // Make sure the Leaflet CSS is properly imported
 import 'leaflet/dist/leaflet.css';
@@ -95,6 +95,7 @@ export function GeofenceMap({
   onRadiusChange,
   onLocationInfoChange,
 }: GeofenceMapProps) {
+  const { t, locale } = useTranslation();
   const [center, setCenter] = useState<[number, number]>(initialCenter);
   const [radius, setRadius] = useState(initialRadius);
   const [postalCode, setPostalCode] = useState('');
@@ -300,7 +301,7 @@ export function GeofenceMap({
       
       {locationInfo && (
         <div className="text-sm border rounded-md p-3 bg-muted/30">
-          <div className="font-medium mb-1">{t('Location')}: {locationInfo.displayName}</div>
+          <div className="font-medium mb-1">{t('notification.location')}: {locationInfo.displayName}</div>
           <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
             <div>{t('City')}: {locationInfo.city}</div>
             <div>{t('Region')}: {locationInfo.region}</div>

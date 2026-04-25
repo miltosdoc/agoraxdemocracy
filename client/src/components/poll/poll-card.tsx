@@ -10,7 +10,7 @@ import { useState } from "react";
 import { VoteModal } from "./vote-modal";
 import { ResultsModal } from "./results-modal";
 import ShareButtonNew from "./share-button-new";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { useAuth } from "@/hooks/use-auth";
 import { useReverseGeocoding, getLocationName } from "@/lib/reverse-geocoding";
 import { HtmlContent } from "@/components/ui/html-content";
@@ -41,6 +41,7 @@ interface PollCardProps {
 }
 
 export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
+  const { t, locale } = useTranslation();
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -144,7 +145,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
       await apiRequest("DELETE", `/api/polls/${poll.id}`);
       
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: "Η ψηφοφορία διαγράφηκε επιτυχώς"
       });
       
@@ -163,7 +164,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
         });
       } else {
         toast({
-          title: t("Error"),
+          title: t('general.error'),
           description: error.message || "Σφάλμα κατά τη διαγραφή της ψηφοφορίας",
           variant: "destructive"
         });
@@ -179,7 +180,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
       await apiRequest("PATCH", `/api/polls/${poll.id}/community`);
       
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: "Η ψηφοφορία μεταφέρθηκε επιτυχώς στην κοινότητα"
       });
       
@@ -190,7 +191,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
       if (onVote) onVote(); // Trigger refresh
     } catch (error: any) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message || "Σφάλμα κατά τη μεταφορά της ψηφοφορίας",
         variant: "destructive"
       });
@@ -290,7 +291,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
           <div className="flex justify-between items-center text-sm sm:text-base text-muted-foreground mb-2.5">
             <div className="font-semibold" data-testid="text-vote-count">
               <span className="text-lg sm:text-xl text-foreground">{poll.voteCount}</span>{" "}
-              <span className="text-muted-foreground">{t("votes")}</span>
+              <span className="text-muted-foreground">{t('analytics.votes')}</span>
             </div>
             <div className="flex items-center gap-1.5 font-medium" data-testid="text-time-remaining">
               <Clock className="h-4 w-4 sm:h-[18px] sm:w-[18px] text-muted-foreground" />
@@ -398,7 +399,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-details"
                   >
                     <Info className="h-4 w-4 mr-2" />
-                    {t("Details")}
+                    {t('general.details')}
                   </Button>
 
                   <Button 
@@ -409,7 +410,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-results"
                   >
                     <BarChart className="h-4 w-4 mr-2" />
-                    {t("Results")}
+                    {t('general.results')}
                   </Button>
 
                   {poll.allowComments === true && (
@@ -421,7 +422,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                       data-testid="button-comments"
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      {t("Comments")}
+                      {t('general.comments')}
                     </Button>
                   )}
                 </div>
@@ -444,7 +445,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                       data-testid="menuitem-edit"
                     >
                       <Edit className="h-4 w-4 mr-2" />
-                      {t("Edit")}
+                      {t('general.edit')}
                     </DropdownMenuItem>
                     
                     {isActive && poll.allowExtension && (
@@ -454,7 +455,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                         data-testid="menuitem-extend"
                       >
                         <Clock className="h-4 w-4 mr-2" />
-                        {t("Extend")}
+                        {t('general.next')}
                       </DropdownMenuItem>
                     )}
                     
@@ -474,7 +475,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                       data-testid="menuitem-delete"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {t("Delete")}
+                      {t('general.delete')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -509,7 +510,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-details-mobile"
                 >
                   <Info className="h-4 w-4 mr-1.5" />
-                  {t("Details")}
+                  {t('general.details')}
                 </Button>
 
                 <Button 
@@ -520,7 +521,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-results-mobile"
                 >
                   <BarChart className="h-4 w-4 mr-1.5" />
-                  {t("Results")}
+                  {t('general.results')}
                 </Button>
 
                 {poll.allowComments === true && (
@@ -532,7 +533,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-comments-mobile"
                   >
                     <MessageSquare className="h-4 w-4 mr-1.5" />
-                    {t("Comments")}
+                    {t('general.comments')}
                   </Button>
                 )}
               </div>
@@ -556,7 +557,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                       data-testid="menuitem-edit-mobile"
                     >
                       <Edit className="h-4 w-4 mr-2" />
-                      {t("Edit")}
+                      {t('general.edit')}
                     </DropdownMenuItem>
                     
                     {isActive && poll.allowExtension && (
@@ -566,7 +567,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                         data-testid="menuitem-extend-mobile"
                       >
                         <Clock className="h-4 w-4 mr-2" />
-                        {t("Extend")}
+                        {t('general.next')}
                       </DropdownMenuItem>
                     )}
                     
@@ -585,7 +586,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                       data-testid="menuitem-delete-mobile"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {t("Delete")}
+                      {t('general.delete')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -621,7 +622,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-details-user"
                 >
                   <Info className="h-4 w-4 mr-2" />
-                  {t("Details")}
+                  {t('general.details')}
                 </Button>
                 
                 {poll.allowComments === true && (
@@ -633,7 +634,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-comments-user"
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    {t("Comments")}
+                    {t('general.comments')}
                   </Button>
                 )}
                 
@@ -646,7 +647,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-results-user-live"
                   >
                     <BarChart className="h-4 w-4 mr-2" />
-                    {t("Results")}
+                    {t('general.results')}
                   </Button>
                 )}
               </div>
@@ -658,7 +659,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-vote-user"
                 >
                   <Vote className="h-5 w-5 mr-2" />
-                  {t("Vote")}
+                  {t('general.vote')}
                 </Button>
               ) : (
                 <Button 
@@ -668,7 +669,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-view-results-user"
                 >
                   <BarChart className="h-4 w-4 mr-2" />
-                  {t("Results")}
+                  {t('general.results')}
                 </Button>
               )}
             </div>
@@ -684,7 +685,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-details-user-mobile"
                 >
                   <Info className="h-4 w-4 mr-1.5" />
-                  {t("Details")}
+                  {t('general.details')}
                 </Button>
                 
                 {poll.allowComments === true && (
@@ -696,7 +697,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-comments-user-mobile"
                   >
                     <MessageSquare className="h-4 w-4 mr-1.5" />
-                    {t("Comments")}
+                    {t('general.comments')}
                   </Button>
                 )}
                 
@@ -709,7 +710,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                     data-testid="button-results-user-mobile-live"
                   >
                     <BarChart className="h-4 w-4 mr-1.5" />
-                    {t("Results")}
+                    {t('general.results')}
                   </Button>
                 )}
               </div>
@@ -721,7 +722,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-vote-user-mobile"
                 >
                   <Vote className="h-5 w-5 mr-2" />
-                  {t("Vote")}
+                  {t('general.vote')}
                 </Button>
               ) : (
                 <Button 
@@ -731,7 +732,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
                   data-testid="button-view-results-user-mobile"
                 >
                   <BarChart className="h-4 w-4 mr-2" />
-                  {t("Results")}
+                  {t('general.results')}
                 </Button>
               )}
             </div>
@@ -770,13 +771,13 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">{t('general.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDelete}
               className="bg-red-500 text-white hover:bg-red-600 min-h-[44px]"
               data-testid="button-confirm-delete"
             >
-              {t("Delete")}
+              {t('general.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -792,7 +793,7 @@ export function PollCard({ poll, onVote, onExtend }: PollCardProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-transfer">{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-transfer">{t('general.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleTransferToCommunity}
               className="bg-blue-500 text-white hover:bg-blue-600 min-h-[44px]"

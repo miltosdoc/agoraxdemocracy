@@ -44,7 +44,7 @@ import {
   Globe,
   Send
 } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { PollWithOptions, PollWithQuestions } from "@shared/schema";
 import { reverseGeocode } from "@/lib/geofencing";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -197,6 +197,7 @@ function LocationDetails({ latitude, longitude }: LocationDetailsProps) {
 }
 
 export default function PollDetailsPage() {
+  const { t, locale } = useTranslation();
   const params = useParams();
   const pollId = parseInt(params.id || "0");
   const [, navigate] = useLocation();
@@ -246,7 +247,7 @@ export default function PollDetailsPage() {
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message || t("Failed to add comment. Please try again."),
         variant: "destructive",
       });
@@ -362,7 +363,7 @@ export default function PollDetailsPage() {
           onClick={handleBackClick}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
-          {t("Back")}
+          {t('general.back')}
         </Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -416,7 +417,7 @@ export default function PollDetailsPage() {
 
                 <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
                   <div>
-                    <span className="font-semibold">{pollData.voteCount}</span> {t("votes")}
+                    <span className="font-semibold">{pollData.voteCount}</span> {t('analytics.votes')}
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
@@ -451,7 +452,7 @@ export default function PollDetailsPage() {
                           className="flex items-center"
                         >
                           <Clock className="h-4 w-4 mr-1" />
-                          {t("Extend")}
+                          {t('general.next')}
                         </Button>
                       )}
                     </>
@@ -467,7 +468,7 @@ export default function PollDetailsPage() {
                         <Vote className="h-4 w-4 mr-1" />
                         {isCreator
                           ? (isSurveyPoll ? t("Enter the Survey Poll") : t("Vote on Your Poll"))
-                          : t("Vote")}
+                          : t('general.vote')}
                       </Button>
 
                     </>
@@ -482,7 +483,7 @@ export default function PollDetailsPage() {
                         className="flex items-center"
                       >
                         <LogIn className="h-4 w-4 mr-1" />
-                        {t("Login to Vote")}
+                        {t('auth.loginToVote')}
                       </Button>
                       <Button
                         onClick={() => window.location.href = `/?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
@@ -490,7 +491,7 @@ export default function PollDetailsPage() {
                         className="flex items-center"
                       >
                         <UserPlus className="h-4 w-4 mr-1" />
-                        {t("Sign up")}
+                        {t('auth.signUp')}
                       </Button>
                     </div>
                   )}
@@ -502,7 +503,7 @@ export default function PollDetailsPage() {
                     variant={(!isActive || pollData.userVoted || isCreator) ? "default" : "outline"}
                   >
                     <BarChart className="h-4 w-4 mr-1" />
-                    {t("Results")}
+                    {t('general.results')}
                   </Button>
 
                   {/* Share button for everyone */}
@@ -574,7 +575,7 @@ export default function PollDetailsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center mb-4">
                     <MessageSquare className="h-5 w-5 mr-2 text-primary" />
-                    <h2 className="text-xl font-semibold">{t("Comments")}</h2>
+                    <h2 className="text-xl font-semibold">{t('general.comments')}</h2>
                   </div>
 
                   {/* Comment Form for Authenticated Users */}
@@ -612,13 +613,13 @@ export default function PollDetailsPage() {
                           variant="outline"
                           onClick={() => window.location.href = `/?tab=login&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
                         >
-                          {t("Login")}
+                          {t('auth.login')}
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => window.location.href = `/?tab=register&returnTo=${encodeURIComponent(`/polls/${pollId}`)}`}
                         >
-                          {t("Sign up")}
+                          {t('auth.signUp')}
                         </Button>
                       </div>
                     </div>
@@ -664,7 +665,7 @@ export default function PollDetailsPage() {
           <div>
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">{t("Details")}</h2>
+                <h2 className="text-xl font-semibold mb-4">{t('general.details')}</h2>
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-1">{t("Start Date")}</h3>
@@ -733,7 +734,7 @@ export default function PollDetailsPage() {
                                 {/* Coordinates display */}
                                 {pollData.centerLat && pollData.centerLng && (
                                   <p className="text-xs font-mono text-muted-foreground mt-2 border-t border-blue-100 pt-2">
-                                    {t("Coordinates")}: {pollData.centerLat}, {pollData.centerLng}
+                                    {t('profile.coordinates')}: {pollData.centerLat}, {pollData.centerLng}
                                   </p>
                                 )}
                               </>

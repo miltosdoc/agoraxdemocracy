@@ -2,7 +2,7 @@ import React from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { XCircle } from "lucide-react";
 import { ApiError } from "@/lib/queryClient";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface ErrorMessageProps {
   error: Error | ApiError | string | null | undefined;
@@ -14,6 +14,7 @@ interface ErrorMessageProps {
  * with special handling for validation errors from the API.
  */
 export function ErrorMessage({ error, className = "" }: ErrorMessageProps) {
+  const { t, locale } = useTranslation();
   if (!error) return null;
   
   let errorMessage = typeof error === "string" ? error : error.message;
@@ -40,7 +41,7 @@ export function ErrorMessage({ error, className = "" }: ErrorMessageProps) {
   return (
     <Alert variant="destructive" className={`mt-4 ${className}`}>
       <XCircle className="h-4 w-4" />
-      <AlertTitle className="ml-2">{t("Error")}</AlertTitle>
+      <AlertTitle className="ml-2">{t('general.error')}</AlertTitle>
       <AlertDescription className="ml-2">
         <p>{errorMessage}</p>
         

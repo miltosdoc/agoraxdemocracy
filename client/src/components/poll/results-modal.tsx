@@ -6,7 +6,7 @@ import { el } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Download, User, Calendar } from "lucide-react";
 import { Loader2 } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { HtmlContent } from "@/components/ui/html-content";
 
 interface ResultsModalProps {
@@ -26,6 +26,7 @@ interface PollComment {
 }
 
 export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
+  const { t, locale } = useTranslation();
   const { toast } = useToast();
 
   const { data: poll, isLoading: pollLoading } = useQuery({
@@ -76,7 +77,7 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
     document.body.removeChild(link);
 
     toast({
-      title: t("Success"),
+      title: t('general.success'),
       description: "Τα αποτελέσματα εξήχθησαν επιτυχώς",
     });
   };
@@ -114,7 +115,7 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
             </div>
 
             <div className="mb-6">
-              <h4 className="font-medium mb-3">{t("Results")}:</h4>
+              <h4 className="font-medium mb-3">{t('general.results')}:</h4>
 
               <div className="space-y-4">
                 {results?.map((result: any) => (
@@ -168,7 +169,7 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
                         <div className="flex justify-between mb-1">
                           <span className="text-sm font-medium">{result.optionText}</span>
                           <span className="text-sm font-medium">
-                            {result.percentage.toFixed(1)}% ({result.voteCount} {t("votes")})
+                            {result.percentage.toFixed(1)}% ({result.voteCount} {t('analytics.votes')})
                           </span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2.5">
@@ -219,7 +220,7 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
                 <Download className="mr-1 h-4 w-4" />
                 {t("Export Results")}
               </Button>
-              <Button onClick={onClose}>{t("Close")}</Button>
+              <Button onClick={onClose}>{t('general.close')}</Button>
             </DialogFooter>
           </>
         )}

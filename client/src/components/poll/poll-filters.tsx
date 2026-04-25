@@ -10,7 +10,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { debounce } from "@/lib/utils";
 import { Search, MapPin, Globe, Building2, MapPinned, MoreHorizontal, Users } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Button } from "@/components/ui/button";
 import { CategoryIcon } from "@/components/ui/category-icon";
 import { getDynamicLocationData, processPollsForLocations, LocationInfo, LocationData } from "@/lib/dynamic-locations";
@@ -38,6 +38,7 @@ export function PollFilters({
   locationCity = "",
   groupId,
 }: PollFiltersProps) {
+  const { t, locale } = useTranslation();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   // Show location filters by default if they're being used

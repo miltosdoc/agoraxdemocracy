@@ -2,9 +2,10 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { PollForm } from "@/components/poll/poll-form";
 import { useParams } from "wouter";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function PollCreatePage() {
+  const { t, locale } = useTranslation();
   // Extract pollId from URL params for editing
   const params = useParams();
   const pollId = params.id ? parseInt(params.id) : undefined;

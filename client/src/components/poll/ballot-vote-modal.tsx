@@ -21,7 +21,7 @@ import {
     ArrowRight
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
@@ -55,6 +55,7 @@ interface ValidationResult {
 }
 
 export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotVoteModalProps) {
+  const { t, locale } = useTranslation();
     const [step, setStep] = useState<Step>("instructions");
     const [token, setToken] = useState<BallotToken | null>(null);
     const [instructions, setInstructions] = useState<BallotInstructions | null>(null);
@@ -88,7 +89,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
         },
         onError: (error: any) => {
             toast({
-                title: t("Error"),
+                title: t('general.error'),
                 description: error.message || t("Failed to generate voting token"),
                 variant: "destructive",
             });
@@ -169,7 +170,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
         if (file) {
             if (file.type !== "application/pdf") {
                 toast({
-                    title: t("Error"),
+                    title: t('general.error'),
                     description: t("Please select a PDF file"),
                     variant: "destructive",
                 });
@@ -177,7 +178,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
             }
             if (file.size > 10 * 1024 * 1024) {
                 toast({
-                    title: t("Error"),
+                    title: t('general.error'),
                     description: t("File size must be less than 10MB"),
                     variant: "destructive",
                 });
@@ -229,7 +230,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={handleClose}>
-                            {t("Close")}
+                            {t('general.close')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -269,7 +270,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
                             <>
                                 <Alert className="bg-blue-50 border-blue-200">
                                     <Shield className="h-4 w-4 text-blue-600" />
-                                    <AlertTitle className="text-blue-800">{t("How it works")}</AlertTitle>
+                                    <AlertTitle className="text-blue-800">{t('footer.howItWorks')}</AlertTitle>
                                     <AlertDescription className="text-blue-700">
                                         {t("Your vote is verified using a digitally signed Gov.gr Solemn Declaration. This ensures one person, one vote with government-level security.")}
                                     </AlertDescription>
@@ -336,7 +337,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
                         ) : (
                             <Alert variant="destructive">
                                 <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>{t("Error")}</AlertTitle>
+                                <AlertTitle>{t('general.error')}</AlertTitle>
                                 <AlertDescription>
                                     {t("Failed to load voting instructions. Please try again.")}
                                 </AlertDescription>
@@ -345,7 +346,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
 
                         <DialogFooter className="flex justify-between">
                             <Button variant="outline" onClick={handleClose}>
-                                {t("Cancel")}
+                                {t('general.cancel')}
                             </Button>
                             <Button
                                 onClick={() => setStep("upload")}
@@ -407,7 +408,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
 
                         <DialogFooter className="flex justify-between">
                             <Button variant="outline" onClick={() => setStep("instructions")}>
-                                {t("Back")}
+                                {t('general.back')}
                             </Button>
                             <Button
                                 onClick={handleSubmit}
@@ -489,7 +490,7 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
                                 </Button>
                             )}
                             <Button onClick={handleClose}>
-                                {t("Close")}
+                                {t('general.close')}
                             </Button>
                         </DialogFooter>
                     </div>

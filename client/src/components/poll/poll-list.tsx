@@ -19,13 +19,14 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { getQueryFn } from "@/lib/queryClient";
 import type { PollWithOptions } from "@shared/schema";
 
 export function PollList() {
+  const { t, locale } = useTranslation();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("active");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -389,14 +390,14 @@ export function PollList() {
             className="h-11 sm:h-9 text-sm sm:text-base min-w-[44px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
             data-testid="tab-active"
           >
-            {t("Active Polls")}
+            {t('poll.activePolls')}
           </TabsTrigger>
           <TabsTrigger 
             value="completed" 
             className="h-11 sm:h-9 text-sm sm:text-base min-w-[44px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
             data-testid="tab-completed"
           >
-            {t("Completed")}
+            {t('poll.completed')}
           </TabsTrigger>
           {user && (
             <TabsTrigger 

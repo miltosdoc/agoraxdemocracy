@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, BarChart3, TrendingUp } from "lucide-react";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { PollWithQuestions } from "@shared/schema";
 import { HtmlContent } from "@/components/ui/html-content";
 import { ErrorMessage } from "@/components/ui/error-message";
@@ -27,6 +27,7 @@ interface QuestionResult {
 }
 
 export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModalProps) {
+  const { t, locale } = useTranslation();
   const { data: results, isLoading, error } = useQuery<QuestionResult[]>({
     queryKey: [`/api/surveys/${poll.id}/results`],
     enabled: isOpen,
@@ -57,7 +58,7 @@ export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModal
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            {t("Survey Poll")} - {t("Results")}
+            {t("Survey Poll")} - {t('general.results')}
           </DialogTitle>
         </DialogHeader>
 
@@ -65,14 +66,14 @@ export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModal
           <div>
             <h3 className="text-lg font-semibold">{poll.title}</h3>
             <p className="text-sm text-muted-foreground">
-              {t("Total Votes")}: {poll.voteCount || 0}
+              {t('notification.totalVotes')}: {poll.voteCount || 0}
             </p>
           </div>
 
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">{t("Loading")}...</span>
+              <span className="ml-2 text-muted-foreground">{t('general.loading')}...</span>
             </div>
           )}
 
@@ -108,7 +109,7 @@ export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModal
                         </span>
                         <span>•</span>
                         <span>
-                          {totalResponses} {t("votes")}
+                          {totalResponses} {t('analytics.votes')}
                         </span>
                       </div>
                     </div>
@@ -169,7 +170,7 @@ export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModal
                                     </div>
                                   </div>
                                   <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>{result.count} {t("votes")}</span>
+                                    <span>{result.count} {t('analytics.votes')}</span>
                                     <span>•</span>
                                     <span>{result.percentage.toFixed(1)}% {t("points")}</span>
                                   </div>
@@ -194,7 +195,7 @@ export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModal
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="button-close-results">
-            {t("Close")}
+            {t('general.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

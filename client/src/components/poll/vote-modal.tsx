@@ -16,7 +16,7 @@ import { Vote, Clock, MapPin, AlertTriangle, Shield } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LocationDetector } from "@/components/user/location-detector";
 import { isWithinGeofence, calculateDistance } from "@/lib/geofencing";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { RankingVote } from "./ranking-vote";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { HtmlContent } from "@/components/ui/html-content";
@@ -30,6 +30,7 @@ interface VoteModalProps {
 }
 
 export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProps) {
+  const { t, locale } = useTranslation();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
   const [rankedOptions, setRankedOptions] = useState<number[]>([]);
@@ -58,7 +59,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message || t("Failed to verify location. Please try again."),
         variant: "destructive",
       });
@@ -82,7 +83,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
     },
     onError: (error: any) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message || t("Failed to reject location. Please try again."),
         variant: "destructive",
       });
@@ -242,7 +243,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
     },
     onSuccess: () => {
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Vote successful"),
       });
       // Invalidate both polls and comments queries
@@ -257,7 +258,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
       // Also show a toast notification
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error instanceof ApiError
           ? error.message
           : t("An error occurred while submitting your vote. Please try again."),
@@ -333,7 +334,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
                 }}
                 className="w-full"
               >
-                {t("Login")}
+                {t('auth.login')}
               </Button>
               <Button
                 variant="outline"
@@ -342,14 +343,14 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
                 }}
                 className="w-full"
               >
-                {t("Register")}
+                {t('auth.register')}
               </Button>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -398,7 +399,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -456,7 +457,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              {t("Close")}
+              {t('general.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -535,7 +536,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -574,14 +575,14 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
                   size="lg"
                 >
                   <Shield className="h-4 w-4" />
-                  {t("Verify with Gov.gr")}
+                  {t('ballot.verify')}
                 </Button>
               </div>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
-                {t("Cancel")}
+                {t('general.cancel')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -610,7 +611,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
           <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
             <div className="flex items-center">
               <Vote className="h-4 w-4 mr-1" />
-              {poll.voteCount} {t("votes")}
+              {poll.voteCount} {t('analytics.votes')}
             </div>
             <div className="flex items-center">
               <Clock className="h-4 w-4 mr-1" />
@@ -736,7 +737,7 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
 
         <DialogFooter className="flex justify-between mt-4">
           <Button variant="outline" onClick={onClose}>
-            {t("Cancel")}
+            {t('general.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}

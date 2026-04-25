@@ -12,10 +12,11 @@ import { format, addDays, isAfter } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, PlusCircle } from "lucide-react";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import type { PollWithOptions } from "@shared/schema";
 
 export default function MyPollsPage() {
+  const { t, locale } = useTranslation();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
@@ -66,7 +67,7 @@ export default function MyPollsPage() {
     const currentEndDate = new Date(poll.endDate);
     if (!isAfter(newEndDateTime, currentEndDate)) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: "Η νέα ημερομηνία λήξης πρέπει να είναι μετά την τρέχουσα",
         variant: "destructive"
       });
@@ -79,7 +80,7 @@ export default function MyPollsPage() {
       });
       
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: t("Poll extended successfully")
       });
       
@@ -91,7 +92,7 @@ export default function MyPollsPage() {
       setExtendPollId(null);
     } catch (error: any) {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive"
       });
@@ -103,21 +104,21 @@ export default function MyPollsPage() {
       <Header />
       <main className="flex-grow container mx-auto px-4 py-6 pb-16 sm:pb-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">{t("My Polls")}</h1>
+          <h1 className="text-2xl font-bold">{t('nav.myPolls')}</h1>
           <Button
             onClick={handleCreatePoll}
             className="bg-accent hover:bg-accent/80 text-white"
           >
             <PlusCircle className="h-4 w-4 mr-1" />
-            {t("New Poll")}
+            {t('nav.newPoll')}
           </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="all">{t("All")}</TabsTrigger>
-            <TabsTrigger value="active">{t("Active Polls")}</TabsTrigger>
-            <TabsTrigger value="completed">{t("Completed")}</TabsTrigger>
+            <TabsTrigger value="all">{t('poll.all')}</TabsTrigger>
+            <TabsTrigger value="active">{t('poll.activePolls')}</TabsTrigger>
+            <TabsTrigger value="completed">{t('poll.completed')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="mt-0">
@@ -164,10 +165,10 @@ export default function MyPollsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setExtendModalOpen(false)}>
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
             <Button onClick={submitExtendPoll}>
-              {t("Extend")}
+              {t('general.next')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -18,7 +18,7 @@ import {
   Send
 } from "lucide-react";
 import { useShare } from "@/hooks/use-share";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { FaFacebook, FaTwitter, FaLinkedin, FaWhatsapp, FaTelegram } from "react-icons/fa";
 
 interface ShareButtonProps {
@@ -38,6 +38,7 @@ export default function ShareButtonNew({
   size = "default",
   className 
 }: ShareButtonProps) {
+  const { t, locale } = useTranslation();
   const [copied, setCopied] = useState(false);
   const share = useShare();
 

@@ -30,10 +30,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { format } from "date-fns";
 import { Trash2, PlusCircle, MapPinned } from "lucide-react";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { GeofenceMap } from "@/components/map/geofence-map";
 
 export function PollForm({ pollId }: { pollId?: number }) {
+  const { t, locale } = useTranslation();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -381,7 +382,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
     },
     onSuccess: () => {
       toast({
-        title: t("Success"),
+        title: t('general.success'),
         description: isEditing
           ? t("Poll updated successfully")
           : t("Poll created successfully"),
@@ -391,7 +392,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
     },
     onError: (error) => {
       toast({
-        title: t("Error"),
+        title: t('general.error'),
         description: error.message,
         variant: "destructive",
       });
@@ -781,7 +782,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
           
           {/* Location Settings */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">{t("Location Settings")}</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('profile.locationSettings')}</h3>
             <p className="text-sm text-muted-foreground mb-4">
               {t("Restrict this poll to voters in specific geographic areas. Users outside the selected areas won't be able to vote.")}
             </p>
@@ -881,7 +882,7 @@ export function PollForm({ pollId }: { pollId?: number }) {
               variant="outline"
               onClick={() => navigate("/")}
             >
-              {t("Cancel")}
+              {t('general.cancel')}
             </Button>
             <Button 
               type="submit" 

@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, Ban, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
-import t from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import type { User, SelectAccountActivity } from "@shared/schema";
 
 interface UserWithActivity extends User {
@@ -40,6 +40,7 @@ interface UserWithActivity extends User {
 }
 
 export default function AdminAccountsPage() {
+  const { t, locale } = useTranslation();
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -62,14 +63,14 @@ export default function AdminAccountsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/accounts'] });
       toast({
-        title: t("Success"),
-        description: t("User has been banned successfully"),
+        title: t('general.success'),
+        description: t('admin.userBanned'),
       });
     },
     onError: () => {
       toast({
-        title: t("Error"),
-        description: t("Failed to ban user"),
+        title: t('general.error'),
+        description: t('admin.failedBan'),
         variant: "destructive",
       });
     },
@@ -82,14 +83,14 @@ export default function AdminAccountsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/accounts'] });
       toast({
-        title: t("Success"),
-        description: t("User has been approved successfully"),
+        title: t('general.success'),
+        description: t('admin.userApproved'),
       });
     },
     onError: () => {
       toast({
-        title: t("Error"),
-        description: t("Failed to approve user"),
+        title: t('general.error'),
+        description: t('admin.failedApprove'),
         variant: "destructive",
       });
     },
@@ -119,13 +120,13 @@ export default function AdminAccountsPage() {
       case "flagged":
         return (
           <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600" data-testid="badge-status-flagged">
-            {t("Flagged")}
+            {t('admin.flagged')}
           </Badge>
         );
       case "banned":
         return (
           <Badge variant="destructive" data-testid="badge-status-banned">
-            {t("Banned")}
+            {t('admin.banned')}
           </Badge>
         );
       default:
@@ -144,10 +145,10 @@ export default function AdminAccountsPage() {
       <main className="flex-1 container mx-auto px-4 py-6 pb-16 sm:pb-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2" data-testid="heading-page-title">
-            {t("Account Management")}
+            {t('admin.manageAccounts')}
           </h1>
           <p className="text-muted-foreground" data-testid="text-page-description">
-            {t("Manage user accounts and monitor activity")}
+            {t('admin.manageAccountsDesc')}
           </p>
         </div>
 
@@ -155,20 +156,20 @@ export default function AdminAccountsPage() {
           <div className="w-full sm:w-64">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger data-testid="select-status-filter">
-                <SelectValue placeholder={t("Filter by Status")} />
+                <SelectValue placeholder={t('admin.filterByStatus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" data-testid="select-option-all">{t("All")}</SelectItem>
+                <SelectItem value="all" data-testid="select-option-all">{t('poll.all')}</SelectItem>
                 <SelectItem value="active" data-testid="select-option-active">{t("Active")}</SelectItem>
-                <SelectItem value="flagged" data-testid="select-option-flagged">{t("Flagged")}</SelectItem>
-                <SelectItem value="banned" data-testid="select-option-banned">{t("Banned")}</SelectItem>
+                <SelectItem value="flagged" data-testid="select-option-flagged">{t('admin.flagged')}</SelectItem>
+                <SelectItem value="banned" data-testid="select-option-banned">{t('admin.banned')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex-1">
             <Input
-              placeholder={t("Search by username or email")}
+              placeholder={t('admin.searchUsernameEmail')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               data-testid="input-search-users"
@@ -187,13 +188,13 @@ export default function AdminAccountsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead data-testid="table-head-username">{t("Username")}</TableHead>
-                  <TableHead data-testid="table-head-email">{t("Email")}</TableHead>
-                  <TableHead data-testid="table-head-status">{t("Account Status")}</TableHead>
-                  <TableHead data-testid="table-head-reg-ip">{t("Registration IP")}</TableHead>
-                  <TableHead data-testid="table-head-last-ip">{t("Last Login IP")}</TableHead>
-                  <TableHead data-testid="table-head-fingerprint">{t("Device Fingerprint")}</TableHead>
-                  <TableHead data-testid="table-head-actions">{t("Actions")}</TableHead>
+                  <TableHead data-testid="table-head-username">{t('auth.username')}</TableHead>
+                  <TableHead data-testid="table-head-email">{t('auth.email')}</TableHead>
+                  <TableHead data-testid="table-head-status">{t('admin.accountStatus')}</TableHead>
+                  <TableHead data-testid="table-head-reg-ip">{t('admin.registrationIp')}</TableHead>
+                  <TableHead data-testid="table-head-last-ip">{t('admin.lastLoginIp')}</TableHead>
+                  <TableHead data-testid="table-head-fingerprint">{t('admin.deviceFingerprint')}</TableHead>
+                  <TableHead data-testid="table-head-actions">{t('admin.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -206,13 +207,13 @@ export default function AdminAccountsPage() {
                         {getStatusBadge(user.accountStatus)}
                       </TableCell>
                       <TableCell data-testid={`text-reg-ip-${user.id}`}>
-                        {user.registrationIp || t("N/A")}
+                        {user.registrationIp || t('admin.na')}
                       </TableCell>
                       <TableCell data-testid={`text-last-ip-${user.id}`}>
-                        {user.lastLoginIp || t("N/A")}
+                        {user.lastLoginIp || t('admin.na')}
                       </TableCell>
                       <TableCell data-testid={`text-fingerprint-${user.id}`}>
-                        {user.deviceFingerprint ? user.deviceFingerprint.substring(0, 8) : t("N/A")}
+                        {user.deviceFingerprint ? user.deviceFingerprint.substring(0, 8) : t('admin.na')}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -223,7 +224,7 @@ export default function AdminAccountsPage() {
                             data-testid={`button-view-activity-${user.id}`}
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            {t("View Activity")}
+                            {t('admin.viewActivity')}
                           </Button>
                           {user.accountStatus !== "banned" ? (
                             <Button
@@ -234,7 +235,7 @@ export default function AdminAccountsPage() {
                               data-testid={`button-ban-${user.id}`}
                             >
                               <Ban className="h-4 w-4 mr-1" />
-                              {t("Ban")}
+                              {t('admin.ban')}
                             </Button>
                           ) : (
                             <Button
@@ -246,7 +247,7 @@ export default function AdminAccountsPage() {
                               data-testid={`button-approve-${user.id}`}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              {t("Approve")}
+                              {t('admin.approve')}
                             </Button>
                           )}
                         </div>
@@ -256,7 +257,7 @@ export default function AdminAccountsPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8" data-testid="text-no-users">
-                      {t("No users found")}
+                      {t('admin.noUsersFound')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -271,7 +272,7 @@ export default function AdminAccountsPage() {
       <Dialog open={activityModalOpen} onOpenChange={setActivityModalOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-activity">
           <DialogHeader>
-            <DialogTitle data-testid="dialog-title-activity">{t("User Activity")}</DialogTitle>
+            <DialogTitle data-testid="dialog-title-activity">{t('admin.userActivity')}</DialogTitle>
           </DialogHeader>
           
           {activitiesLoading ? (
@@ -285,10 +286,10 @@ export default function AdminAccountsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead data-testid="table-head-action">{t("Action")}</TableHead>
-                    <TableHead data-testid="table-head-ip">{t("IP Address")}</TableHead>
-                    <TableHead data-testid="table-head-device">{t("Device Fingerprint")}</TableHead>
-                    <TableHead data-testid="table-head-timestamp">{t("Timestamp")}</TableHead>
+                    <TableHead data-testid="table-head-action">{t('admin.action')}</TableHead>
+                    <TableHead data-testid="table-head-ip">{t('admin.ipAddress')}</TableHead>
+                    <TableHead data-testid="table-head-device">{t('admin.deviceFingerprint')}</TableHead>
+                    <TableHead data-testid="table-head-timestamp">{t('admin.timestamp')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -297,10 +298,10 @@ export default function AdminAccountsPage() {
                       <TableRow key={activity.id} data-testid={`row-activity-${activity.id}`}>
                         <TableCell data-testid={`text-action-${activity.id}`}>{activity.action}</TableCell>
                         <TableCell data-testid={`text-ip-${activity.id}`}>
-                          {activity.ipAddress || t("N/A")}
+                          {activity.ipAddress || t('admin.na')}
                         </TableCell>
                         <TableCell data-testid={`text-device-${activity.id}`}>
-                          {activity.deviceFingerprint ? activity.deviceFingerprint.substring(0, 8) : t("N/A")}
+                          {activity.deviceFingerprint ? activity.deviceFingerprint.substring(0, 8) : t('admin.na')}
                         </TableCell>
                         <TableCell data-testid={`text-timestamp-${activity.id}`}>
                           {format(new Date(activity.timestamp), "PPp", { locale: el })}
@@ -310,7 +311,7 @@ export default function AdminAccountsPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-8" data-testid="text-no-activity">
-                        {t("No activity found")}
+                        {t('admin.noActivityFound')}
                       </TableCell>
                     </TableRow>
                   )}

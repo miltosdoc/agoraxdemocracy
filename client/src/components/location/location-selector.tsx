@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { t } from "@/i18n";
+import { useTranslation } from "@/hooks/use-translation";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -57,6 +57,7 @@ export function LocationSelector({
   showValidationErrors = false,
   className = ""
 }: LocationSelectorProps) {
+  const { t, locale } = useTranslation();
   // State for drop-down selectors
   const [countries, setCountries] = useState<CountryItem[]>(getCountries());
   const [regions, setRegions] = useState<RegionItem[]>([]);
