@@ -49,6 +49,8 @@ import {
   InsertDebateArgument,
   ProposalSupport,
   InsertProposalSupport,
+  ProposalVote,
+  ProposalVoteChoice,
   communities,
   communityMembers,
   proposals,
@@ -56,8 +58,21 @@ import {
   sortitionBodies,
   sortitionMembers,
   debateArguments,
-  proposalSupport
+  proposalSupport,
+  proposalVotes
 } from "@shared/schema";
+
+export interface ProposalVoteResults {
+  yes: number;
+  no: number;
+  abstain: number;
+  total: number;       // yes + no + abstain
+  participants: number; // distinct voters (== total since one vote per user)
+  participationPct: number; // participants / community member count, in [0,1]
+  passes: boolean;
+  meetsQuorum: boolean;
+  minParticipationPct: number; // community threshold in [0,1]
+}
 import { deriveGeoRegion, normalizeRegionName } from "./utils/geo-region-detector";
 import { reverseGeocode } from "./utils/reverse-geocoding";
 import session from "express-session";
@@ -260,6 +275,11 @@ export interface IStorage {
   removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
   getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }>;
   getAllProposals(limit?: number): Promise<Proposal[]>;
+
+  // ─── Demopolis: Proposal Final Vote methods ────────────────────────────────
+  castProposalVote(proposalId: number, userId: number, choice: ProposalVoteChoice): Promise<ProposalVote>;
+  getUserProposalVote(proposalId: number, userId: number): Promise<ProposalVote | undefined>;
+  getProposalVoteResults(proposalId: number): Promise<ProposalVoteResults>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2810,18 +2830,85 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(proposalSupport)
       .where(eq(proposalSupport.proposalId, proposalId));
-    
+
     const result: { support: number; oppose: number; userVote?: string | null } = {
       support: supports.filter(s => s.type === 'support').length,
       oppose: supports.filter(s => s.type === 'oppose').length,
     };
-    
+
     if (userId) {
       const userVote = supports.find(s => s.userId === userId);
       result.userVote = userVote?.type ?? null;
     }
-    
+
     return result;
+  }
+
+  // ─── Demopolis: Proposal Final Vote methods ──────────────────────────────
+
+  async castProposalVote(
+    proposalId: number,
+    userId: number,
+    choice: ProposalVoteChoice,
+  ): Promise<ProposalVote> {
+    const [vote] = await db
+      .insert(proposalVotes)
+      .values({ proposalId, userId, choice })
+      .onConflictDoUpdate({
+        target: [proposalVotes.proposalId, proposalVotes.userId],
+        set: { choice, castAt: sql`now()` },
+      })
+      .returning();
+    return vote;
+  }
+
+  async getUserProposalVote(proposalId: number, userId: number): Promise<ProposalVote | undefined> {
+    const [vote] = await db
+      .select()
+      .from(proposalVotes)
+      .where(and(eq(proposalVotes.proposalId, proposalId), eq(proposalVotes.userId, userId)))
+      .limit(1);
+    return vote;
+  }
+
+  async getProposalVoteResults(proposalId: number): Promise<ProposalVoteResults> {
+    const proposal = await this.getProposal(proposalId);
+    if (!proposal) {
+      throw new Error(`Proposal ${proposalId} not found`);
+    }
+
+    const votes = await db
+      .select()
+      .from(proposalVotes)
+      .where(eq(proposalVotes.proposalId, proposalId));
+
+    const yes = votes.filter(v => v.choice === 'yes').length;
+    const no = votes.filter(v => v.choice === 'no').length;
+    const abstain = votes.filter(v => v.choice === 'abstain').length;
+    const total = yes + no + abstain;
+
+    const [{ memberCount }] = await db
+      .select({ memberCount: count() })
+      .from(communityMembers)
+      .where(eq(communityMembers.communityId, proposal.communityId));
+
+    const community = await this.getCommunity(proposal.communityId);
+    const minParticipationPct = parseFloat(community?.minParticipationPct ?? '0') || 0;
+    const participationPct = memberCount > 0 ? total / memberCount : 0;
+    const meetsQuorum = participationPct >= minParticipationPct;
+    const passes = meetsQuorum && yes > no;
+
+    return {
+      yes,
+      no,
+      abstain,
+      total,
+      participants: total,
+      participationPct,
+      passes,
+      meetsQuorum,
+      minParticipationPct,
+    };
   }
 }
 

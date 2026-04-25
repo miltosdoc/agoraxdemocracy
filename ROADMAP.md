@@ -493,3 +493,73 @@ Goal: make AgoraX usable by a real small community without developer supervision
    - Move long API docs into `docs/API.md`.
    - Move ops content into `docs/OPERATIONS.md`.
    - Keep README short and accurate.
+
+---
+
+## Path to pilot — 2026-04-25 (post security-hardening pass)
+
+Pinned by the security/stability commit `b32b093`. Sequence is opinionated: each phase unblocks the next. Goal is **one Greek community deliberating one binding-enough proposal end-to-end**, not "production" in the abstract.
+
+### Phase 0 — Stabilization (DONE 2026-04-25)
+
+- [x] Drop response-body capture from API logger (was leaking user data, session info, ballot identity material).
+- [x] Fix error handler to log + return instead of throwing after responding (was crashing Node).
+- [x] Add `helmet()` for default security headers.
+- [x] Set explicit 100kb JSON/urlencoded body limits.
+- [x] Harden session cookies: `httpOnly`, `sameSite=lax`, `secure` in production.
+- [x] Remove DEMO_MODE bcrypt-format fallback in `comparePasswords`. Auth fails closed on malformed hashes regardless of env.
+- [x] Move demo-login bypass into LocalStrategy as an explicit branch, gated by APP_ENV=production blast door.
+
+### Phase 1 — The Spine
+
+Product cannot ship without these. Polish goes nowhere on a missing axle.
+
+- [ ] **1.1 Real `proposal_votes` table.** Highest-value technical change. Today "support" during deliberation and "ratify" at the end share `proposal_support`. Add dedicated table:
+  - `proposal_votes(id, proposal_id, user_id, choice, cast_at, weight)` with `unique(proposal_id, user_id)`.
+  - Storage: `castProposalVote`, `getProposalVoteResults`, `hasUserVotedOnProposal`.
+  - Routes: `POST /api/proposals/:id/vote`, `GET /api/proposals/:id/vote-results`, `POST /api/proposals/:id/finalize`.
+  - Finalize computes participation %, checks community `min_participation_threshold`, transitions `voting → decided` (or `voting → archived` on quorum fail).
+  - Wire proposal-detail Vote tab to the new table, not `proposal_support`.
+- [ ] **1.2 TypeScript burndown to zero.** ~480 errors, group by file family (poll-form drift, missing storage methods, schema reseed types). Each pass mergeable on its own. Flip CI `continue-on-error: true` off after zero.
+- [ ] **1.3 Storage method audit.** Grep `storage\.` across `routes.ts`, cross-reference against `IStorage`, fix or stub each missing method.
+- [ ] **1.4 Seed alignment.** Update `seed_demo.sql` to use canonical 8-state lifecycle. Reseed demo proposals across multiple states so the dashboard has interesting data.
+
+### Phase 2 — Coherence layer
+
+UX work pays off here because the data underneath is real.
+
+- [ ] **2.1 AppShell + status system together.** They are the same change. Build `<AppShell>` with header/footer/bottom-nav (props: `title`, `breadcrumb`, `actions`). Build `proposal-status.ts` central map: `state → { color, icon, greekLabel, nextAction }`. Build `<LifecycleStepper proposal>` reading from that map. Apply to `/communities`, `/proposals`, `/proposals/:id`, `/profile`.
+- [ ] **2.2 Dashboard split.** `/` is public landing, `/home` is authenticated workspace. Workspace answers exactly one question: "what does this user need to do right now?" Sections in priority order: pending actions, active proposals, recent decisions. No hero banner on `/home`. Empty state honest.
+- [ ] **2.3 Proposal detail as workspace.** Replace tabs with single page: stepper at top, sticky "next action" panel on mobile, sections in lifecycle order (amendments → debate → vote tally → final text). Tabs hide flow.
+
+### Phase 3 — Architecture cleanup
+
+Now that types are green and product is coherent, monolith split won't generate merge nightmares.
+
+- [ ] **3.1 Split [routes.ts](server/routes.ts) by domain.** No abstraction layer, just file moves: `routes/auth.ts`, `routes/proposals.ts`, `routes/communities.ts`, `routes/sortition.ts`, `routes/amendments.ts`, `routes/ballot.ts`, `routes/admin.ts`.
+- [ ] **3.2 Split [storage.ts](server/storage.ts)** into repositories along same lines. Keep `IStorage` union type for now.
+- [ ] **3.3 Observability:** `pino`, request ID middleware, redaction config. Replace remaining `console.error`.
+
+### Phase 4 — Pilot readiness
+
+- [ ] **4.1 The one happy path.** End-to-end Playwright: register → join community → submit proposal → run full lifecycle → ratification vote → resolved. Runs on every CI build. If red, nothing else ships.
+- [ ] **4.2 Notifications wired.** Sortition/proposal lifecycle notifications fire on actual events. Deadline reminders run on a scheduler. Without this the platform is dead between visits.
+- [ ] **4.3 Ballot service legal review.** Greek lawyer opinion on (a) outcome legitimacy claims, (b) AFM-hash retention obligations, (c) liability for verification false positives/negatives. 1-week wall-clock external dependency — start in parallel during Phase 3.
+- [ ] **4.4 Pick the pilot.** One community of <500 people. Likely not a municipality. Better candidates: university student association, co-op, internal party deliberation, neighborhood council. Need a champion inside who reports UX failures.
+
+### Phase 5 — Pilot
+
+Run one binding-enough proposal through the full lifecycle. Instrument everything. Expect 20 bugs the test suite missed. Fix, run a second proposal. After two clean runs, the product exists.
+
+### Defer / kill
+
+- LLM tiered validation. Marquee feature in README, not on critical path. Ship pilot without it.
+- More languages, poll types, proposal types. Surface area multiplier — wait until base loop is rock-solid.
+- Mobile-native apps. PWA + responsive is enough.
+- Map/location features beyond current OSM seed. Most pilot communities will be created by hand.
+
+### Parallel external dependencies — start now
+
+- Legal opinion on Gov.gr ballot pipeline.
+- Identify pilot community + internal champion.
+- Decide P2 explicitly: pilot outcomes advisory or binding? If advisory, drop "verified ballot" framing for v1 and use Gov.gr only for identity verification. Cleaner pitch, far less legal risk.

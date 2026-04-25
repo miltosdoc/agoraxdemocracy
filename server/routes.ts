@@ -15,6 +15,7 @@ import {
   insertPollUserResponseSchema,
   sortitionMembers,
   sortitionBodies,
+  castProposalVoteSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
@@ -2394,6 +2395,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching support:", error);
       res.status(500).json({ message: "Failed to fetch support" });
+    }
+  });
+
+  // ─── Demopolis: Proposal Final Ratification Vote Routes ────────────────────
+
+  // Cast or update final ratification vote (one per user per proposal).
+  // Only allowed while the proposal is in the `voting` lifecycle state.
+  app.post("/api/proposals/:id/vote", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+
+      const parsed = castProposalVoteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Choice must be one of 'yes', 'no', 'abstain'",
+          errors: parsed.error.flatten(),
+        });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      if (proposal.status !== 'voting') {
+        return res.status(409).json({
+          message: "Proposal is not currently in the voting phase",
+          current_status: proposal.status,
+        });
+      }
+
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) {
+        return res.status(403).json({ message: "Only community members may cast a final vote" });
+      }
+
+      const vote = await storage.castProposalVote(proposalId, req.user.id, parsed.data.choice);
+      res.status(201).json(vote);
+    } catch (error) {
+      console.error("Error casting proposal vote:", error);
+      res.status(500).json({ message: "Failed to cast vote" });
+    }
+  });
+
+  // Get aggregated final-vote results for a proposal.
+  // Includes the requester's own vote when authenticated.
+  app.get("/api/proposals/:id/vote-results", async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const results = await storage.getProposalVoteResults(proposalId);
+      const userId = (req.user as any)?.id;
+      const userVote = userId ? await storage.getUserProposalVote(proposalId, userId) : undefined;
+
+      res.json({
+        ...results,
+        userVote: userVote?.choice ?? null,
+      });
+    } catch (error) {
+      console.error("Error fetching vote results:", error);
+      res.status(500).json({ message: "Failed to fetch vote results" });
+    }
+  });
+
+  // Finalize the ratification vote and transition the proposal to `decided`
+  // (or `archived` if quorum is not met). Author/admin/founder only.
+  app.post("/api/proposals/:id/finalize", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      if (proposal.status !== 'voting') {
+        return res.status(409).json({
+          message: "Only proposals in the voting phase can be finalized",
+          current_status: proposal.status,
+        });
+      }
+
+      if (proposal.authorId !== req.user.id) {
+        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        if (role !== 'admin' && role !== 'founder') {
+          return res.status(403).json({ message: "Not authorized to finalize this proposal" });
+        }
+      }
+
+      const results = await storage.getProposalVoteResults(proposalId);
+      const nextState = results.meetsQuorum ? 'decided' : 'archived';
+
+      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('./storage');
+      const updated = await transitionProposal(proposal, nextState, storageInstance);
+      await triggerSideEffects(proposal.status, nextState, updated);
+
+      res.json({ proposal: updated, results });
+    } catch (error) {
+      console.error("Error finalizing proposal:", error);
+      res.status(500).json({ message: "Failed to finalize proposal" });
     }
   });
 

@@ -365,6 +365,22 @@ export const proposalSupport = pgTable("proposal_support", {
   proposalSupportUnique: uniqueIndex('proposal_support_unique').on(table.proposalId, table.userId, table.type),
 }));
 
+// ─── Demopolis: Proposal Final Ratification Votes (Επικυρωτική Ψηφοφορία) ────
+// Distinct from proposal_support: this is the binding final vote cast during
+// the `voting` lifecycle phase. One row per (proposal, user). The choice is
+// 'yes' | 'no' | 'abstain'; abstain counts toward participation but not
+// toward yes/no totals.
+export const proposalVotes = pgTable("proposal_votes", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  choice: text("choice").notNull(), // 'yes' | 'no' | 'abstain'
+  weight: numeric("weight").notNull().default("1"),
+  castAt: timestamp("cast_at").notNull().defaultNow(),
+}, (table) => ({
+  proposalVoteUnique: uniqueIndex('proposal_vote_unique').on(table.proposalId, table.userId),
+}));
+
 // ─── Admin Action Log ───────────────────────────────────────────────────────
 
 export const adminActions = pgTable("admin_actions", {
@@ -624,6 +640,17 @@ export const proposalSupportRelations = relations(proposalSupport, ({ one }) => 
   }),
 }));
 
+export const proposalVotesRelations = relations(proposalVotes, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalVotes.proposalId],
+    references: [proposals.id],
+  }),
+  user: one(users, {
+    fields: [proposalVotes.userId],
+    references: [users.id],
+  }),
+}));
+
 export const adminActionsRelations = relations(adminActions, ({ one }) => ({
   user: one(users, {
     fields: [adminActions.userId],
@@ -695,6 +722,12 @@ export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omi
 export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
 export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
 export const insertProposalSupportSchema = createInsertSchema(proposalSupport).omit({ id: true, createdAt: true });
+export const insertProposalVoteSchema = createInsertSchema(proposalVotes).omit({ id: true, castAt: true });
+
+export const proposalVoteChoiceSchema = z.enum(['yes', 'no', 'abstain']);
+export const castProposalVoteSchema = z.object({
+  choice: proposalVoteChoiceSchema,
+});
 export const insertAdminActionSchema = createInsertSchema(adminActions).omit({ id: true, timestamp: true });
 
 // Poll with options schema for creation
@@ -855,6 +888,8 @@ export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
 export type DebateArgument = typeof debateArguments.$inferSelect;
 export type ProposalSupport = typeof proposalSupport.$inferSelect;
+export type ProposalVote = typeof proposalVotes.$inferSelect;
+export type ProposalVoteChoice = z.infer<typeof proposalVoteChoiceSchema>;
 export type AdminAction = typeof adminActions.$inferSelect;
 
 // Demopolis Insert Types
@@ -866,6 +901,7 @@ export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
 export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
 export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
 export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
+export type InsertProposalVote = z.infer<typeof insertProposalVoteSchema>;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 
 // Safe user type without sensitive auth/internal fields.
