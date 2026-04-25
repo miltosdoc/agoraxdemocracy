@@ -47,7 +47,7 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 - **Authentication:** Sessions + cookies (PostgreSQL-backed), Google OAuth, Gov.gr ballot verification
 - **LLM Validation:** Configurable (NVIDIA Nemotron free tier, OpenRouter, Anthropic, local Ollama)
 - **Image Generation:** Canvas (Node.js) for Open Graph social preview images
-- **Deployment:** Docker Compose (PostgreSQL + Node.js API)
+- **Deployment:** Docker Compose (PostgreSQL + Node.js API + Python Ballot Service)
 - **Device Fingerprinting:** FingerprintJS for one-person-one-vote enforcement
 
 ---
@@ -265,7 +265,7 @@ agoraxdemo/
 │       └── geo-region-detector.ts   # Location detection
 ├── shared/
 │   └── schema.ts              # Drizzle schema (928 lines, 21+ tables)
-├── ballot_service/            # Python ballot verification (planned)
+├── ballot_service/            # Python ballot verification (FastAPI + pyhanko)
 ├── migrations/                # SQL migrations
 ├── Dockerfile                 # Multi-stage build (Node 20 + canvas)
 ├── docker-compose.yml         # PostgreSQL + API services
@@ -308,6 +308,11 @@ agoraxdemo/
 - `POST /api/arguments/:id/oppose` — Oppose an argument
 
 ### Sortition
+- `POST /api/communities/:id/sortition` — Create sortition body (admin/founder)
+- `GET /api/communities/:id/sortition/preview` — Preview sortition selection
+- `GET /api/communities/:id/sortition` — List all sortition bodies (admin/founder)
+- `GET /api/sortition/:bodyId` — Get sortition body with members
+- `POST /api/sortition/:bodyId/complete` — Complete a sortition body (admin/founder)
 - `GET /api/sortition/assignments/:id` — Get sortition assignment
 - `POST /api/sortition/assignments/:id/score` — Submit sortition score
 
@@ -328,7 +333,11 @@ agoraxdemo/
 - `GET /api/polls/:id/results` — Get poll results
 
 ### Ballot Verification (Gov.gr)
-- `POST /api/ballot/verify` — Verify Solemn Declaration PDF
+- `POST /api/ballot/validate` — Validate Solemn Declaration PDF (4-gate verification)
+- `POST /api/ballot/validate-identity` — Verify identity only (one-time Gov.gr check)
+- `POST /api/ballot/token` — Generate poll token for ballot voting
+- `GET /api/ballot/instructions` — Get ballot voting instructions
+- `GET /api/ballot/stats/:pollId` — Get ballot voting statistics
 - `GET /api/ballot/health` — Ballot service status
 
 ### Social Sharing
@@ -346,15 +355,18 @@ agoraxdemo/
 - [x] Amendment flow (author review → community signal → sortition synthesis)
 - [x] Debate arguments with support/opposition tracking
 - [x] Proposal support/oppose voting
+- [x] Sortition body creation with crypto-secure random selection (Fisher-Yates)
+- [x] Sortition API routes (create, preview, list, get, complete, score)
 - [x] Sortition scoring interface
 - [x] Frontend pages (20+ pages: proposals, amendments, debate, sortition, communities)
 - [x] Demo mode for testing without auth
-- [x] Docker Compose deployment (PostgreSQL + API)
+- [x] Docker Compose deployment (PostgreSQL + API + Ballot Service)
 - [x] Open Graph image generation for social sharing
 - [x] Social bot SEO (Facebook, Twitter, WhatsApp, Telegram previews)
-- [x] Health check endpoint
+- [x] Health check endpoints (API + Ballot Service)
 - [x] Device fingerprinting + IP tracking
-- [x] Gov.gr ballot verification (Solemn Declaration PDF)
+- [x] Gov.gr ballot verification (Python microservice, 4-gate PDF validation)
+- [x] Ballot client HTTP proxy (Node.js → Python ballot service)
 - [x] Survey polls (multi-question with branching logic)
 - [x] Geofencing support (location-based polls)
 - [x] Community democracy score calculation
@@ -363,13 +375,13 @@ agoraxdemo/
 - [x] Rich text editor (TipTap) for proposals
 
 ### In Progress ⏳
-- [ ] Sortition body composition algorithm (random selection)
-- [ ] Sortition membership verification enforcement
+- [ ] Sortition active member exclusion (getActiveSortitionMembers currently returns empty set)
+- [ ] Sortition synthesis output (aggregating scores into final text)
 - [ ] Automated state transitions (e.g., sortition complete → voting)
-- [ ] Production authentication (Google OAuth)
+- [ ] Production authentication (Google OAuth credentials)
 - [ ] Notification system for sortition assignments
 - [ ] Analytics for deliberation metrics
-- [ ] Ballot service (Python microservice for PDF verification)
+- [ ] Frontend build in Docker (currently API-only deployment)
 
 ### Future 🚀
 - [ ] AI-assisted proposal merging (detect similar proposals)
