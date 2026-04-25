@@ -503,16 +503,16 @@ export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotV
 // Helper function to translate rejection reasons
 function getRejectionMessage(reason?: string): string {
     const messages: Record<string, string> = {
-        invalid_signature: t("The PDF signature is invalid or has been tampered with."),
-        no_signature: t("The PDF does not contain a digital signature from Gov.gr."),
-        unknown_signer: t("The PDF was not signed by a recognized government authority."),
-        duplicate_file: t("This declaration has already been submitted."),
-        already_voted: t("You have already voted in this poll."),
-        invalid_token: t("The voting session has expired. Please start over."),
-        token_not_found: t("The security token was not found in your declaration. Make sure you copied the template correctly."),
-        afm_not_found: t("Could not find your Tax ID (AFM) in the declaration."),
-        vote_choice_not_found: t("Could not find your vote choice. Please use the format: 'vote for [OPTION]'"),
-        pdf_read_error: t("Could not read the PDF file. Please make sure it's a valid PDF."),
+        invalid_signature: "The PDF signature is invalid or has been tampered with.",
+        no_signature: "The PDF does not contain a digital signature from Gov.gr.",
+        unknown_signer: "The PDF was not signed by a recognized government authority.",
+        duplicate_file: "This declaration has already been submitted.",
+        already_voted: "You have already voted in this poll.",
+        invalid_token: "The voting session has expired. Please start over.",
+        token_not_found: "The security token was not found in your declaration. Make sure you copied the template correctly.",
+        afm_not_found: "Could not find your Tax ID (AFM) in the declaration.",
+        vote_choice_not_found: "Could not find your vote choice. Please use the format: 'vote for [OPTION]'",
+        pdf_read_error: "Could not read the PDF file. Please make sure it's a valid PDF.",
     };
-    return messages[reason || ""] || t("An unknown error occurred.");
+    return messages[reason || ""] || "An unknown error occurred.";
 }

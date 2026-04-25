@@ -867,8 +867,24 @@ export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
 export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 
-// Safe user type without sensitive fields (password, providerId, provider, etc.)
-export type SafeUser = Pick<User, 'id' | 'username' | 'name' | 'email' | 'profilePicture'>;
+// Safe user type without sensitive auth/internal fields.
+export type SafeUser = Pick<
+  User,
+  | 'id'
+  | 'username'
+  | 'name'
+  | 'email'
+  | 'profilePicture'
+  | 'latitude'
+  | 'longitude'
+  | 'locationConfirmed'
+  | 'locationVerified'
+  | 'isAdmin'
+  | 'accountStatus'
+  | 'govgrVerified'
+  | 'govgrVerifiedAt'
+>;
+
 
 // Extended types
 export type PollWithOptions = Poll & {

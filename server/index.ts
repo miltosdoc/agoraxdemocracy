@@ -3,6 +3,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { updatePollLocations } from "./update-poll-locations";
+import { validateRuntimeConfig } from "./config";
+
+validateRuntimeConfig();
 
 const app = express();
 app.use(express.json());

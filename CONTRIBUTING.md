@@ -1,19 +1,19 @@
 # Contributing to AgoraX
 
-Thank you for interested in contributing to AgoraX — a digital democracy platform for Greek communities.
+Thank you for your interest in contributing to AgoraX — a digital democracy platform for Greek communities.
 
 ## Before You Start
 
 1. Read the [README.md](README.md) to understand the project vision and architecture
-2. Read the [Demopolis specifications](~/.hermes/demopolis/Draft/docs/) for design context
+2. Read the project documentation and Demopolis notes committed to this repository (`README.md`, `OPEN_QUESTIONS.md`, `PHASE2_RESEARCH.md`)
 3. Check existing issues and pull requests to avoid duplicate work
 
 ## Development Environment
 
 ### Prerequisites
-- Node.js 18+
-- PostgreSQL 14+
-- Python 3.10+ (for ballot service)
+- Node.js 20+
+- PostgreSQL 15+
+- Python 3.11+ (for ballot service)
 - npm or yarn
 
 ### Setup
@@ -26,7 +26,7 @@ npm install
 
 # Database setup
 cp .env.example .env
-# Edit .env — set DATABASE_URL
+# Edit .env — set DATABASE_URL plus SESSION_SECRET/JWT_SECRET/SALT_KEY
 
 # Push schema to database
 npm run db:push
@@ -44,7 +44,7 @@ cd ballot_service
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
+uvicorn main:app --reload --port 8000
 ```
 
 ## Code Style
@@ -95,33 +95,37 @@ app.post("/api/resource", requireAuth, async (req, res) => {
 
 ## Testing
 
-Run the full test suite before submitting changes:
+Run the full wired test suite before submitting changes:
 
 ```bash
-scripts/run_tests.sh
+npm run test:all
 ```
 
-For specific tests:
+For the TypeScript state-machine test directly:
 ```bash
-scripts/run_tests.sh tests/path/to/test.py
+npm run test:unit
 ```
+
+Run `npm run check:i18n` after touching user-facing translation keys.
 
 ## Pull Request Process
 
 1. Create a feature branch from `main`
 2. Make focused, atomic changes
 3. Add tests for new functionality
-4. Run `npm run check` and `scripts/run_tests.sh`
+4. Run `npm run check`, `npm run test:all`, and `npm run build`
 5. Update documentation if applicable
 6. Submit the PR with a clear description
 
 ## Demopolis Specifications
 
-The Demopolis working group maintains detailed design documents. When implementing new features, refer to:
+The Demopolis working group maintains the design background for this project. When implementing new features, prefer repository-visible sources first:
 
-- `~/.hermes/demopolis/Draft/docs/00_Πληρης_Τεκμηριωση.md` — Complete specification
-- `~/.hermes/demopolis/Draft/docs/procedures/` — Procedure documents
-- `~/.hermes/demopolis/Draft/docs/concepts/` — Concept documents
+- `README.md` — current architecture and user-facing feature summary
+- `OPEN_QUESTIONS.md` — unresolved product/architecture decisions
+- `PHASE2_RESEARCH.md` — research notes and design rationale
+
+Do not reference local-only paths in issues, PRs, or committed docs; they are not available to other contributors.
 
 ## Questions?
 

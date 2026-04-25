@@ -172,19 +172,20 @@ Submitted → LLM Validation → Valid/Returned → Scoring → Under Review →
 git clone https://github.com/miltosdoc/agoraxdemo.git
 cd agoraxdemo
 
-# Configure (optional — defaults work for local testing)
+# Configure required local secrets
 cp .env.example .env
-# Edit .env for custom DB credentials, LLM keys, etc.
+# Edit .env: set POSTGRES_PASSWORD, SESSION_SECRET, JWT_SECRET, SALT_KEY.
+# Keep DEMO_MODE=true only for local demo/testing.
 
-# Start everything (PostgreSQL + API)
-docker compose up -d
+# Start everything (PostgreSQL + API + ballot service)
+docker compose up -d --build
 
 # Check status
 docker compose ps
 curl http://localhost:3000/api/health
 
 # Seed demo data (optional)
-docker compose exec db psql -U agorax -d agorax -f seed_demo.sql
+docker compose exec -T db psql -U agorax -d agorax < seed_demo.sql
 ```
 
 ### Option 2: Local Development
@@ -212,7 +213,7 @@ npm run db:push
 psql -d agorax -f seed_demo.sql
 
 # Start development server
-./start.sh
+npm run dev
 ```
 
 ### Environment Variables
@@ -220,22 +221,19 @@ psql -d agorax -f seed_demo.sql
 - `DATABASE_URL` — PostgreSQL connection string (**required**)
 - `LLM_API_KEY` — API key for LLM validation (optional, uses free tier by default)
 - `LLM_MODEL` — LLM model name (default: `nvidia/nemotron-3-nano-30b-a3b:free`)
-- `LLM_BASE_URL` — LLM API endpoint (default: `https://staging.xsilico.ai/api/v1`)
-- `JWT_SECRET` — Secret for JWT tokens (default: `change-me-in-production`)
-- `SESSION_SECRET` — Secret for session cookies (default: `change-me-in-production`)
+- `LLM_API_URL` — OpenAI-compatible LLM API endpoint (default: `https://api.openai.com/v1`)
+- `JWT_SECRET` — Secret for JWT tokens (required; use a long random value)
+- `SESSION_SECRET` — Secret for session cookies (required; use a long random value)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth credentials
 - `DEMO_MODE` — Set to `true` to bypass auth for testing
+- `APP_ENV` — Application environment (`local`, `staging`, `production`); production blocks demo mode and default secrets
 - `PORT` — Backend port (default: 3000)
 
 ### Demo Mode
 
-For testing without setting up OAuth:
-```bash
-export DEMO_MODE=true
-./start.sh
-```
+For testing without setting up OAuth, set `DEMO_MODE=true` in `.env` and run Docker Compose or `npm run dev`.
 
-This bypasses authentication and uses a demo user (ID: 3) for all requests.
+Demo mode bypasses authentication and uses a demo user (ID: 3) for protected API requests. It is blocked when `APP_ENV=production`, so do not use it for production-like deployments.
 
 ---
 
@@ -276,7 +274,7 @@ agoraxdemo/
 ├── docker-compose.yml         # PostgreSQL + API services
 ├── drizzle.config.ts          # Drizzle ORM configuration
 ├── seed_demo.sql              # Demo data seed script
-├── start.sh                   # Development startup script
+├── start.sh                   # Production-style starter for an already-built app
 └── README.md                  # This file
 ```
 

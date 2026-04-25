@@ -8,7 +8,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 import { db, pool } from "./db";
-import { users, User } from "@shared/schema";
+import { users, User, SafeUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
 
@@ -26,6 +26,25 @@ declare global {
 }
 
 const scryptAsync = promisify(scrypt);
+
+function sanitizeUser(user: User): SafeUser {
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    email: user.email,
+    profilePicture: user.profilePicture,
+    latitude: user.latitude,
+    longitude: user.longitude,
+    locationConfirmed: user.locationConfirmed,
+    locationVerified: user.locationVerified,
+    isAdmin: user.isAdmin,
+    accountStatus: user.accountStatus,
+    govgrVerified: user.govgrVerified,
+    govgrVerifiedAt: user.govgrVerifiedAt,
+  };
+}
+
 
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -227,9 +246,9 @@ export function setupAuth(app: Express) {
         // Also store in session for redundancy
         req.session.returnTo = returnTo;
 
-        // Include returnTo in the response
+        // Include returnTo in the response without leaking sensitive user fields.
         res.status(201).json({
-          ...user,
+          ...sanitizeUser(user),
           returnTo
         });
       });
@@ -279,9 +298,9 @@ export function setupAuth(app: Express) {
         // Store the redirect URL in the session as well, for redundancy
         req.session.returnTo = returnTo;
 
-        // Include returnTo in the response so client can redirect
+        // Include returnTo in the response so client can redirect, without leaking sensitive user fields.
         return res.status(200).json({
-          ...user,
+          ...sanitizeUser(user),
           returnTo: returnTo
         });
       });
@@ -297,7 +316,7 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    res.json(sanitizeUser(req.user as User));
   });
 
   // Delete user account endpoint

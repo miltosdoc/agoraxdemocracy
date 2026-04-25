@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, PlusCircle, FileText, Users, User } from "lucide-react";
-import { User as SelectUser } from "@shared/schema";
+import { SafeUser } from "@shared/schema";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/use-translation";
 
 interface BottomNavProps {
-  user: SelectUser | null;
+  user: SafeUser | null;
 }
 
 export default function BottomNav({ user }: BottomNavProps) {
