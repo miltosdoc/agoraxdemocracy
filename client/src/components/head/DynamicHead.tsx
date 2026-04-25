@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface DynamicHeadProps {
   title?: string;
@@ -11,40 +12,46 @@ interface DynamicHeadProps {
  * Component to dynamically update meta tags for social sharing
  */
 export function DynamicHead({ 
-  title = "AgoraX - Πλατφόρμα Ψηφιακής Δημοκρατίας",
-  description = "Ψηφιακή πλατφόρμα για μια πιο ανοιχτή και συμμετοχική διακυβέρνηση.",
+  title,
+  description,
   imageUrl = "/logo-share.png",
   url = "https://agorax.org"
 }: DynamicHeadProps) {
+  const { t } = useTranslation();
+  
+  const defaultTitle = t('app.title');
+  const defaultDescription = t('app.description');
+  const effectiveTitle = title || defaultTitle;
+  const effectiveDescription = description || defaultDescription;
   
   useEffect(() => {
     // Update Open Graph meta tags
-    updateMetaTag('og:title', title);
-    updateMetaTag('og:description', description);
+    updateMetaTag('og:title', effectiveTitle);
+    updateMetaTag('og:description', effectiveDescription);
     updateMetaTag('og:image', imageUrl);
     updateMetaTag('og:url', url || window.location.href);
     
     // Update Twitter card meta tags
-    updateMetaTag('twitter:title', title);
-    updateMetaTag('twitter:description', description);
+    updateMetaTag('twitter:title', effectiveTitle);
+    updateMetaTag('twitter:description', effectiveDescription);
     updateMetaTag('twitter:image', imageUrl);
     
     // Update page title
-    document.title = title;
+    document.title = effectiveTitle;
     
     // Cleanup function to reset meta tags when component unmounts
     return () => {
       // Reset to default values
-      updateMetaTag('og:title', "AgoraX - Πλατφόρμα Ψηφιακής Δημοκρατίας");
-      updateMetaTag('og:description', "Ψηφιακή πλατφόρμα για μια πιο ανοιχτή και συμμετοχική διακυβέρνηση.");
+      updateMetaTag('og:title', defaultTitle);
+      updateMetaTag('og:description', defaultDescription);
       updateMetaTag('og:image', "/logo-share.png");
       updateMetaTag('og:url', "https://agorax.org");
-      updateMetaTag('twitter:title', "AgoraX - Πλατφόρμα Ψηφιακής Δημοκρατίας");
-      updateMetaTag('twitter:description', "Ψηφιακή πλατφόρμα για μια πιο ανοιχτή και συμμετοχική διακυβέρνηση.");
+      updateMetaTag('twitter:title', defaultTitle);
+      updateMetaTag('twitter:description', defaultDescription);
       updateMetaTag('twitter:image', "/logo-share.png");
-      document.title = "AgoraX - Πλατφόρμα Ψηφιακής Δημοκρατίας";
+      document.title = defaultTitle;
     };
-  }, [title, description, imageUrl, url]);
+  }, [effectiveTitle, effectiveDescription, imageUrl, url, defaultTitle, defaultDescription]);
   
   // Helper function to update or create meta tags
   const updateMetaTag = (property: string, content: string) => {

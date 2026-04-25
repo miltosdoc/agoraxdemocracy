@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Users, FileText, Vote, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Community {
   id: number;
@@ -37,6 +38,7 @@ interface Proposal {
 export default function CommunityDashboardPage() {
   const params = useParams();
   const communityId = params.id;
+  const { t } = useTranslation();
   
   const [community, setCommunity] = useState<Community | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -59,7 +61,7 @@ export default function CommunityDashboardPage() {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">Loading...</div>
+        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('common.loading')}</div>
         <Footer />
       </div>
     );
@@ -69,7 +71,7 @@ export default function CommunityDashboardPage() {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">Community not found</div>
+        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('community.not_found')}</div>
         <Footer />
       </div>
     );
@@ -81,7 +83,7 @@ export default function CommunityDashboardPage() {
       <div className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
+        {t('common.back')}
       </Button>
 
       <Card className="mb-6">
@@ -96,25 +98,25 @@ export default function CommunityDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
-              <span>{community.memberCount} members</span>
+              <span>{community.memberCount} {t('community.members')}</span>
             </div>
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
-              <span>{proposals.length} proposals</span>
+              <span>{proposals.length} {t('community.proposals')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Vote className="w-4 h-4 text-muted-foreground" />
-              <span>Active votes</span>
+              <span>{t('community.active_votes')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-muted-foreground" />
-              <span>Democracy Score</span>
+              <span>{t('community.democracy_score')}</span>
             </div>
           </div>
           
           <div className="mt-4">
             <div className="flex justify-between text-sm mb-1">
-              <span>Democracy Score</span>
+              <span>{t('community.democracy_score')}</span>
               <span>{community.democracyScore}/100</span>
             </div>
             <Progress value={community.democracyScore} />
@@ -124,19 +126,19 @@ export default function CommunityDashboardPage() {
 
       <Tabs defaultValue="proposals">
         <TabsList>
-          <TabsTrigger value="proposals">Proposals</TabsTrigger>
-          <TabsTrigger value="sortition">Sortition</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="proposals">{t('community.tab_proposals')}</TabsTrigger>
+          <TabsTrigger value="sortition">{t('community.tab_sortition')}</TabsTrigger>
+          <TabsTrigger value="members">{t('community.tab_members')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="proposals">
           <Card>
             <CardHeader>
-              <CardTitle>Proposals</CardTitle>
+              <CardTitle>{t('community.tab_proposals')}</CardTitle>
             </CardHeader>
             <CardContent>
               {proposals.length === 0 ? (
-                <p className="text-muted-foreground">No proposals yet</p>
+                <p className="text-muted-foreground">{t('community.no_proposals')}</p>
               ) : (
                 <div className="space-y-2">
                   {proposals.map((proposal) => (
@@ -144,7 +146,7 @@ export default function CommunityDashboardPage() {
                       <div>
                         <div className="font-medium">{proposal.title}</div>
                         <div className="text-sm text-muted-foreground">
-                          by {proposal.authorName} · {new Date(proposal.createdAt).toLocaleDateString()}
+                          {t('common.by')} {proposal.authorName} · {new Date(proposal.createdAt).toLocaleDateString()}
                         </div>
                       </div>
                       <Badge variant={
@@ -165,10 +167,10 @@ export default function CommunityDashboardPage() {
         <TabsContent value="sortition">
           <Card>
             <CardHeader>
-              <CardTitle>Sortition Bodies</CardTitle>
+              <CardTitle>{t('community.sortition_bodies')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">No active sortition bodies</p>
+              <p className="text-muted-foreground">{t('community.no_sortition_bodies')}</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -176,10 +178,10 @@ export default function CommunityDashboardPage() {
         <TabsContent value="members">
           <Card>
             <CardHeader>
-              <CardTitle>Members</CardTitle>
+              <CardTitle>{t('community.tab_members')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Member list coming soon</p>
+              <p className="text-muted-foreground">{t('community.members_coming_soon')}</p>
             </CardContent>
           </Card>
         </TabsContent>

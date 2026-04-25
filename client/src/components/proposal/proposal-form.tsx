@@ -15,23 +15,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface ProposalFormProps {
   communityId?: number;  // Optional for demo mode
 }
 
-const CATEGORIES = [
-  { value: 'education', label: 'Εκπαίδευση' },
-  { value: 'healthcare', label: 'Υγεία' },
-  { value: 'infrastructure', label: 'Υποδομές' },
-  { value: 'environment', label: 'Περιβάλλον' },
-  { value: 'economy', label: 'Οικονομία' },
-  { value: 'governance', label: 'Διακυβέρνηση' },
-  { value: 'other', label: 'Άλλο' },
-];
-
 export function ProposalForm({ communityId }: ProposalFormProps) {
   const [, setLocation] = useLocation();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const targetCommunityId = communityId || 1;  // Default to main community
@@ -40,6 +32,16 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
     solution: '',
     category: '',
   });
+
+  const CATEGORIES = [
+    { value: 'education', label: t('proposal.category_education') },
+    { value: 'healthcare', label: t('proposal.category_healthcare') },
+    { value: 'infrastructure', label: t('proposal.category_infrastructure') },
+    { value: 'environment', label: t('proposal.category_environment') },
+    { value: 'economy', label: t('proposal.category_economy') },
+    { value: 'governance', label: t('proposal.category_governance') },
+    { value: 'other', label: t('proposal.category_other') },
+  ];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,13 +58,13 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || 'Failed to create proposal');
+        throw new Error(data.message || t('proposal.create_error'));
       }
 
       const proposal = await res.json();
       setLocation(`/proposals/${proposal.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : t('common.unknown_error'));
     } finally {
       setLoading(false);
     }
@@ -71,9 +73,9 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Υπόβαλε Πρόταση</CardTitle>
+        <CardTitle>{t('proposal.submit_title')}</CardTitle>
         <CardDescription>
-          Υποβάλετε μια πρόταση για την κοινότητά σας. Κάθε πρόταση πρέπει να περιλαμβάνει ένα ερώτημα (το πρόβλημα) και μια λύση.
+          {t('proposal.submit_description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -87,46 +89,46 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="question">
-              Ερώτημα <span className="text-red-500">*</span>
+              {t('proposal.question_label')} <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="question"
-              placeholder="Ποιο πρόβλημα θέλετε να λύσετε;"
+              placeholder={t('proposal.question_placeholder')}
               value={formData.question}
               onChange={(e) => setFormData({ ...formData, question: e.target.value })}
               className="min-h-[120px]"
               required
             />
             <p className="text-sm text-muted-foreground">
-              Περιγράψτε το πρόβλημα ή το ζήτημα που θέλετε να διερευνήσετε.
+              {t('proposal.question_hint')}
             </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="solution">
-              Λύση <span className="text-red-500">*</span>
+              {t('proposal.solution_label')} <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="solution"
-              placeholder="Ποια είναι η προτεινόμενη λύση;"
+              placeholder={t('proposal.solution_placeholder')}
               value={formData.solution}
               onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
               className="min-h-[120px]"
               required
             />
             <p className="text-sm text-muted-foreground">
-              Περιγράψτε την προτεινόμενη λύση ή δράση.
+              {t('proposal.solution_hint')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Κατηγορία</Label>
+            <Label htmlFor="category">{t('proposal.category_label')}</Label>
             <Select
               value={formData.category}
               onValueChange={(value) => setFormData({ ...formData, category: value })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Επιλέξτε κατηγορία" />
+                <SelectValue placeholder={t('proposal.category_placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 {CATEGORIES.map((cat) => (
@@ -140,16 +142,16 @@ export function ProposalForm({ communityId }: ProposalFormProps) {
 
           <div className="flex items-center justify-end space-x-2">
             <Button type="button" variant="outline" onClick={() => window.history.back()}>
-              Ακύρωση
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Υποβολή...
+                  {t('proposal.submitting')}
                 </>
               ) : (
-                'Υποβολή Προβουλευματος'
+                t('proposal.submit_button')
               )}
             </Button>
           </div>

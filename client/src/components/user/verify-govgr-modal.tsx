@@ -38,7 +38,7 @@ interface ValidationResult {
 }
 
 export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
     const [step, setStep] = useState<Step>("intro");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -48,16 +48,16 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
 
     const getRejectionLabel = (reason: string) => {
         const reasons: Record<string, string> = {
-            "invalid_signature": "Μη έγκυρη ψηφιακή υπογραφή",
-            "unknown_signer": "Η υπογραφή δεν είναι από αναγνωρισμένη αρχή Gov.gr",
-            "no_signature": "Το έγγραφο δεν περιέχει ψηφιακή υπογραφή",
-            "duplicate_file": "Το συγκεκριμένο αρχείο έχει ήδη χρησιμοποιηθεί",
-            "invalid_token": "Άκυρο αναγνωριστικό (token)",
-            "token_not_found": "Δεν βρέθηκε το αναγνωριστικό ψηφοφορίας",
-            "afm_not_found": "Δεν εντοπίστηκε ΑΦΜ στο έγγραφο",
-            "already_voted": "Έχετε ήδη ψηφίσει",
-            "vote_choice_not_found": "Δεν βρέθηκε ξεκάθαρη επιλογή ψήφου",
-            "pdf_read_error": "Σφάλμα ανάγνωσης του αρχείου PDF"
+            "invalid_signature": t('verify.rejection.invalid_signature'),
+            "unknown_signer": t('verify.rejection.unknown_signer'),
+            "no_signature": t('verify.rejection.no_signature'),
+            "duplicate_file": t('verify.rejection.duplicate_file'),
+            "invalid_token": t('verify.rejection.invalid_token'),
+            "token_not_found": t('verify.rejection.token_not_found'),
+            "afm_not_found": t('verify.rejection.afm_not_found'),
+            "already_voted": t('verify.rejection.already_voted'),
+            "vote_choice_not_found": t('verify.rejection.vote_choice_not_found'),
+            "pdf_read_error": t('verify.rejection.pdf_read_error')
         };
         return reasons[reason] || reason;
     };
@@ -66,7 +66,7 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
     const verifyMutation = useMutation({
         mutationFn: async () => {
             if (!selectedFile) {
-                throw new Error("Παρακαλώ επιλέξτε ένα αρχείο PDF");
+                throw new Error(t('verify.select_pdf'));
             }
 
             const formData = new FormData();
@@ -83,7 +83,7 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                 if (result.detail) {
                     return typeof result.detail === 'object' ? result.detail : { success: false, message: result.detail };
                 }
-                return { success: false, message: result.message || "Η επαλήθευση απέτυχε", rejection_reason: result.rejection_reason };
+                return { success: false, message: result.message || t('verify.failed'), rejection_reason: result.rejection_reason };
             }
 
             return result as ValidationResult;
@@ -95,15 +95,15 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["/api/user"] });
                 toast({
-                    title: "Επιτυχία",
-                    description: "Η ταυτότητα επαληθεύτηκε επιτυχώς",
+                    title: t('verify.success'),
+                    description: t('verify.success_description'),
                 });
             }
         },
         onError: (error: any) => {
             setValidationResult({
                 success: false,
-                message: error.message || "Παρουσιάστηκε σφάλμα κατά την επαλήθευση"
+                message: error.message || t('verify.error_generic')
             });
             setStep("result");
         }
@@ -114,16 +114,16 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
         if (file) {
             if (file.type !== "application/pdf") {
                 toast({
-                    title: "Σφάλμα",
-                    description: "Παρακαλώ επιλέξτε ένα αρχείο PDF",
+                    title: t('verify.error'),
+                    description: t('verify.select_pdf'),
                     variant: "destructive",
                 });
                 return;
             }
             if (file.size > 10 * 1024 * 1024) {
                 toast({
-                    title: "Σφάλμα",
-                    description: "Το μέγεθος του αρχείου πρέπει να είναι μικρότερο από 10MB",
+                    title: t('verify.error'),
+                    description: t('verify.file_too_large'),
                     variant: "destructive",
                 });
                 return;
@@ -158,10 +158,10 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Shield className="h-5 w-5 text-blue-600" />
-                        Επαλήθευση Ταυτότητας Gov.gr
+                        {t('verify.title')}
                     </DialogTitle>
                     <DialogDescription>
-                        Επαληθεύστε τον λογαριασμό σας χρησιμοποιώντας Υπεύθυνη Δήλωση Gov.gr για να ψηφίζετε σε ασφαλείς ψηφοφορίες.
+                        {t('verify.description')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -169,9 +169,9 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                     <div className="space-y-4">
                         <Alert className="bg-blue-50 border-blue-200">
                             <Shield className="h-4 w-4 text-blue-600" />
-                            <AlertTitle className="text-blue-800">Εφάπαξ Επαλήθευση</AlertTitle>
+                            <AlertTitle className="text-blue-800">{t('verify.one_time')}</AlertTitle>
                             <AlertDescription className="text-blue-700">
-                                Μόλις επαληθευτείτε, μπορείτε να ψηφίσετε σε οποιαδήποτε πιστοποιημένη ψηφοφορία χωρίς να ανεβάζετε έγγραφα ξανά. Η ταυτότητά σας επαληθεύεται με ασφάλεια μέσω του ΑΦΜ.
+                                {t('verify.one_time_description')}
                             </AlertDescription>
                         </Alert>
 
@@ -179,38 +179,38 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                             <CardContent className="p-4 space-y-4">
                                 <h4 className="font-semibold flex items-center gap-2">
                                     <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
-                                    Δημιουργία Υπεύθυνης Δήλωσης
+                                    {t('verify.step1_title')}
                                 </h4>
                                 <Button
                                     variant="outline"
                                     className="w-full justify-between"
                                     onClick={() => window.open("https://docs.gov.gr", "_blank")}
                                 >
-                                    <span>Μετάβαση στο Gov.gr</span>
+                                    <span>{t('verify.go_to_govgr')}</span>
                                     <ExternalLink className="h-4 w-4" />
                                 </Button>
                                 <p className="text-sm text-muted-foreground">
-                                    Δημιουργήστε μια απλή δήλωση με κείμενο: <strong>"Βεβαιώνω την ταυτότητά μου για επαλήθευση στο AgoraX."</strong>
+                                    {t('verify.step1_instruction')}
                                 </p>
 
                                 <Separator />
 
                                 <h4 className="font-semibold flex items-center gap-2">
                                     <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
-                                    Ανεβάστε το υπογεγραμμένο PDF
+                                    {t('verify.step2_title')}
                                 </h4>
                                 <p className="text-sm text-muted-foreground">
-                                    Κατεβάστε το υπογεγραμμένο PDF από το Gov.gr και ανεβάστε το στο επόμενο βήμα.
+                                    {t('verify.step2_instruction')}
                                 </p>
                             </CardContent>
                         </Card>
 
                         <DialogFooter>
                             <Button variant="outline" onClick={handleClose}>
-                                Ακύρωση
+                                {t('common.cancel')}
                             </Button>
                             <Button onClick={() => setStep("upload")} className="flex items-center gap-2">
-                                Έναρξη Επαλήθευσης
+                                {t('verify.start')}
                                 <ArrowRight className="h-4 w-4" />
                             </Button>
                         </DialogFooter>
@@ -221,9 +221,9 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                     <div className="space-y-4">
                         <Alert className="bg-green-50 border-green-200">
                             <FileCheck className="h-4 w-4 text-green-600" />
-                            <AlertTitle className="text-green-800">Ανέβασμα Εγγράφου</AlertTitle>
+                            <AlertTitle className="text-green-800">{t('verify.upload_title')}</AlertTitle>
                             <AlertDescription className="text-green-700">
-                                Επιλέξτε το PDF της Υπεύθυνης Δήλωσης.
+                                {t('verify.upload_description')}
                             </AlertDescription>
                         </Alert>
 
@@ -233,8 +233,8 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                                     <FileUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                     <Label htmlFor="verification-file" className="cursor-pointer">
                                         <div className="space-y-2">
-                                            <p className="font-medium">Κλικ για επιλογή PDF</p>
-                                            <p className="text-sm text-muted-foreground">ή σύρετε το αρχείο εδώ</p>
+                                            <p className="font-medium">{t('verify.click_select_pdf')}</p>
+                                            <p className="text-sm text-muted-foreground">{t('verify.drag_file')}</p>
                                         </div>
                                     </Label>
                                     <Input
@@ -257,7 +257,7 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
 
                         <DialogFooter className="flex justify-between">
                             <Button variant="outline" onClick={() => setStep("intro")}>
-                                Πίσω
+                                {t('common.back')}
                             </Button>
                             <Button
                                 onClick={handleSubmit}
@@ -267,12 +267,12 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                                 {verifyMutation.isPending ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Επαλήθευση...
+                                        {t('verify.verifying')}
                                     </>
                                 ) : (
                                     <>
                                         <Shield className="h-4 w-4" />
-                                        Επαλήθευση Ταυτότητας
+                                        {t('verify.verify_button')}
                                     </>
                                 )}
                             </Button>
@@ -286,14 +286,14 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                             <>
                                 <div className="text-center py-6">
                                     <CheckCircle2 className="h-16 w-16 mx-auto text-green-600 mb-4" />
-                                    <h3 className="text-xl font-semibold text-green-800 mb-2">Επιτυχής Επαλήθευση!</h3>
-                                    <p className="text-muted-foreground">Ο λογαριασμός σας πιστοποιήθηκε μέσω Gov.gr.</p>
+                                    <h3 className="text-xl font-semibold text-green-800 mb-2">{t('verify.success_title')}</h3>
+                                    <p className="text-muted-foreground">{t('verify.success_account')}</p>
                                 </div>
                                 <Card className="bg-green-50 border-green-200">
                                     <CardContent className="p-4">
                                         {validationResult.signer_name && (
                                             <div className="flex justify-between">
-                                                <span className="text-sm font-medium">Όνομα στο Gov.gr:</span>
+                                                <span className="text-sm font-medium">{t('verify.govgr_name')}:</span>
                                                 <span className="text-sm">{validationResult.signer_name}</span>
                                             </div>
                                         )}
@@ -304,13 +304,13 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                             <>
                                 <div className="text-center py-6">
                                     <XCircle className="h-16 w-16 mx-auto text-red-600 mb-4" />
-                                    <h3 className="text-xl font-semibold text-red-800 mb-2">Η Επαλήθευση Απέτυχε</h3>
+                                    <h3 className="text-xl font-semibold text-red-800 mb-2">{t('verify.failed_title')}</h3>
                                     <p className="text-muted-foreground">{validationResult.message}</p>
                                 </div>
                                 {validationResult.rejection_reason && (
                                     <Alert variant="destructive">
                                         <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle>Αιτία Απόρριψης</AlertTitle>
+                                        <AlertTitle>{t('verify.rejection_reason')}</AlertTitle>
                                         <AlertDescription>
                                             {getRejectionLabel(validationResult.rejection_reason)}
                                         </AlertDescription>
@@ -321,10 +321,10 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
                         <DialogFooter className="flex justify-between">
                             {!validationResult.success && (
                                 <Button variant="outline" onClick={handleStartOver}>
-                                    Προσπάθεια Ξανά
+                                    {t('verify.try_again')}
                                 </Button>
                             )}
-                            <Button onClick={handleClose}>Κλείσιμο</Button>
+                            <Button onClick={handleClose}>{t('common.close')}</Button>
                         </DialogFooter>
                     </div>
                 )}

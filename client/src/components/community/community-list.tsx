@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Users, TrendingUp } from 'lucide-react';
 import { Link } from 'wouter';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Community {
   id: number;
@@ -25,6 +26,7 @@ interface Community {
 }
 
 export function CommunityList() {
+  const { t } = useTranslation();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,11 +59,11 @@ export function CommunityList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Κοινότητες</h2>
+        <h2 className="text-2xl font-bold">{t('community.list_title')}</h2>
         <Button asChild>
           <Link href="/communities/new">
             <Plus className="mr-2 h-4 w-4" />
-            Δημιουργία Κοινότητας
+            {t('community.create_button')}
           </Link>
         </Button>
       </div>
@@ -69,9 +71,9 @@ export function CommunityList() {
       {communities.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">Δεν υπάρχουν κοινότητες ακόμα.</p>
+            <p className="text-muted-foreground">{t('community.empty_message')}</p>
             <Button asChild className="mt-4">
-              <Link href="/communities/new">Δημιούργησε Κοινότητα</Link>
+              <Link href="/communities/new">{t('community.create_first')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -83,7 +85,7 @@ export function CommunityList() {
                 <CardTitle className="flex items-center justify-between">
                   <span>{community.name}</span>
                   <Badge variant={community.type === 'managed' ? 'default' : 'secondary'}>
-                    {community.type === 'managed' ? 'Διαχειριζόμενη' : 'Αυτόνομη'}
+                    {community.type === 'managed' ? t('community.type_managed') : t('community.type_autonomous')}
                   </Badge>
                 </CardTitle>
                 <CardDescription>{community.description}</CardDescription>
@@ -92,17 +94,17 @@ export function CommunityList() {
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <div className="flex items-center">
                     <Users className="mr-1 h-4 w-4" />
-                    {community.memberCount || 0} μέλη
+                    {community.memberCount || 0} {t('community.members')}
                   </div>
                   {community.democracyScore && (
                     <div className="flex items-center">
                       <TrendingUp className="mr-1 h-4 w-4" />
-                      Βαθμός: {community.democracyScore}
+                      {t('community.score')}: {community.democracyScore}
                     </div>
                   )}
                 </div>
                 <Button asChild className="mt-4 w-full" variant="outline">
-                  <Link href={`/communities/${community.id}`}>Προβολή Κοινότητας</Link>
+                  <Link href={`/communities/${community.id}`}>{t('community.view')}</Link>
                 </Button>
               </CardContent>
             </Card>

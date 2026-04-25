@@ -15,6 +15,7 @@ import { ArrowLeft, FileText, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, 
 import { api } from '@/lib/api';
 import Footer from '@/components/layout/footer';
 import { DebateArguments } from '@/components/debate/debate-arguments';
+import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
 
 interface Proposal {
   id: number;
@@ -41,6 +42,7 @@ interface SupportCounts {
 export default function ProposalDetailPage() {
   const [location] = useLocation();
   const proposalId = location.split('/').pop();
+  const { t } = useTranslation();
   
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [support, setSupport] = useState<SupportCounts>({ support: 0, oppose: 0 });
@@ -93,11 +95,11 @@ export default function ProposalDetailPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-[50vh]">{t('general.loading')}</div>;
   }
 
   if (!proposal) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Proposal not found</div>;
+    return <div className="flex items-center justify-center min-h-[50vh]">{t('proposal.notFound')}</div>;
   }
 
   const totalVotes = support.support + support.oppose;
@@ -110,7 +112,7 @@ export default function ProposalDetailPage() {
     <div className="container mx-auto py-6 px-4 max-w-4xl">
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
+        {t('general.back')}
       </Button>
 
       <Card className="mb-6">
@@ -119,7 +121,7 @@ export default function ProposalDetailPage() {
             <div>
               <CardTitle className="text-xl mb-2">{proposal.question}</CardTitle>
               <CardDescription>
-                by {proposal.authorName || `User #${proposal.authorId}`} · {new Date(proposal.createdAt).toLocaleDateString()}
+                {t('proposal.by')} {proposal.authorName || t('proposal.userWithId', { id: proposal.authorId })} · {new Date(proposal.createdAt).toLocaleDateString()}
               </CardDescription>
             </div>
             <Badge variant={
@@ -128,28 +130,28 @@ export default function ProposalDetailPage() {
               proposal.status === 'sortition_synthesis' ? 'secondary' :
               'outline'
             }>
-              {proposal.status}
+              {getStatusLabel(proposal.status, t)}
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
           <div className="prose max-w-none">
-            <h4 className="text-sm font-medium text-muted-foreground">Proposed Solution</h4>
+            <h4 className="text-sm font-medium text-muted-foreground">{t('proposal.proposedSolution')}</h4>
             <p className="whitespace-pre-wrap">{proposal.solution}</p>
             
             {proposal.finalText && (
               <div className="mt-4 p-4 bg-muted rounded">
-                <h4 className="text-sm font-medium mb-2">Final Text (Sortition Synthesis)</h4>
+                <h4 className="text-sm font-medium mb-2">{t('proposal.finalTextSortition')}</h4>
                 <p className="whitespace-pre-wrap">{proposal.finalText}</p>
               </div>
             )}
 
             {proposal.llmScore && (
               <div className="mt-4 p-4 bg-muted rounded">
-                <h4 className="text-sm font-medium mb-2">LLM Validation</h4>
+                <h4 className="text-sm font-medium mb-2">{t('proposal.llmValidation')}</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Score:</span>
+                    <span className="text-muted-foreground">{t('proposal.score')}</span>
                     <span className="ml-2 font-medium">{proposal.llmScore}/100</span>
                   </div>
                 </div>
@@ -166,15 +168,15 @@ export default function ProposalDetailPage() {
         <TabsList>
           <TabsTrigger value="debate">
             <MessageSquare className="w-4 h-4 mr-1" />
-            Debate
+            {t('proposal.debate')}
           </TabsTrigger>
           <TabsTrigger value="sortition">
             <Users className="w-4 h-4 mr-1" />
-            Sortition
+            {t('proposal.sortition')}
           </TabsTrigger>
           <TabsTrigger value="vote">
             <Vote className="w-4 h-4 mr-1" />
-            Vote
+            {t('general.vote')}
           </TabsTrigger>
         </TabsList>
         
@@ -185,15 +187,15 @@ export default function ProposalDetailPage() {
         <TabsContent value="sortition">
           <Card>
             <CardHeader>
-              <CardTitle>Sortition Review</CardTitle>
+              <CardTitle>{t('proposal.sortitionReview')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
                 {proposal.status === 'sortition_synthesis' 
-                  ? 'Sortition body is currently reviewing this proposal.'
+                  ? t('proposal.sortitionInProgress')
                   : proposal.status === 'voting'
-                  ? 'Sortition review completed. Final text is ready for voting.'
-                  : 'Sortition review not yet started.'}
+                  ? t('proposal.sortitionCompleted')
+                  : t('proposal.sortitionNotStarted')}
               </p>
             </CardContent>
           </Card>
@@ -202,12 +204,12 @@ export default function ProposalDetailPage() {
         <TabsContent value="vote">
           <Card>
             <CardHeader>
-              <CardTitle>Voting</CardTitle>
+              <CardTitle>{t('proposal.voting')}</CardTitle>
             </CardHeader>
             <CardContent>
               {isVoting ? (
                 <div className="space-y-6">
-                  <p className="text-muted-foreground">This proposal is currently open for voting. Cast your vote below.</p>
+                  <p className="text-muted-foreground">{t('proposal.votingOpen')}</p>
                   
                   {!voted ? (
                     <div className="flex gap-4 justify-center">
@@ -219,7 +221,7 @@ export default function ProposalDetailPage() {
                         disabled={voting}
                       >
                         <ThumbsUp className="w-5 h-5" />
-                        Support
+                        {t('proposal.support')}
                       </Button>
                       <Button
                         size="lg"
@@ -229,13 +231,13 @@ export default function ProposalDetailPage() {
                         disabled={voting}
                       >
                         <ThumbsDown className="w-5 h-5" />
-                        Oppose
+                        {t('proposal.oppose')}
                       </Button>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2 text-green-600">
                       <CheckCircle className="w-5 h-5" />
-                      <span>Your vote has been recorded</span>
+                      <span>{t('proposal.voteRecorded')}</span>
                     </div>
                   )}
 
@@ -243,7 +245,7 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between text-sm mb-1">
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="w-4 h-4 text-green-600" />
-                        Support ({support.support})
+                        {t('proposal.supportCount', { count: support.support })}
                       </span>
                       <span className="font-medium">{supportPercent}%</span>
                     </div>
@@ -256,7 +258,7 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1">
                         <ThumbsDown className="w-4 h-4 text-red-600" />
-                        Oppose ({support.oppose})
+                        {t('proposal.opposeCount', { count: support.oppose })}
                       </span>
                       <span className="font-medium">{opposePercent}%</span>
                     </div>
@@ -267,18 +269,18 @@ export default function ProposalDetailPage() {
                       />
                     </div>
                     <div className="text-center text-xs text-muted-foreground mt-2">
-                      Total votes: {totalVotes}
+                      {t('proposal.totalVotes', { count: totalVotes })}
                     </div>
                   </div>
                 </div>
               ) : isDecided ? (
                 <div>
-                  <p className="mb-4 text-muted-foreground">This proposal has been decided.</p>
+                  <p className="mb-4 text-muted-foreground">{t('proposal.proposalDecided')}</p>
                   <div className="p-4 bg-muted rounded">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="w-4 h-4 text-green-600" />
-                        Support ({support.support})
+                        {t('proposal.supportCount', { count: support.support })}
                       </span>
                       <span className="font-medium">{supportPercent}%</span>
                     </div>
@@ -291,7 +293,7 @@ export default function ProposalDetailPage() {
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1">
                         <ThumbsDown className="w-4 h-4 text-red-600" />
-                        Oppose ({support.oppose})
+                        {t('proposal.opposeCount', { count: support.oppose })}
                       </span>
                       <span className="font-medium">{opposePercent}%</span>
                     </div>
@@ -302,12 +304,12 @@ export default function ProposalDetailPage() {
                       />
                     </div>
                     <div className="text-center text-xs text-muted-foreground mt-2">
-                      Total votes: {totalVotes}
+                      {t('proposal.totalVotes', { count: totalVotes })}
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">Voting not yet open. Current status: {proposal.status}</p>
+                <p className="text-muted-foreground">{t('proposal.votingNotOpen', { status: getStatusLabel(proposal.status, t) })}</p>
               )}
             </CardContent>
           </Card>

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { ArrowLeft, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface RejectedAmendment {
   id: number;
@@ -42,6 +43,7 @@ interface CommunitySignal {
 export default function AmendmentCommunitySignal() {
   const [location] = useLocation();
   const proposalId = parseInt(location.split('/').pop()?.replace('/signals', '') || '0');
+  const { t } = useTranslation();
   
   const [amendments, setAmendments] = useState<RejectedAmendment[]>([]);
   const [signals, setSignals] = useState<CommunitySignal[]>([]);
@@ -63,7 +65,7 @@ export default function AmendmentCommunitySignal() {
       setAmendments(amendmentsRes.data.filter((a: any) => a.authorDecision === 'rejected'));
       setSignals(signalsRes.data);
     } catch (e) {
-      setError('Failed to load data');
+      setError(t('amendment.error.loadDataFailed'));
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ export default function AmendmentCommunitySignal() {
       setUserVotes(prev => ({ ...prev, [amendmentId]: vote }));
       await loadData(); // Refresh data
     } catch (e) {
-      setError('Failed to cast vote');
+      setError(t('amendment.error.voteFailed'));
     } finally {
       setVoting(prev => ({ ...prev, [amendmentId]: false }));
     }
@@ -103,22 +105,22 @@ export default function AmendmentCommunitySignal() {
       <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
       <div className="flex items-center gap-2 mb-6">
         <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-          <ArrowLeft className="w-4 h-4 mr-1" /> Πίσω
+          <ArrowLeft className="w-4 h-4 mr-1" /> {t('general.back')}
         </Button>
-        <h1 className="text-2xl font-bold">Κρίση Κοινότητας</h1>
+        <h1 className="text-2xl font-bold">{t('amendment.communitySignal.title')}</h1>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-yellow-600" />
-            Ψηφίστε τις Απορριφθείσες Τροπολογίες
+            {t('amendment.communitySignal.voteTitle')}
           </CardTitle>
           <CardDescription>
-            Ο συγγραφέας απέρριψε αυτές τις τροπολογίες. Ψηφίστε:
+            {t('amendment.communitySignal.description')}
             <br />
-            <span className="text-green-600 font-medium">⬆️ Διαφωνώ με την απόρριψη</span> ή
-            <span className="text-red-600 font-medium"> ⬇️ Συμφωνώ με την απόρριψη</span>
+            <span className="text-green-600 font-medium">{t('amendment.communitySignal.disagreeWithRejection')}</span> {t('amendment.communitySignal.or')}
+            <span className="text-red-600 font-medium"> {t('amendment.communitySignal.agreeWithRejection')}</span>
           </CardDescription>
         </CardHeader>
       </Card>
@@ -133,7 +135,7 @@ export default function AmendmentCommunitySignal() {
       {amendments.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Δεν υπάρχουν απορριφθείσες τροπολογίες για ψήφο.
+            {t('amendment.communitySignal.noRejectedAmendments')}
           </CardContent>
         </Card>
       ) : (
@@ -155,13 +157,13 @@ export default function AmendmentCommunitySignal() {
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{amendment.type}</Badge>
                       <span className="text-sm text-muted-foreground">
-                        από χρήστη #{amendment.authorId}
+                        {t('amendment.fromUser', { id: amendment.authorId })}
                       </span>
                     </div>
                     {flagged && (
                       <Badge className="bg-green-600">
                         <CheckCircle className="w-3 h-3 mr-1" />
-                        Σημειώθηκε για κληρωτό σώμα
+                        {t('amendment.communitySignal.flaggedForSortition')}
                       </Badge>
                     )}
                   </div>
@@ -171,7 +173,7 @@ export default function AmendmentCommunitySignal() {
                   
                   {amendment.authorReason && (
                     <div className="p-2 bg-white rounded border text-xs text-muted-foreground mb-3">
-                      <strong>Αιτιολόγηση συγγραφέα:</strong> {amendment.authorReason}
+                      <strong>{t('amendment.authorJustification')}</strong> {amendment.authorReason}
                     </div>
                   )}
                   
@@ -184,7 +186,7 @@ export default function AmendmentCommunitySignal() {
                         onClick={() => castVote(amendment.id, 1)}
                         disabled={voting[amendment.id]}
                       >
-                        ⬆️ Διαφωνώ ({amendment.rejectionUpvotes + (userVote === 1 ? 1 : 0)})
+                        {t('amendment.communitySignal.disagree')} ({amendment.rejectionUpvotes + (userVote === 1 ? 1 : 0)})
                       </Button>
                       <Button 
                         size="sm" 
@@ -193,12 +195,12 @@ export default function AmendmentCommunitySignal() {
                         onClick={() => castVote(amendment.id, -1)}
                         disabled={voting[amendment.id]}
                       >
-                        ⬇️ Συμφωνώ ({amendment.rejectionDownvotes + (userVote === -1 ? 1 : 0)})
+                        {t('amendment.communitySignal.agree')} ({amendment.rejectionDownvotes + (userVote === -1 ? 1 : 0)})
                       </Button>
                     </div>
                     <div className="text-sm">
                       <span className={`font-medium ${flagged ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        Net: {netScore > 0 ? '+' : ''}{netScore} ({(ratio * 100).toFixed(0)}%)
+                        {t('amendment.net')}: {netScore > 0 ? '+' : ''}{netScore} ({(ratio * 100).toFixed(0)}%)
                       </span>
                     </div>
                   </div>

@@ -11,9 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import { useTranslation } from '@/hooks/use-translation';
 
 export function CommunityForm() {
   const [, navigate] = useLocation();
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('autonomous');
@@ -35,7 +37,7 @@ export function CommunityForm() {
       });
       navigate(`/communities/${resp.data.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create community');
+      setError(err.response?.data?.message || t('community.create_error'));
     }
     setLoading(false);
   };
@@ -43,58 +45,58 @@ export function CommunityForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Δημιουργία Κοινότητας</CardTitle>
+        <CardTitle>{t('community.create_title')}</CardTitle>
         <CardDescription>
-          Δημιουργήστε μια νέα κοινότητα για διαβούλευση και ψηφοφορία.
+          {t('community.create_description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Όνομα *</Label>
+            <Label htmlFor="name">{t('community.name_label')} *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="π.χ. Πολίτες Αθήνας"
+              placeholder={t('community.name_placeholder')}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Περιγραφή</Label>
+            <Label htmlFor="description">{t('community.description_label')}</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Περιγράψτε την κοινότητα..."
+              placeholder={t('community.description_placeholder')}
               rows={3}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="type">Τύπος</Label>
+            <Label htmlFor="type">{t('community.type_label')}</Label>
             <Select value={type} onValueChange={setType}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="autonomous">Αυτόνομη</SelectItem>
-                <SelectItem value="managed">Διαχειριζόμενη</SelectItem>
+                <SelectItem value="autonomous">{t('community.type_autonomous')}</SelectItem>
+                <SelectItem value="managed">{t('community.type_managed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="governance">Μοντέλο Διακυβέρνησης</Label>
+            <Label htmlFor="governance">{t('community.governance_label')}</Label>
             <Select value={governanceModel} onValueChange={setGovernanceModel}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="no_admin">Χωρίς Διαχειριστές</SelectItem>
-                <SelectItem value="admin_team">Ομάδα Διαχειριστών</SelectItem>
-                <SelectItem value="hybrid">Υβριδικό</SelectItem>
+                <SelectItem value="no_admin">{t('community.governance_no_admin')}</SelectItem>
+                <SelectItem value="admin_team">{t('community.governance_admin_team')}</SelectItem>
+                <SelectItem value="hybrid">{t('community.governance_hybrid')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -105,10 +107,10 @@ export function CommunityForm() {
 
           <div className="flex gap-2">
             <Button type="submit" disabled={loading || !name.trim()}>
-              {loading ? 'Δημιουργία...' : 'Δημιουργία Κοινότητας'}
+              {loading ? t('community.creating') : t('community.create_button')}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate('/communities')}>
-              Ακύρωση
+              {t('common.cancel')}
             </Button>
           </div>
         </form>

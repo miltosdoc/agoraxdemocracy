@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import Footer from '@/components/layout/footer';
 import { api } from '@/lib/api';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface SortitionAssignment {
   id: number;
@@ -32,6 +33,7 @@ interface SortitionAssignment {
 export default function SortitionScoringPage() {
   const [location] = useLocation();
   const assignmentId = location.split('/').pop();
+  const { t } = useTranslation();
   
   const [assignment, setAssignment] = useState<SortitionAssignment | null>(null);
   const [score, setScore] = useState(50);
@@ -83,11 +85,11 @@ export default function SortitionScoringPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-[50vh]">{t('general.loading')}</div>;
   }
 
   if (!assignment) {
-    return <div className="flex items-center justify-center min-h-[50vh]">Assignment not found</div>;
+    return <div className="flex items-center justify-center min-h-[50vh]">{t('sortition.scoring.assignmentNotFound')}</div>;
   }
 
   const timeRemaining = new Date(assignment.responseDeadline).getTime() - Date.now();
@@ -100,11 +102,11 @@ export default function SortitionScoringPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-500" />
-              Score Submitted
+              {t('sortition.scoring.scoreSubmitted')}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Your score has been recorded. Thank you for participating in the deliberation process.</p>
+            <p>{t('sortition.scoring.scoreRecorded')}</p>
           </CardContent>
         </Card>
       </div>
@@ -116,31 +118,30 @@ export default function SortitionScoringPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Proposal Review</span>
+            <span>{t('sortition.scoring.proposalReview')}</span>
             <Badge variant={hoursRemaining < 24 ? 'destructive' : 'secondary'}>
               <Clock className="w-3 h-3 mr-1" />
-              {hoursRemaining}h remaining
+              {t('sortition.scoring.hoursRemaining', { hours: hoursRemaining })}
             </Badge>
           </CardTitle>
           <CardDescription>
-            You have been selected by sortition to review this proposal.
-            Please evaluate it carefully and provide your score.
+            {t('sortition.scoring.description')}
           </CardDescription>
         </CardHeader>
       </Card>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Proposal</CardTitle>
+          <CardTitle>{t('sortition.scoring.proposal')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Question</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">{t('proposal.question')}</h4>
               <p>{assignment.proposalQuestion}</p>
             </div>
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-1">Proposed Solution</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">{t('sortition.scoring.proposedSolution')}</h4>
               <p>{assignment.proposalSolution}</p>
             </div>
           </div>
@@ -150,7 +151,7 @@ export default function SortitionScoringPage() {
       {assignment.similarProposals.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-sm">Similar Proposals</CardTitle>
+            <CardTitle className="text-sm">{t('sortition.scoring.similarProposals')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -167,13 +168,13 @@ export default function SortitionScoringPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Your Evaluation</CardTitle>
+          <CardTitle>{t('sortition.scoring.yourEvaluation')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             <div>
               <div className="flex justify-between mb-2">
-                <label className="text-sm font-medium">Quality Score</label>
+                <label className="text-sm font-medium">{t('sortition.scoring.qualityScore')}</label>
                 <span className="text-sm font-mono">{score}/100</span>
               </div>
               <Slider
@@ -183,33 +184,33 @@ export default function SortitionScoringPage() {
                 step={1}
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Return to author</span>
-                <span>Sortition review</span>
-                <span>Auto-approve</span>
+                <span>{t('sortition.scoring.returnToAuthor')}</span>
+                <span>{t('sortition.scoring.sortitionReview')}</span>
+                <span>{t('sortition.scoring.autoApprove')}</span>
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Feedback (optional)</label>
+              <label className="text-sm font-medium mb-2 block">{t('sortition.scoring.feedbackOptional')}</label>
               <Textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Provide constructive feedback on this proposal..."
+                placeholder={t('sortition.scoring.feedbackPlaceholder')}
                 rows={4}
               />
             </div>
 
             <div className="p-4 bg-muted rounded">
-              <h4 className="text-sm font-medium mb-2">Scoring Guidelines</h4>
+              <h4 className="text-sm font-medium mb-2">{t('sortition.scoring.scoringGuidelines')}</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li><strong>&lt;20:</strong> Proposal should be returned to author for revision</li>
-                <li><strong>20-90:</strong> Proposal needs sortition panel review</li>
-                <li><strong>&gt;90:</strong> Proposal is well-structured and ready for deliberation</li>
+                <li>{t('sortition.scoring.guidelineLow')}</li>
+                <li>{t('sortition.scoring.guidelineMid')}</li>
+                <li>{t('sortition.scoring.guidelineHigh')}</li>
               </ul>
             </div>
 
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Score'}
+              {submitting ? t('sortition.scoring.submitting') : t('sortition.scoring.submitScore')}
             </Button>
           </div>
         </CardContent>

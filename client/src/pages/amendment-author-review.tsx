@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Amendment {
   id: number;
@@ -30,6 +31,7 @@ interface Amendment {
 export default function AmendmentAuthorReview() {
   const [location] = useLocation();
   const proposalId = parseInt(location.split('/').pop() || '0');
+  const { t } = useTranslation();
   
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function AmendmentAuthorReview() {
       const res = await api.get(`/api/proposals/${proposalId}/amendments`);
       setAmendments(res.data);
     } catch (e) {
-      setError('Failed to load amendments');
+      setError(t('amendment.error.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export default function AmendmentAuthorReview() {
           : a
       ));
     } catch (e) {
-      setError('Failed to review amendment');
+      setError(t('amendment.error.reviewFailed'));
     } finally {
       setReviewing(prev => ({ ...prev, [amendmentId]: false }));
     }
@@ -101,28 +103,28 @@ export default function AmendmentAuthorReview() {
       <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
       <div className="flex items-center gap-2 mb-6">
         <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-          <ArrowLeft className="w-4 h-4 mr-1" /> Πίσω
+          <ArrowLeft className="w-4 h-4 mr-1" /> {t('general.back')}
         </Button>
-        <h1 className="text-2xl font-bold">Κρίση Τροπολογιών</h1>
+        <h1 className="text-2xl font-bold">{t('amendment.authorReview.title')}</h1>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Είστε ο Πρωτεύων Επιμελητής</CardTitle>
+          <CardTitle>{t('amendment.authorReview.youArePrimaryEditor')}</CardTitle>
           <CardDescription>
-            Αποδεχτείτε ή απορρίψτε κάθε τροπολογία. Οι απορριφθείσες θα πάνε στην κοινότητα για ψήφο.
+            {t('amendment.authorReview.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 text-sm">
             <Badge variant="secondary" className="bg-green-100 text-green-700">
-              ✓ {acceptedCount} αποδεκτές
+              ✓ {t('amendment.authorReview.acceptedCount', { count: acceptedCount })}
             </Badge>
             <Badge variant="secondary" className="bg-red-100 text-red-700">
-              ✗ {rejectedCount} απορριφθείσες
+              ✗ {t('amendment.authorReview.rejectedCount', { count: rejectedCount })}
             </Badge>
             <Badge variant="secondary">
-              {amendments.length - acceptedCount - rejectedCount} εκκρεμείς
+              {t('amendment.authorReview.pendingCount', { count: amendments.length - acceptedCount - rejectedCount })}
             </Badge>
           </div>
         </CardContent>
@@ -138,7 +140,7 @@ export default function AmendmentAuthorReview() {
       {amendments.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Δεν υπάρχουν τροπολογίες για αυτή την πρόταση.
+            {t('amendment.authorReview.noAmendments')}
           </CardContent>
         </Card>
       ) : (
@@ -154,7 +156,7 @@ export default function AmendmentAuthorReview() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{amendment.type}</Badge>
                     <span className="text-sm text-muted-foreground">
-                      από χρήστη #{amendment.authorId}
+                      {t('amendment.fromUser', { id: amendment.authorId })}
                     </span>
                   </div>
                   {amendment.authorDecision && (
@@ -165,7 +167,7 @@ export default function AmendmentAuthorReview() {
                         <XCircle className="w-4 h-4 text-red-600" />
                       )}
                       <span className="text-sm font-medium">
-                        {amendment.authorDecision === 'accepted' ? 'Αποδεκτή' : 'Απορριφθείσα'}
+                        {amendment.authorDecision === 'accepted' ? t('amendment.accepted') : t('amendment.rejected')}
                       </span>
                     </div>
                   )}
@@ -176,14 +178,14 @@ export default function AmendmentAuthorReview() {
                 
                 {amendment.authorDecision === 'rejected' && amendment.authorReason && (
                   <div className="p-2 bg-white rounded border text-xs text-muted-foreground mb-3">
-                    <strong>Αιτιολόγηση:</strong> {amendment.authorReason}
+                    <strong>{t('amendment.justification')}</strong> {amendment.authorReason}
                   </div>
                 )}
                 
                 {amendment.authorDecision === null && (
                   <>
                     <Textarea
-                      placeholder="Αιτιολόγηση (απαιτείται για απόρριψη)..."
+                      placeholder={t('amendment.justificationPlaceholder')}
                       className="min-h-[40px] text-sm mb-3"
                       value={reasons[amendment.id] || ''}
                       onChange={e => setReasons(prev => ({ ...prev, [amendment.id]: e.target.value }))}
@@ -195,7 +197,7 @@ export default function AmendmentAuthorReview() {
                         onClick={() => reviewAmendment(amendment.id, 'accepted')}
                         disabled={reviewing[amendment.id]}
                       >
-                        <CheckCircle className="w-4 h-4 mr-1" /> Αποδοχή
+                        <CheckCircle className="w-4 h-4 mr-1" /> {t('amendment.accept')}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -204,7 +206,7 @@ export default function AmendmentAuthorReview() {
                         onClick={() => reviewAmendment(amendment.id, 'rejected')}
                         disabled={reviewing[amendment.id] || !reasons[amendment.id]?.trim()}
                       >
-                        <XCircle className="w-4 h-4 mr-1" /> Απόρριψη
+                        <XCircle className="w-4 h-4 mr-1" /> {t('amendment.reject')}
                       </Button>
                     </div>
                   </>
@@ -216,9 +218,9 @@ export default function AmendmentAuthorReview() {
           {allReviewed && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
               <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              <p className="font-medium text-green-700">Ολοκληρώθηκε η κρίση</p>
+              <p className="font-medium text-green-700">{t('amendment.authorReview.reviewComplete')}</p>
               <p className="text-sm text-green-600 mt-1">
-                Οι απορριφθείσες τροπολογίες θα πάνε στην κοινότητα για ψήφο.
+                {t('amendment.authorReview.rejectedGoToCommunity')}
               </p>
             </div>
           )}

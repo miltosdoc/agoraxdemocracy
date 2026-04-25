@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { ArrowLeft, PenTool, AlertCircle, CheckCircle } from 'lucide-react';
 import Footer from '@/components/layout/footer';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface SortitionInput {
   authorDraft: string;
@@ -42,6 +43,7 @@ interface SortitionInput {
 export default function SortitionSynthesis() {
   const [location] = useLocation();
   const proposalId = parseInt(location.split('/').pop() || '0');
+  const { t } = useTranslation();
   
   const [input, setInput] = useState<SortitionInput | null>(null);
   const [finalText, setFinalText] = useState('');
@@ -60,7 +62,7 @@ export default function SortitionSynthesis() {
       setInput(res.data);
       setFinalText(res.data.authorDraft); // Pre-fill with author draft
     } catch (e) {
-      setError('Failed to load sortition input');
+      setError(t('sortition.synthesis.error.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,7 @@ export default function SortitionSynthesis() {
 
   async function submitFinalText() {
     if (!finalText.trim()) {
-      setError('Final text cannot be empty');
+      setError(t('sortition.synthesis.error.emptyText'));
       return;
     }
     
@@ -77,7 +79,7 @@ export default function SortitionSynthesis() {
       await api.post(`/api/proposals/${proposalId}/final-text`, { finalText });
       setSuccess(true);
     } catch (e) {
-      setError('Failed to save final text');
+      setError(t('sortition.synthesis.error.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -99,9 +101,9 @@ export default function SortitionSynthesis() {
         <Card className="border-green-200 bg-green-50">
           <CardContent className="py-12 text-center">
             <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-green-700 mb-2">Τελικό Κείμενο Υποβλήθηκε</h2>
+            <h2 className="text-xl font-bold text-green-700 mb-2">{t('sortition.synthesis.finalTextSubmitted')}</h2>
             <p className="text-green-600">
-              Το κληρωτό σώμα ολοκλήρωσε τη σύνθεση. Η πρόταση πηγαίνει σε επικυρωτική ψηφοφορία.
+              {t('sortition.synthesis.synthesisComplete')}
             </p>
           </CardContent>
         </Card>
@@ -113,20 +115,20 @@ export default function SortitionSynthesis() {
     <div className="container mx-auto py-6 px-4 max-w-3xl">
       <div className="flex items-center gap-2 mb-6">
         <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
-          <ArrowLeft className="w-4 h-4 mr-1" /> Πίσω
+          <ArrowLeft className="w-4 h-4 mr-1" /> {t('general.back')}
         </Button>
-        <h1 className="text-2xl font-bold">Σύνθεση Κληρωτού Σώματος</h1>
+        <h1 className="text-2xl font-bold">{t('sortition.synthesis.title')}</h1>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PenTool className="w-5 h-5 text-purple-600" />
-            Συνθέστε την Τελική Εκδοχή
+            {t('sortition.synthesis.composeTitle')}
           </CardTitle>
           <CardDescription>
-            Χρησιμοποιήστε την πρόταση του συγγραφέα και τις σημειωμένες τροπολογίες για να συνθέσετε το τελικό κείμενο.
-            {input && <span className="block mt-1">Κοινότητα: {input.community.name}</span>}
+            {t('sortition.synthesis.composeDescription')}
+            {input && <span className="block mt-1">{t('sortition.synthesis.communityLabel', { name: input.community.name })}</span>}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -143,7 +145,7 @@ export default function SortitionSynthesis() {
           {/* Author Draft */}
           <Card className="mb-4">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Πρόταση Συγγραφέα (με αποδεκτές τροπολογίες)</CardTitle>
+              <CardTitle className="text-sm">{t('sortition.synthesis.authorDraft')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="p-3 bg-background rounded border text-sm whitespace-pre-wrap">
@@ -158,7 +160,7 @@ export default function SortitionSynthesis() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600" />
-                  Σημειωμένες Τροπολογίες (από κοινότητα)
+                  {t('sortition.synthesis.flaggedAmendments')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -168,13 +170,13 @@ export default function SortitionSynthesis() {
                       <div className="flex items-center justify-between mb-1">
                         <Badge variant="outline">{amendment.type}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          Net: +{amendment.rejectionUpvotes - amendment.rejectionDownvotes}
+                          {t('amendment.net')}: +{amendment.rejectionUpvotes - amendment.rejectionDownvotes}
                         </span>
                       </div>
                       <p className="text-muted-foreground">{amendment.text}</p>
                       {amendment.authorReason && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          <strong>Αιτιολόγηση συγγραφέα:</strong> {amendment.authorReason}
+                          <strong>{t('amendment.authorJustification')}</strong> {amendment.authorReason}
                         </p>
                       )}
                     </div>
@@ -187,9 +189,9 @@ export default function SortitionSynthesis() {
           {/* Final Text Editor */}
           <Card className="mb-4">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Τελικό Κείμενο</CardTitle>
+              <CardTitle className="text-sm">{t('sortition.synthesis.finalTextTitle')}</CardTitle>
               <CardDescription>
-                Συνθέστε την τελική εκδοχή εδώ. Ξεκινά με την πρόταση του συγγραφέα — τροποποιήστε όπως χρειάζεται.
+                {t('sortition.synthesis.finalTextDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -211,11 +213,11 @@ export default function SortitionSynthesis() {
               {submitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Υποβολή...
+                  {t('sortition.synthesis.submitting')}
                 </>
               ) : (
                 <>
-                  Υποβολή Τελικού Κειμένου <ArrowLeft className="ml-2 w-4 h-4 rotate-180" />
+                  {t('sortition.synthesis.submitFinalText')} <ArrowLeft className="ml-2 w-4 h-4 rotate-180" />
                 </>
               )}
             </Button>
