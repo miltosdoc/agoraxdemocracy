@@ -25,7 +25,7 @@
     "check": "tsc",
     "check:i18n": "node scripts/check-i18n-keys.mjs",
     "test": "npm run test:unit",
-    "test:unit": "vitest run --root . tests/integration/state-machine.test.ts",
+    "test:unit": "vitest run --root . tests/integration/*.test.ts",
     "test:all": "scripts/run_tests.sh",
     "smoke:docker": "scripts/smoke_docker.sh",
     "db:generate": "drizzle-kit generate",

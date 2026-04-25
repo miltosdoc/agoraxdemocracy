@@ -53,6 +53,21 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 - **Device Fingerprinting:** FingerprintJS for one-person-one-vote enforcement
 
 ---
+## Project Status
+
+AgoraX is currently in **engineering hardening**. The platform has substantial demo functionality, but the near-term priority is making the repository, runtime, tests, logs, docs, and security posture credible for team development and external review.
+
+Current baseline:
+
+- `npm run build` passes.
+- `npm run test:all` runs i18n checks and wired Vitest tests; Python ballot tests run when their dependencies are installed.
+- `npm run smoke:docker` checks the running API, ballot service, and frontend shell.
+- `npm run check` is **not yet green**; the TypeScript burn-down is tracked in [ROADMAP.md](ROADMAP.md).
+- Docker defaults are now safer: demo mode is off by default and production mode blocks default secrets.
+
+See [ROADMAP.md](ROADMAP.md) for the current engineering and product roadmap.
+
+---
 
 ## Demopolis Integrations
 
@@ -388,56 +403,15 @@ AgoraX supports **Greek (el)** as the default language and **English (en)** with
 
 ## Roadmap
 
-### Completed ✅
-- [x] Database schema (26 tables) with Drizzle ORM
-- [x] Full backend API (Express.js + PostgreSQL)
-- [x] LLM validation pipeline (configurable providers)
-- [x] Proposal state machine (9 states)
-- [x] Amendment flow (author review → community signal → sortition synthesis)
-- [x] Debate arguments with support/opposition tracking
-- [x] Proposal support/oppose voting
-- [x] Sortition body creation with crypto-secure random selection (Fisher-Yates)
-- [x] Sortition API routes (create, preview, list, get, complete, score, synthesize)
-- [x] Sortition active member exclusion (prevents power concentration)
-- [x] Sortition scoring interface
-- [x] Sortition notification system (6 notification types, per-user preferences, deadline reminders)
-- [x] Auto-transition: sortition_synthesis → voting (when final text is saved)
-- [x] Multilingual i18n (Greek default + English, runtime switching, locale-aware dates)
-- [x] Language switcher in header (🇬🇷/🇬🇧 dropdown with flags)
-- [x] Frontend pages (20+ pages: proposals, amendments, debate, sortition, communities)
-- [x] Demo mode for testing without auth
-- [x] Docker Compose deployment (PostgreSQL + API + Ballot Service)
-- [x] Frontend build in Docker (Vite → Express serveStatic)
-- [x] Open Graph image generation for social sharing
-- [x] Social bot SEO (Facebook, Twitter, WhatsApp, Telegram previews)
-- [x] Health check endpoints (API + Ballot Service)
-- [x] Device fingerprinting + IP tracking
-- [x] Gov.gr ballot verification (Python microservice, 4-gate PDF validation)
-- [x] Ballot client HTTP proxy (Node.js → Python ballot service)
-- [x] Demo seed data (3 communities, 5 proposals, debate arguments)
-- [x] Survey polls (multi-question with branching logic)
-- [x] Geofencing support (location-based polls)
-- [x] Community democracy score calculation
-- [x] Admin action logging
-- [x] Job queue for background tasks
-- [x] Rich text editor (TipTap) for proposals
+The active roadmap is maintained in [ROADMAP.md](ROADMAP.md).
 
-### In Progress ⏳
-- [ ] Production authentication (Google OAuth credentials)
-- [ ] Notification frontend UI (sortition notifications in header bell)
-- [ ] i18n coverage for remaining pages (auth, proposal-detail, sortition pages)
-- [ ] Analytics for deliberation metrics
+Near-term priorities:
 
-### Future 🚀
-- [ ] AI-assisted proposal merging (detect similar proposals)
-- [ ] Live debate mode (real-time argument exchange)
-- [ ] Video debate integration
-- [ ] Community verification (prove you represent a real institution)
-- [ ] Cryptographic voting (Helios/ElectionGuard)
-- [ ] Multi-community federation
-- [ ] Legal status of outcomes (advisory vs. binding)
-- [ ] Push notifications / email digests
-- [ ] WebSocket real-time updates for sortition deadlines
+1. **Engineering credibility baseline** — CI, green TypeScript, wired tests, safer config, structured logging.
+2. **UI coherence** — shared app shell, fixed `/profile`, consistent navigation, lifecycle-driven proposal workspace.
+3. **Architecture cleanup** — split oversized routes/storage files into domain routes, services, and repositories.
+4. **Governance decisions** — resolve quorum, eligibility, DPIA, legal status, platform governance, and groups-vs-communities.
+5. **Pilot readiness** — staging deployment, monitoring, onboarding, admin tooling, accessibility, mobile QA.
 
 ---
 
@@ -449,7 +423,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 1. Fork the repository
 2. Create a feature branch
 3. Make changes and test locally
-4. Run the full test suite: `scripts/run_tests.sh`
+4. Run the full wired suite: `npm run test:all`
 5. Submit a pull request
 
 ---
