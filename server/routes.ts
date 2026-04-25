@@ -27,6 +27,7 @@ import {
   saveFinalText,
 } from "./utils/amendment-processor";
 import { INITIAL_PROPOSAL_STATE, isProposalState } from "@shared/proposal-lifecycle";
+import { sanitizeCommunityCreateInput, sanitizeCommunityUpdateInput } from "@shared/community-settings";
 
 const addGroupMemberSchema = z.object({
   email: z.string().email("Invalid email format")
@@ -1851,17 +1852,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create community (authenticated)
   app.post("/api/communities", requireAuth, async (req: any, res) => {
     try {
-      const { name, description, type, governanceModel } = req.body;
-      
-      if (!name) {
-        return res.status(400).json({ message: "Name is required" });
-      }
+      const communitySettings = sanitizeCommunityCreateInput(req.body);
 
       const community = await storage.createCommunity({
-        name,
-        description,
-        type: type || 'autonomous',
-        governanceModel: governanceModel || 'no_admin',
+        ...communitySettings,
         creatorId: req.user.id,
       });
 
@@ -1897,7 +1891,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized" });
       }
 
-      const community = await storage.updateCommunity(communityId, req.body);
+      const communitySettings = sanitizeCommunityUpdateInput(req.body);
+      const community = await storage.updateCommunity(communityId, communitySettings);
       res.json(community);
     } catch (error) {
       console.error("Error updating community:", error);

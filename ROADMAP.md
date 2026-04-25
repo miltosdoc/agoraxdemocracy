@@ -161,7 +161,27 @@ Required work:
 - [x] Add unit coverage for transition execution and invalid transition rejection.
 - [ ] Add API tests for all valid/invalid transitions.
 
-#### 2. Communities and groups are conflated
+#### 2. Community and user parametrization needs a safe settings contract
+
+Current state:
+
+- The database already has important community-level parameters: governance model, concurrent vote limits, participation thresholds, sortition size/mode/response window, amendment threshold/caps, and Gov.gr verification requirement.
+- Before this pass, create/update routes accepted raw request bodies, which meant admins could accidentally or maliciously mutate fields that should be system-owned.
+
+Decision:
+
+- Treat community settings as a first-class contract shared by frontend, backend, and tests.
+- Admin/founder parametrization should be powerful but whitelisted, validated, and bounded.
+
+Required work:
+
+- [x] Add shared community settings sanitizer/contract: `shared/community-settings.ts`.
+- [x] Add tests for allowed settings, defaults, whitelisting, and invalid bounds.
+- [x] Wire community create/update routes through the shared sanitizer.
+- [ ] Build a dedicated community admin settings UI on top of the same contract.
+- [ ] Add user-level preference contract for notifications/language/default community experience.
+
+#### 3. Communities and groups are conflated
 
 Current state:
 
