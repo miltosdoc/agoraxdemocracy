@@ -14,10 +14,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Users, FileText, Vote, Shield, Settings } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Vote, Shield, Settings, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
-import type { CommunitySummary } from '@shared/community-summary';
+import {
+  getCommunityDashboardMetrics,
+  getGovernanceTranslationKey,
+  hasDemocracyScore,
+  type CommunitySummary,
+} from '@shared/community-summary';
 
 export default function CommunityDashboardPage() {
   const params = useParams();
@@ -58,7 +63,11 @@ export default function CommunityDashboardPage() {
   }
 
   const { community, proposals, memberCount, canManageSettings } = summary;
-  const democracyScore = Number(community.democracyScore ?? 0);
+  const metrics = getCommunityDashboardMetrics({ memberCount, proposals });
+  const democracyScoreAvailable = hasDemocracyScore(community.democracyScore);
+  const democracyScore = democracyScoreAvailable ? Number(community.democracyScore) : null;
+  const governanceLabel = t(getGovernanceTranslationKey(community.governanceModel));
+  const description = community.description?.trim();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -69,15 +78,17 @@ export default function CommunityDashboardPage() {
         {t('common.back')}
       </Button>
 
-      <Card className="mb-6">
+      <Card className="mb-6 border-primary/10 bg-gradient-to-br from-background to-muted/30">
         <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {community.name}
-                <Badge variant="secondary">{community.governanceModel}</Badge>
-              </CardTitle>
-              <CardDescription>{community.description}</CardDescription>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-2xl">{community.name}</CardTitle>
+                <Badge variant="secondary">{governanceLabel}</Badge>
+              </div>
+              <CardDescription>
+                {description || t('community.no_description')}
+              </CardDescription>
             </div>
             {canManageSettings && (
               <Button variant="outline" size="sm" onClick={() => setLocation(`/communities/${communityId}/settings`)}>
@@ -87,32 +98,47 @@ export default function CommunityDashboardPage() {
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span>{memberCount} {t('community.members')}</span>
+        <CardContent className="space-y-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="w-4 h-4" />
+                {t('community.members')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.memberCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <span>{proposals.length} {t('community.proposals')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="w-4 h-4" />
+                {t('community.proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.proposalCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <Vote className="w-4 h-4 text-muted-foreground" />
-              <span>{t('community.active_votes')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Vote className="w-4 h-4" />
+                {t('community.active_proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.activeProposalCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-muted-foreground" />
-              <span>{t('community.democracy_score')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4" />
+                {t('community.decided_proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.decidedProposalCount}</div>
             </div>
           </div>
-          
-          <div className="mt-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span>{t('community.democracy_score')}</span>
-              <span>{democracyScore}/100</span>
+
+          <div className="rounded-lg border bg-background/70 p-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center gap-2 font-medium">
+                <Shield className="w-4 h-4 text-muted-foreground" />
+                {t('community.democracy_score')}
+              </div>
+              <span>{democracyScoreAvailable ? `${democracyScore}/100` : t('community.score_not_available')}</span>
             </div>
-            <Progress value={democracyScore} />
+            <Progress value={democracyScore ?? 0} />
           </div>
         </CardContent>
       </Card>

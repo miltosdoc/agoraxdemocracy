@@ -23,8 +23,47 @@ export interface CommunitySummary {
   proposals: CommunityProposalSummary[];
 }
 
+export interface CommunityDashboardMetrics {
+  memberCount: number;
+  proposalCount: number;
+  activeProposalCount: number;
+  decidedProposalCount: number;
+}
+
 export function getCommunitySummaryPermissions(role: CommunityUserRole): CommunitySummaryPermissions {
   return { canManageSettings: role === 'founder' || role === 'admin' };
+}
+
+export function getGovernanceTranslationKey(governanceModel?: string | null): string {
+  switch (governanceModel) {
+    case 'admin_team':
+    case 'admin_founded':
+      return 'community.governance_admin_team';
+    case 'hybrid':
+    case 'admin_guided':
+      return 'community.governance_hybrid';
+    case 'no_admin':
+    default:
+      return 'community.governance_no_admin';
+  }
+}
+
+export function hasDemocracyScore(score: unknown): boolean {
+  return score !== null && score !== undefined && score !== '' && Number.isFinite(Number(score));
+}
+
+export function getCommunityDashboardMetrics(input: {
+  memberCount: number;
+  proposals: Array<Pick<CommunityProposalSummary, 'status'>>;
+}): CommunityDashboardMetrics {
+  const activeStatuses = new Set(['draft', 'review', 'author_review', 'community_signal', 'sortition_synthesis', 'voting']);
+
+  return {
+    memberCount: input.memberCount,
+    proposalCount: input.proposals.length,
+    activeProposalCount: input.proposals.filter((proposal) => activeStatuses.has(proposal.status)).length,
+    decidedProposalCount: input.proposals.filter((proposal) => proposal.status === 'decided').length,
+  };
 }
 
 export function mapProposalToCommunitySummary(proposal: Pick<Proposal, 'id' | 'question' | 'status' | 'authorId' | 'createdAt'>): CommunityProposalSummary {
@@ -45,9 +84,14 @@ export function buildCommunitySummary(
   currentUserRole?: string,
 ): CommunitySummary {
   const permissions = getCommunitySummaryPermissions(currentUserRole);
+  const normalizedCommunity = {
+    ...community,
+    governanceModel: getGovernanceTranslationKey(community.governanceModel),
+    democracyScore: hasDemocracyScore(community.democracyScore) ? community.democracyScore : null,
+  };
 
   return {
-    community,
+    community: normalizedCommunity,
     memberCount,
     currentUserRole,
     canManageSettings: permissions.canManageSettings,
