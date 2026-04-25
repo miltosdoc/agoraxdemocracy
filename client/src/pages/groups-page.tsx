@@ -44,11 +44,11 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { GroupWithMembers } from "@shared/schema";
 import { useTranslation } from "@/hooks/use-translation";
 
-const createGroupFormSchema = z.object({ name: z.string().min(1, "Το όνομα είναι υποχρεωτικό") });
+const createGroupFormSchema = z.object({ name: z.string().min(1, "Name is required") });
 type CreateGroupForm = z.infer<typeof createGroupFormSchema>;
 
 const addMemberFormSchema = z.object({
-  email: z.string().email(t('groups.invalidEmail')),
+  email: z.string().email("Invalid email format"),
 });
 type AddMemberForm = z.infer<typeof addMemberFormSchema>;
 
