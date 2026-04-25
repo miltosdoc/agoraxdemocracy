@@ -321,10 +321,21 @@ export async function saveFinalText(
   proposalId: number,
   finalText: string,
 ): Promise<void> {
+  // Update the proposal with the final synthesized text
   await db.update(proposals)
     .set({
       finalText,
       updatedAt: new Date(),
     })
     .where(eq(proposals.id, proposalId));
+
+  // Auto-transition: sortition_synthesis → voting
+  // When the sortition body finalizes their text, the proposal moves to voting.
+  const [proposal] = await db.select().from(proposals).where(eq(proposals.id, proposalId));
+  if (proposal && proposal.status === 'sortition_synthesis') {
+    const { transitionProposal, triggerSideEffects } = await import('./proposal-state-machine');
+    const storage = (await import('../storage')).storage;
+    const updated = await transitionProposal(proposal, 'voting', storage);
+    await triggerSideEffects('sortition_synthesis', 'voting', updated);
+  }
 }

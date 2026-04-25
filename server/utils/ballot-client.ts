@@ -6,7 +6,7 @@
  */
 
 import fetch from "node-fetch";
-import FormData from "form-data";
+import * as FormData from "form-data";
 
 // Ballot service URL — Docker internal network
 const BALLOT_SERVICE_URL = process.env.BALLOT_SERVICE_URL || "http://localhost:8000";
@@ -101,17 +101,17 @@ export async function validateBallot(
   try {
     const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/validate`, {
       method: "POST",
-      body: form,
+      body: form as any,
       headers: form.getHeaders(),
     });
 
-    const data = await response.json();
+    const data = await response.json() as BallotValidationResult;
 
     if (!response.ok) {
       return {
         success: false,
-        message: data.detail || `Validation failed: ${response.status}`,
-        rejection_reason: data.rejection_reason,
+        message: (data as any).detail || `Validation failed: ${response.status}`,
+        rejection_reason: (data as any).rejection_reason,
       };
     }
 
@@ -137,17 +137,17 @@ export async function verifyIdentity(
   try {
     const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/validate-identity`, {
       method: "POST",
-      body: form,
+      body: form as any,
       headers: form.getHeaders(),
     });
 
-    const data = await response.json();
+    const data = await response.json() as IdentityValidationResult;
 
     if (!response.ok) {
       return {
         success: false,
-        message: data.detail || `Identity verification failed: ${response.status}`,
-        rejection_reason: data.rejection_reason,
+        message: (data as any).detail || `Identity verification failed: ${response.status}`,
+        rejection_reason: (data as any).rejection_reason,
       };
     }
 
@@ -167,7 +167,7 @@ export async function verifyIdentity(
 export async function getBallotStats(pollId: string): Promise<PollStats> {
   try {
     const response = await fetch(`${BALLOT_SERVICE_URL}/api/ballot/poll/${pollId}/stats`);
-    const data = await response.json();
+    const data = await response.json() as PollStats;
 
     if (!response.ok) {
       return {
@@ -200,7 +200,7 @@ export async function checkBallotServiceHealth(): Promise<{
 }> {
   try {
     const response = await fetch(`${BALLOT_SERVICE_URL}/api/health`);
-    const data = await response.json();
+    const data = await response.json() as { status: string; database: string; service: string };
 
     if (!response.ok) {
       return {

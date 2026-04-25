@@ -313,6 +313,7 @@ agoraxdemo/
 - `GET /api/communities/:id/sortition` — List all sortition bodies (admin/founder)
 - `GET /api/sortition/:bodyId` — Get sortition body with members
 - `POST /api/sortition/:bodyId/complete` — Complete a sortition body (admin/founder)
+- `POST /api/sortition/:bodyId/synthesize` — Aggregate scores and auto-complete
 - `GET /api/sortition/assignments/:id` — Get sortition assignment
 - `POST /api/sortition/assignments/:id/score` — Submit sortition score
 
@@ -356,7 +357,8 @@ agoraxdemo/
 - [x] Debate arguments with support/opposition tracking
 - [x] Proposal support/oppose voting
 - [x] Sortition body creation with crypto-secure random selection (Fisher-Yates)
-- [x] Sortition API routes (create, preview, list, get, complete, score)
+- [x] Sortition API routes (create, preview, list, get, complete, score, synthesize)
+- [x] Sortition active member exclusion (prevents power concentration)
 - [x] Sortition scoring interface
 - [x] Frontend pages (20+ pages: proposals, amendments, debate, sortition, communities)
 - [x] Demo mode for testing without auth
@@ -367,6 +369,8 @@ agoraxdemo/
 - [x] Device fingerprinting + IP tracking
 - [x] Gov.gr ballot verification (Python microservice, 4-gate PDF validation)
 - [x] Ballot client HTTP proxy (Node.js → Python ballot service)
+- [x] Auto-transition: sortition_synthesis → voting (when final text is saved)
+- [x] Demo seed data (3 communities, 5 proposals, debate arguments)
 - [x] Survey polls (multi-question with branching logic)
 - [x] Geofencing support (location-based polls)
 - [x] Community democracy score calculation
@@ -375,7 +379,6 @@ agoraxdemo/
 - [x] Rich text editor (TipTap) for proposals
 
 ### In Progress ⏳
-- [ ] Sortition active member exclusion (getActiveSortitionMembers currently returns empty set)
 - [ ] Sortition synthesis output (aggregating scores into final text)
 - [ ] Automated state transitions (e.g., sortition complete → voting)
 - [ ] Production authentication (Google OAuth credentials)

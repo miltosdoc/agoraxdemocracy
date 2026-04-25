@@ -18,6 +18,9 @@
 
 import type { CommunityMember, SortitionBody, SortitionMember } from '@shared/schema';
 import type { IStorage } from '../storage';
+import { db } from '../db';
+import { sortitionBodies, sortitionMembers } from '@shared/schema';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -50,15 +53,22 @@ function generateSeed(): string {
 /**
  * Fisher-Yates shuffle using cryptographically secure random numbers.
  * 
- * This ensures the shuffle is unbiased and cannot be manipulated.
+ * Uses rejection sampling to avoid modulo bias — when the random byte
+ * would introduce bias (byte > 256 - 256 % (i+1)), we reject it and
+ * draw again. This guarantees uniform distribution.
  */
 function cryptoShuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    // Generate cryptographically secure random index
-    const bytes = new Uint8Array(1);
-    crypto.getRandomValues(bytes);
-    const j = bytes[0] % (i + 1);
+    // Rejection sampling to avoid modulo bias
+    const limit = 256 - (256 % (i + 1));
+    let j: number;
+    do {
+      const bytes = new Uint8Array(1);
+      crypto.getRandomValues(bytes);
+      j = bytes[0];
+    } while (j >= limit);
+    j = j % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
@@ -86,8 +96,12 @@ export async function getEligibleMembers(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   
+  // Get currently active sortition members to exclude
+  const activeMemberIds = await getActiveSortitionMembers(communityId);
+  
   return members
     .filter(m => new Date(m.joinedAt) <= sevenDaysAgo)
+    .filter(m => !activeMemberIds.has(m.userId))
     .map(m => ({
       userId: m.userId,
       role: m.role,
@@ -101,17 +115,32 @@ export async function getEligibleMembers(
  * These users are excluded from new sortition selections to prevent
  * concentration of deliberative power.
  */
-async function getActiveSortitionMembers(
+export async function getActiveSortitionMembers(
   communityId: number,
-  storage: IStorage,
 ): Promise<Set<number>> {
-  // Get all sortition bodies for this community
-  // Note: This assumes sortition bodies are associated with a community.
-  // If not, we'd need to query all active bodies and check membership.
+  // Find all active/selecting sortition bodies for this community
+  const activeBodies = await db
+    .select({ id: sortitionBodies.id })
+    .from(sortitionBodies)
+    .where(
+      and(
+        eq(sortitionBodies.communityId, communityId),
+        sql`${sortitionBodies.status} IN ('selecting', 'active')`
+      )
+    );
   
-  // For now, return an empty set — the caller can pass active user IDs
-  // if they have that information from elsewhere.
-  return new Set();
+  if (activeBodies.length === 0) {
+    return new Set();
+  }
+  
+  // Get all member user IDs from these bodies
+  const bodyIds = activeBodies.map(b => b.id);
+  const members = await db
+    .select({ userId: sortitionMembers.userId })
+    .from(sortitionMembers)
+    .where(inArray(sortitionMembers.bodyId, bodyIds));
+  
+  return new Set(members.map(m => m.userId));
 }
 
 // ─── Selection ──────────────────────────────────────────────────────────────
@@ -122,6 +151,8 @@ async function getActiveSortitionMembers(
  * @param communityId - The community to select from
  * @param size - Desired panel size (default: 7, range: 3-23)
  * @param storage - Storage interface for database access
+ * @param purpose - Purpose of the sortition body
+ * @param proposalId - Optional proposal to associate
  * @param excludeUserIds - Optional set of user IDs to exclude (e.g., currently serving)
  * 
  * @returns SortitionResult with selected user IDs and verification seed
@@ -130,15 +161,17 @@ export async function createSortitionBody(
   communityId: number,
   size: number = 7,
   storage: IStorage,
+  purpose: string = 'scoring',
+  proposalId?: number,
   excludeUserIds?: Set<number>,
 ): Promise<SortitionResult> {
   // Clamp size to reasonable range (3-23 is standard for deliberative bodies)
   const clampedSize = Math.max(3, Math.min(23, size));
   
-  // Get eligible members
+  // Get eligible members (already excludes active sortition members)
   const eligible = await getEligibleMembers(communityId, storage);
   
-  // Remove excluded users
+  // Remove additionally excluded users
   const pool = excludeUserIds
     ? eligible.filter(m => !excludeUserIds.has(m.userId))
     : eligible;
@@ -158,10 +191,12 @@ export async function createSortitionBody(
   // Create the sortition body in the database
   const body = await storage.createSortitionBody({
     communityId,
-    proposalId: null, // Can be associated with a proposal later
+    proposalId: proposalId ?? null,
+    purpose,
     size: actualSize,
-    seed: seed,
+    responseHours: 72,
     status: 'active',
+    selectedAt: new Date(),
     createdAt: new Date(),
   });
   
@@ -208,4 +243,73 @@ export async function completeSortitionBody(
   storage: IStorage,
 ): Promise<void> {
   await storage.completeSortitionBody(bodyId);
+}
+
+// ─── Synthesis ──────────────────────────────────────────────────────────────
+
+/**
+ * Aggregate sortition scores for a proposal and produce a synthesis summary.
+ * 
+ * Called when all sortition members have scored a proposal (or deadline passed).
+ * Produces a structured output with average scores, distribution, and
+ * top feedback themes.
+ */
+export async function synthesizeSortitionScores(
+  bodyId: number,
+  storage: IStorage,
+): Promise<{
+  bodyId: number;
+  totalMembers: number;
+  respondedMembers: number;
+  averageScore: number | null;
+  scoreDistribution: Record<string, number>;
+  proposalId: number | null;
+  status: string;
+}> {
+  const body = await storage.getSortitionBody(bodyId);
+  if (!body) throw new Error('Sortition body not found');
+  
+  const members = await storage.getSortitionMembers(bodyId);
+  const responded = members.filter(m => m.responded);
+  
+  // Calculate average score
+  const scores = responded
+    .map(m => m.score ? parseFloat(m.score) : null)
+    .filter((s): s is number => s !== null && !isNaN(s));
+  
+  const averageScore = scores.length > 0
+    ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+    : null;
+  
+  // Score distribution (bucket into ranges)
+  const scoreDistribution: Record<string, number> = {
+    '0-2': 0,
+    '2-4': 0,
+    '4-6': 0,
+    '6-8': 0,
+    '8-10': 0,
+  };
+  for (const score of scores) {
+    if (score < 2) scoreDistribution['0-2']++;
+    else if (score < 4) scoreDistribution['2-4']++;
+    else if (score < 6) scoreDistribution['4-6']++;
+    else if (score < 8) scoreDistribution['6-8']++;
+    else scoreDistribution['8-10']++;
+  }
+  
+  // If all members have responded (or majority), mark body as completed
+  const responseRate = responded.length / members.length;
+  if (responseRate >= 0.6 && body.status === 'active') {
+    await storage.completeSortitionBody(bodyId);
+  }
+  
+  return {
+    bodyId,
+    totalMembers: members.length,
+    respondedMembers: responded.length,
+    averageScore,
+    scoreDistribution,
+    proposalId: body.proposalId,
+    status: responseRate >= 0.6 ? 'completed' : body.status,
+  };
 }

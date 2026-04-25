@@ -2656,6 +2656,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Synthesize sortition scores — aggregate and auto-complete
+  app.post("/api/sortition/:bodyId/synthesize", requireAuth, async (req: any, res) => {
+    try {
+      const bodyId = parseInt(req.params.bodyId);
+      const body = await storage.getSortitionBody(bodyId);
+
+      if (!body) {
+        return res.status(404).json({ message: "Sortition body not found" });
+      }
+
+      // Check if user is admin of the community
+      const role = await storage.getCommunityMemberRole(body.communityId, req.user.id);
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const { synthesizeSortitionScores } = await import('./utils/sortition');
+      const result = await synthesizeSortitionScores(bodyId, storage);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error synthesizing sortition scores:", error);
+      res.status(500).json({ message: "Failed to synthesize scores" });
+    }
+  });
+
   // ─── Demopolis: Democracy Score Routes ────────────────────────────────────
 
   // Get democracy score for a community (public)
