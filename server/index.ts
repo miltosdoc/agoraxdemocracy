@@ -3,7 +3,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { updatePollLocations } from "./update-poll-locations";
 import { validateRuntimeConfig } from "./config";
 
 validateRuntimeConfig();
@@ -52,16 +51,7 @@ app.use((req, res, next) => {
   // Serve the app on port 3000 (port 5000 conflicts with macOS AirPlay Receiver)
   // this serves both the API and the client.
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-  server.listen(port, "0.0.0.0", async () => {
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
-
-    // Run the poll location update utility
-    try {
-      log("Starting poll locations update process...");
-      await updatePollLocations();
-      log("Poll locations update process completed");
-    } catch (error) {
-      log(`Error updating poll locations: ${error}`);
-    }
   });
 })();
