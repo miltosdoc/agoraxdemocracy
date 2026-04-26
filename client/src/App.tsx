@@ -7,7 +7,6 @@ import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import PollDetailsPage from "@/pages/poll-details";
 import ProfilePage from "@/pages/profile-page";
 import HowItWorksPage from "@/pages/how-it-works";
 import FAQPage from "@/pages/faq";
@@ -78,6 +77,9 @@ function Router() {
         <Route path="/polls/create">
           <Redirect to="/proposals/new" />
         </Route>
+        <Route path="/polls/:id">
+          <Redirect to="/home" />
+        </Route>
         <Route path="/polls/:id/edit">
           <Redirect to="/home" />
         </Route>
@@ -107,7 +109,6 @@ function Router() {
         <ProtectedRoute path="/proposals/:id/amendments/review" component={AmendmentAuthorReview} />
         <ProtectedRoute path="/proposals/:id/amendments/signals" component={AmendmentCommunitySignal} />
         <Route path="/walkthrough" component={DeliberationWalkthrough} />
-        <Route path="/polls/:id" component={PollDetailsPage} />
         <Route path="/how-it-works" component={HowItWorksPage} />
         <Route path="/faq" component={FAQPage} />
         <Route path="/terms" component={TermsPage} />
