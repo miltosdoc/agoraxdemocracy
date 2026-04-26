@@ -288,6 +288,23 @@ export const amendmentRejectionVotes = pgTable("amendment_rejection_votes", {
   amendmentVoteUnique: uniqueIndex('amendment_vote_unique').on(table.amendmentId, table.userId),
 }));
 
+// ─── Demopolis: Sortition Notifications ──────────────────────────────────────
+
+export const sortitionNotifications = pgTable("sortition_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'sortition_assigned' | 'sortition_deadline' | 'sortition_reminder' | 'proposal_advanced' | 'amendment_ready' | 'vote_started'
+  title: text("title").notNull(),
+  message: text("message"),
+  sortitionBodyId: integer("sortition_body_id").references(() => sortitionBodies.id, { onDelete: "cascade" }),
+  proposalId: integer("proposal_id").references(() => proposals.id, { onDelete: "cascade" }),
+  communityId: integer("community_id").references(() => communities.id, { onDelete: "cascade" }),
+  read: boolean("read").notNull().default(false),
+  actionUrl: text("action_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
 // ─── Demopolis: Sortition Bodies (Κληρωτά Σώματα) ────────────────────────────
 
 export const sortitionBodies = pgTable("sortition_bodies", {
@@ -601,6 +618,25 @@ export const sortitionMembersRelations = relations(sortitionMembers, ({ one }) =
   }),
 }));
 
+export const sortitionNotificationsRelations = relations(sortitionNotifications, ({ one }) => ({
+  user: one(users, {
+    fields: [sortitionNotifications.userId],
+    references: [users.id],
+  }),
+  body: one(sortitionBodies, {
+    fields: [sortitionNotifications.sortitionBodyId],
+    references: [sortitionBodies.id],
+  }),
+  proposal: one(proposals, {
+    fields: [sortitionNotifications.proposalId],
+    references: [proposals.id],
+  }),
+  community: one(communities, {
+    fields: [sortitionNotifications.communityId],
+    references: [communities.id],
+  }),
+}));
+
 export const debateArgumentsRelations = relations(debateArguments, ({ one }) => ({
   proposal: one(proposals, {
     fields: [debateArguments.proposalId],
@@ -866,6 +902,7 @@ export type Proposal = typeof proposals.$inferSelect;
 export type ProposalAmendment = typeof proposalAmendments.$inferSelect;
 export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
+export type SortitionNotification = typeof sortitionNotifications.$inferSelect;
 export type DebateArgument = typeof debateArguments.$inferSelect;
 export type ProposalSupport = typeof proposalSupport.$inferSelect;
 export type ProposalVote = typeof proposalVotes.$inferSelect;

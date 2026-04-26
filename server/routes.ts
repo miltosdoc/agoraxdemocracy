@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import {
   sortitionMembers,
   sortitionBodies,
+  sortitionNotifications,
   castProposalVoteSchema,
 } from "@shared/schema";
 import { z } from "zod";
@@ -1779,23 +1780,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = parseInt(req.query.offset as string) || 0;
       const unreadOnly = req.query.unread === 'true';
 
-      const result = await db.execute(sql`
-        SELECT * FROM sortition_notifications
-        WHERE user_id = ${userId}${unreadOnly ? sql` AND read = FALSE` : sql``}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      const conditions = unreadOnly
+        ? and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false))
+        : eq(sortitionNotifications.userId, userId);
 
-      // Get unread count
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as count FROM sortition_notifications
-        WHERE user_id = ${userId} AND read = FALSE
-      `);
+      const notifications = await db
+        .select()
+        .from(sortitionNotifications)
+        .where(conditions)
+        .orderBy(desc(sortitionNotifications.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const [unread] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(sortitionNotifications)
+        .where(and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false)));
 
       res.json({
-        notifications: result.rows,
-        unreadCount: parseInt(countResult.rows[0]?.count as string) || 0,
-        total: result.rows.length,
+        notifications,
+        unreadCount: unread?.count ?? 0,
+        total: notifications.length,
       });
     } catch (error) {
       console.error("Error fetching sortition notifications:", error);
@@ -1807,11 +1812,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/sortition-notifications/unread-count", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const result = await db.execute(sql`
-        SELECT COUNT(*) as count FROM sortition_notifications
-        WHERE user_id = ${userId} AND read = FALSE
-      `);
-      res.json({ count: parseInt(result.rows[0]?.count as string) || 0 });
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(sortitionNotifications)
+        .where(and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false)));
+      res.json({ count: row?.count ?? 0 });
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ message: "Failed to fetch unread count" });
@@ -1824,21 +1829,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.id;
       const notificationId = parseInt(req.params.id);
 
-      // Verify ownership
-      const existing = await db.execute(sql`
-        SELECT user_id FROM sortition_notifications WHERE id = ${notificationId}
-      `);
+      const [existing] = await db
+        .select({ userId: sortitionNotifications.userId })
+        .from(sortitionNotifications)
+        .where(eq(sortitionNotifications.id, notificationId));
 
-      if (existing.rows.length === 0) {
+      if (!existing) {
         return res.status(404).json({ message: "Notification not found" });
       }
-      if ((existing.rows[0].user_id as number) !== userId) {
+      if (existing.userId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
-      await db.execute(sql`
-        UPDATE sortition_notifications SET read = TRUE, read_at = NOW() WHERE id = ${notificationId}
-      `);
+      await db
+        .update(sortitionNotifications)
+        .set({ read: true, readAt: new Date() })
+        .where(eq(sortitionNotifications.id, notificationId));
 
       res.json({ success: true });
     } catch (error) {
@@ -1851,10 +1857,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sortition-notifications/mark-all-read", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      await db.execute(sql`
-        UPDATE sortition_notifications SET read = TRUE, read_at = NOW()
-        WHERE user_id = ${userId} AND read = FALSE
-      `);
+      await db
+        .update(sortitionNotifications)
+        .set({ read: true, readAt: new Date() })
+        .where(and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false)));
       res.json({ success: true });
     } catch (error) {
       console.error("Error marking all as read:", error);
