@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, FileText, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { ArrowLeft, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, MinusCircle, CheckCircle, XCircle } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import Footer from '@/components/layout/footer';
 import { DebateArguments } from '@/components/debate/debate-arguments';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
@@ -33,35 +34,57 @@ interface Proposal {
   category?: string;
 }
 
-interface SupportCounts {
-  support: number;
-  oppose: number;
-  userVote?: string | null;
+type VoteChoice = 'yes' | 'no' | 'abstain';
+
+interface VoteResults {
+  yes: number;
+  no: number;
+  abstain: number;
+  total: number;
+  participants: number;
+  participationPct: number;
+  passes: boolean;
+  meetsQuorum: boolean;
+  minParticipationPct: number;
+  userVote: VoteChoice | null;
 }
+
+const EMPTY_VOTE_RESULTS: VoteResults = {
+  yes: 0,
+  no: 0,
+  abstain: 0,
+  total: 0,
+  participants: 0,
+  participationPct: 0,
+  passes: false,
+  meetsQuorum: false,
+  minParticipationPct: 0,
+  userVote: null,
+};
 
 export default function ProposalDetailPage() {
   const [location] = useLocation();
   const proposalId = location.split('/').pop();
   const { t } = useTranslation();
-  
+  const { user } = useAuth();
+
   const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [support, setSupport] = useState<SupportCounts>({ support: 0, oppose: 0 });
+  const [voteResults, setVoteResults] = useState<VoteResults>(EMPTY_VOTE_RESULTS);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
-  const [voted, setVoted] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     if (!proposalId) return;
 
     Promise.all([
       api.get<Proposal>(`/api/proposals/${proposalId}`),
-      api.get<SupportCounts>(`/api/proposals/${proposalId}/support`).catch(() => ({ data: { support: 0, oppose: 0 } as SupportCounts })),
-    ]).then(([proposalResp, supportResp]) => {
+      api.get<VoteResults>(`/api/proposals/${proposalId}/vote-results`)
+        .catch(() => ({ data: EMPTY_VOTE_RESULTS })),
+    ]).then(([proposalResp, voteResp]) => {
       setProposal(proposalResp.data);
-      setSupport(supportResp.data);
-      if (supportResp.data.userVote) {
-        setVoted(true);
-      }
+      setVoteResults(voteResp.data);
       setLoading(false);
     }).catch(() => {
       // Fallback to demo data
@@ -76,22 +99,51 @@ export default function ProposalDetailPage() {
         communityName: 'Πολίτες Αθήνας',
         createdAt: new Date().toISOString(),
       });
-      setSupport({ support: 65, oppose: 35 });
+      setVoteResults(EMPTY_VOTE_RESULTS);
       setLoading(false);
     });
   }, [proposalId]);
 
-  const handleVote = async (type: 'support' | 'oppose') => {
+  const refreshVoteResults = async () => {
+    if (!proposalId) return;
+    try {
+      const resp = await api.get<VoteResults>(`/api/proposals/${proposalId}/vote-results`);
+      setVoteResults(resp.data);
+    } catch {
+      // Leave existing state in place
+    }
+  };
+
+  const handleCastVote = async (choice: VoteChoice) => {
     if (!proposalId || voting) return;
     setVoting(true);
+    setVoteError(null);
     try {
-      const resp = await api.post<SupportCounts>(`/api/proposals/${proposalId}/support`, { type });
-      setSupport(resp.data);
-      setVoted(true);
+      await api.post(`/api/proposals/${proposalId}/vote`, { choice });
+      await refreshVoteResults();
     } catch (error) {
-      console.error('Failed to vote:', error);
+      const message = error instanceof ApiError ? error.message : t('proposal.voteFailed');
+      setVoteError(message);
+    } finally {
+      setVoting(false);
     }
-    setVoting(false);
+  };
+
+  const handleFinalize = async () => {
+    if (!proposalId || finalizing) return;
+    setFinalizing(true);
+    try {
+      const resp = await api.post<{ proposal: Proposal; results: VoteResults }>(
+        `/api/proposals/${proposalId}/finalize`,
+      );
+      setProposal(resp.data.proposal);
+      setVoteResults({ ...resp.data.results, userVote: voteResults.userVote });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : t('proposal.finalizeFailed');
+      setVoteError(message);
+    } finally {
+      setFinalizing(false);
+    }
   };
 
   if (loading) {
@@ -102,11 +154,16 @@ export default function ProposalDetailPage() {
     return <div className="flex items-center justify-center min-h-[50vh]">{t('proposal.notFound')}</div>;
   }
 
-  const totalVotes = support.support + support.oppose;
-  const supportPercent = totalVotes > 0 ? Math.round((support.support / totalVotes) * 100) : 0;
-  const opposePercent = totalVotes > 0 ? Math.round((support.oppose / totalVotes) * 100) : 0;
+  const decisiveTotal = voteResults.yes + voteResults.no;
+  const yesPercent = decisiveTotal > 0 ? Math.round((voteResults.yes / decisiveTotal) * 100) : 0;
+  const noPercent = decisiveTotal > 0 ? Math.round((voteResults.no / decisiveTotal) * 100) : 0;
+  const participationPercent = Math.round(voteResults.participationPct * 100);
+  const quorumPercent = Math.round(voteResults.minParticipationPct * 100);
   const isVoting = proposal.status === 'voting';
   const isDecided = proposal.status === 'decided';
+  const isArchived = proposal.status === 'archived';
+  const userIsAuthor = !!user && user.id === proposal.authorId;
+  const userVoted = voteResults.userVote !== null;
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
