@@ -1,19 +1,27 @@
 /**
  * Amendment Merger
- * 
- * Merges accepted amendments into the original proposal text.
- * Supports three amendment types:
- * - improvement: Refines existing text (appended as notes)
- * - addition: Adds new content (appended to solution)
- * - removal: Removes content (marked as removed)
- * - counter_proposal: Alternative solution (presented as competing option)
- * 
- * The merged text becomes the final proposal that goes to voting.
+ *
+ * Two responsibilities:
+ *
+ * 1. Detect overlap between amendments targeting the same proposal so the
+ *    author can review groups of duplicates instead of identical text twice.
+ *    Pure similarity helpers live in `amendment-similarity.ts`; this module
+ *    glues them to the database.
+ *
+ * 2. Merge accepted amendments back into the proposal text. The author flow
+ *    in `amendment-processor.ts` writes to `authorDecision`; we read from
+ *    that as the source of truth and treat the legacy `status` column as a
+ *    fallback only.
  */
 
 import { db } from '../db';
 import { proposalAmendments, proposals } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
+import {
+  DEFAULT_SIMILARITY_THRESHOLD,
+  groupDuplicates,
+  type DuplicateGroup,
+} from './amendment-similarity';
 
 export interface MergedProposal {
   originalQuestion: string;
@@ -29,24 +37,44 @@ export interface AmendmentSummary {
   id: number;
   type: string;
   text: string;
-  authorName: string;
-  status: string | null;
-  supportCount: number;
-  opposeCount: number;
+  authorId: number;
+  decision: 'accepted' | 'rejected' | 'pending';
+}
+
+export type { DuplicateGroup } from './amendment-similarity';
+export { DEFAULT_SIMILARITY_THRESHOLD } from './amendment-similarity';
+
+function effectiveDecision(a: { authorDecision: string | null; status: string | null }): 'accepted' | 'rejected' | 'pending' {
+  if (a.authorDecision === 'accepted' || a.authorDecision === 'rejected') return a.authorDecision;
+  if (a.status === 'accepted' || a.status === 'rejected') return a.status;
+  return 'pending';
+}
+
+/**
+ * Find groups of amendments on the same proposal whose normalized word sets
+ * exceed the similarity threshold. Used to flag duplicates for the author
+ * before they review each amendment one by one.
+ */
+export async function findDuplicateAmendments(
+  proposalId: number,
+  threshold: number = DEFAULT_SIMILARITY_THRESHOLD,
+): Promise<DuplicateGroup[]> {
+  const amendments = await db.query.proposalAmendments.findMany({
+    where: eq(proposalAmendments.proposalId, proposalId),
+  });
+
+  return groupDuplicates(
+    amendments.map(a => ({ id: a.id, type: a.type, text: a.text })),
+    threshold,
+  );
 }
 
 /**
  * Merge accepted amendments into the proposal text.
- * 
- * Process:
- * 1. Fetch all amendments for the proposal
- * 2. Separate by status (accepted, rejected, pending)
- * 3. For accepted amendments:
- *    - improvement: Append as refinement notes
- *    - addition: Append to solution text
- *    - removal: Mark as removed in solution
- *    - counter_proposal: Present as competing option
- * 4. Return merged text and amendment summary
+ *
+ * Reads `authorDecision` first and falls back to legacy `status`.
+ * Counter-proposals are tracked separately so they can be presented as
+ * competing options instead of inlined into the solution.
  */
 export async function mergeAmendments(proposalId: number): Promise<MergedProposal> {
   const proposal = await db.query.proposals.findFirst({
@@ -61,74 +89,52 @@ export async function mergeAmendments(proposalId: number): Promise<MergedProposa
     where: eq(proposalAmendments.proposalId, proposalId),
   });
 
-  const accepted = amendments.filter(a => a.status === 'accepted');
-  const rejected = amendments.filter(a => a.status === 'rejected');
-  const counterProposals = amendments.filter(a => a.type === 'counter_proposal' && a.status === 'accepted');
+  const decorated = amendments.map(a => ({
+    raw: a,
+    decision: effectiveDecision(a),
+  }));
 
-  // Start with original text
+  const accepted = decorated.filter(d => d.decision === 'accepted');
+  const rejected = decorated.filter(d => d.decision === 'rejected');
+  const counterProposals = accepted.filter(d => d.raw.type === 'counter_proposal');
+
   let mergedQuestion = proposal.question;
   let mergedSolution = proposal.solution;
 
-  // Process accepted amendments
-  for (const amendment of accepted) {
-    if (amendment.type === 'improvement') {
-      // Append as refinement note
-      mergedSolution += `\n\n[Βελτίωση] ${amendment.text}`;
-    } else if (amendment.type === 'addition') {
-      // Append to solution
-      mergedSolution += `\n\n[Προσθήκη] ${amendment.text}`;
-    } else if (amendment.type === 'removal') {
-      // Mark as removed
-      mergedSolution += `\n\n[Αφαίρεση] ${amendment.text}`;
+  for (const { raw } of accepted) {
+    if (raw.type === 'counter_proposal') continue;
+
+    if (raw.type === 'improvement') {
+      mergedSolution += `\n\n[Βελτίωση] ${raw.text}`;
+    } else if (raw.type === 'addition') {
+      mergedSolution += `\n\n[Προσθήκη] ${raw.text}`;
+    } else if (raw.type === 'removal') {
+      mergedSolution += `\n\n[Αφαίρεση] ${raw.text}`;
     }
-    // counter_proposal handled separately
   }
 
-  // Build summary
-  const acceptedSummaries: AmendmentSummary[] = accepted.map(a => ({
-    id: a.id,
-    type: a.type,
-    text: a.text,
-    authorName: `User ${a.authorId}`, // TODO: Join with users table
-    status: a.status,
-    supportCount: 0, // TODO: Count from debate arguments
-    opposeCount: 0,
-  }));
-
-  const rejectedSummaries: AmendmentSummary[] = rejected.map(a => ({
-    id: a.id,
-    type: a.type,
-    text: a.text,
-    authorName: `User ${a.authorId}`,
-    status: a.status,
-    supportCount: 0,
-    opposeCount: 0,
-  }));
-
-  const counterSummaries: AmendmentSummary[] = counterProposals.map(a => ({
-    id: a.id,
-    type: a.type,
-    text: a.text,
-    authorName: `User ${a.authorId}`,
-    status: a.status,
-    supportCount: 0,
-    opposeCount: 0,
-  }));
+  const summarize = (entry: { raw: typeof amendments[number]; decision: 'accepted' | 'rejected' | 'pending' }): AmendmentSummary => ({
+    id: entry.raw.id,
+    type: entry.raw.type,
+    text: entry.raw.text,
+    authorId: entry.raw.authorId,
+    decision: entry.decision,
+  });
 
   return {
     originalQuestion: proposal.question,
     originalSolution: proposal.solution,
     mergedQuestion,
     mergedSolution,
-    acceptedAmendments: acceptedSummaries,
-    rejectedAmendments: rejectedSummaries,
-    counterProposals: counterSummaries,
+    acceptedAmendments: accepted.map(summarize),
+    rejectedAmendments: rejected.map(summarize),
+    counterProposals: counterProposals.map(summarize),
   };
 }
 
 /**
  * Generate the final voting text from merged proposal.
- * 
+ *
  * If there are counter-proposals, presents them as competing options.
  * Otherwise, presents the merged proposal as a single yes/no vote.
  */
@@ -138,7 +144,6 @@ export function generateVotingText(merged: MergedProposal): {
   hasCounterProposals: boolean;
 } {
   if (merged.counterProposals.length > 0) {
-    // Multiple options: original + counter-proposals
     const options = [
       merged.mergedSolution,
       ...merged.counterProposals.map(cp => cp.text),
@@ -150,7 +155,6 @@ export function generateVotingText(merged: MergedProposal): {
     };
   }
 
-  // Single option: yes/no on merged proposal
   return {
     question: merged.mergedQuestion,
     options: [merged.mergedSolution],
@@ -164,7 +168,7 @@ export function generateVotingText(merged: MergedProposal): {
  */
 export async function saveMergedProposal(proposalId: number): Promise<void> {
   const merged = await mergeAmendments(proposalId);
-  
+
   await db.update(proposals)
     .set({
       question: merged.mergedQuestion,

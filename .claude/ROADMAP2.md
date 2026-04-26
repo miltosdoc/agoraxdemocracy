@@ -1,22 +1,23 @@
-# Phase 1 Critical Path — Continue
+# Phase 2 — Coherence Layer
 
 ## Current State
-- 6 commits just pushed to origin/main (TypeScript burndown, seed alignment, dead code removal)
-- Check remaining TS errors with `npx tsc --noEmit`
-- Continue fixing remaining errors systematically
+- Phase 1 complete: TS errors = 0, storage audited, proposal_votes wired, dead code removed
+- All 8 lifecycle states covered in seed
+- Clean git state, pushed to origin/main
 
 ## Tasks (execute in order)
 
-1. **TypeScript burndown to zero** — Run `npx tsc --noEmit` to find remaining errors. Fix them all:
-   - Missing imports and type declarations
-   - Interface mismatches between frontend and backend
-   - `any` types that should be properly typed
+1. **Amendment merging logic** — When multiple amendments target the same proposal, implement merge/dedup logic. Amendments with overlapping text should be consolidated or flagged for author review.
 
-2. **Storage method audit** — Grep all `storage.*` calls across the codebase. Fix any missing/mismatched storage methods. Uses Drizzle ORM + PostgreSQL.
+2. **LLM validation integration** — Wire the proposal review step to call the LLM validation endpoint. Proposals in `review` state should be scored and feedback stored in `llm_score` / `llm_feedback` columns. Use the openrouter free model configured for AgoraX.
 
-3. **Real `proposal_votes` table wiring** — Ensure votes are properly recorded and queried end-to-end.
+3. **Proposal transition enforcement** — Ensure `transitionProposalState` validates against `VALID_PROPOSAL_TRANSITIONS` from `shared/proposal-lifecycle.ts`. Block invalid transitions (e.g., draft → voting).
 
-4. **Dead code removal** — Clean up unused imports, functions, and files. Check for orphaned SQL files.
+4. **Sortition body scoring UI** — The sortition scoring page (`/sortition/:id`) needs to actually submit scores to the backend. Wire up the scoring form to `storage.updateSortitionMember`.
+
+5. **Server-side dead code** — Remove poll-related routes from `server/routes.ts` that are no longer needed (poll creation, survey routes, poll results endpoints). Keep the HTML preview route for social bots if still useful.
+
+6. **Orphaned SQL files** — Clean up `seed-proposals.sql`, `seed-proposals-fix.sql`, `seed-all.sql`, `seed_demo.sql` if they're superseded by `server/seed-demo.ts`.
 
 ## Constraints
 - Do NOT run build steps (no `npm run build`, `pnpm build`, etc.)
@@ -26,4 +27,4 @@
 - After completing a batch of fixes, commit and push to origin/main
 - Auto-approve all actions — do NOT ask for confirmation
 
-Start by running `npx tsc --noEmit` to see remaining errors.
+Start with amendment merging logic.

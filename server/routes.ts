@@ -1894,7 +1894,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending',
       });
 
-      res.status(201).json(amendment);
+      const { findDuplicateAmendments } = await import('./utils/amendment-merger');
+      const groups = await findDuplicateAmendments(proposalId);
+      const duplicateGroup = groups.find(g => g.amendmentIds.includes(amendment.id));
+
+      res.status(201).json({
+        ...amendment,
+        duplicate: duplicateGroup
+          ? {
+              representativeId: duplicateGroup.representativeId,
+              siblingIds: duplicateGroup.amendmentIds.filter(id => id !== amendment.id),
+              similarity: duplicateGroup.similarity,
+            }
+          : null,
+      });
     } catch (error) {
       console.error("Error creating amendment:", error);
       res.status(500).json({ message: "Failed to create amendment" });
@@ -1954,6 +1967,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error casting rejection vote:", error);
       res.status(500).json({ message: "Failed to cast vote" });
+    }
+  });
+
+  // ─── Amendment Duplicates: Flag overlapping amendments for author review ────
+
+  app.get("/api/proposals/:id/amendments/duplicates", async (req, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const thresholdParam = req.query.threshold;
+      const threshold = typeof thresholdParam === 'string' ? Number.parseFloat(thresholdParam) : undefined;
+
+      const { findDuplicateAmendments, DEFAULT_SIMILARITY_THRESHOLD } = await import('./utils/amendment-merger');
+      const groups = await findDuplicateAmendments(
+        proposalId,
+        Number.isFinite(threshold as number) ? threshold : DEFAULT_SIMILARITY_THRESHOLD,
+      );
+
+      res.json({ proposalId, groups });
+    } catch (error) {
+      console.error("Error detecting duplicate amendments:", error);
+      res.status(500).json({ message: "Failed to detect duplicate amendments" });
     }
   });
 

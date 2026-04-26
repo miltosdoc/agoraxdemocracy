@@ -245,13 +245,11 @@ export interface IStorage {
   getProposal(id: number): Promise<Proposal | undefined>;
   getProposals(communityId: number, filters?: { status?: string; category?: string }): Promise<Proposal[]>;
   updateProposal(id: number, updates: Partial<Proposal>): Promise<Proposal>;
-  transitionProposalState(id: number, newState: string): Promise<Proposal>;
 
   // ─── Demopolis: Amendment methods ──────────────────────────────────────────
   createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
   getAmendment(id: number): Promise<ProposalAmendment | undefined>;
   getAmendments(proposalId: number): Promise<ProposalAmendment[]>;
-  updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment>;
   countAmendmentsForProposal(proposalId: number): Promise<number>;
 
   // ─── Demopolis: Sortition methods ──────────────────────────────────────────
@@ -259,8 +257,6 @@ export interface IStorage {
   getSortitionBody(id: number): Promise<SortitionBody | undefined>;
   getSortitionMembers(bodyId: number): Promise<SortitionMember[]>;
   addSortitionMember(bodyId: number, userId: number): Promise<SortitionMember>;
-  removeSortitionMember(bodyId: number, userId: number): Promise<boolean>;
-  updateSortitionMember(bodyId: number, userId: number, updates: Partial<SortitionMember>): Promise<SortitionMember>;
   completeSortitionBody(id: number): Promise<SortitionBody>;
 
   // ─── Demopolis: Debate methods ─────────────────────────────────────────────
@@ -271,7 +267,6 @@ export interface IStorage {
 
   // ─── Demopolis: Proposal Support methods ───────────────────────────────────
   createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport>;
-  removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
   getProposalSupport(proposalId: number, userId?: number): Promise<{ support: number; oppose: number; userVote?: string | null }>;
   getAllProposals(limit?: number): Promise<Proposal[]>;
 
