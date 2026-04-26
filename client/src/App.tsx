@@ -21,6 +21,7 @@ import SortitionScoringPage from "@/pages/sortition-scoring";
 import SortitionSynthesisPage from "@/pages/sortition-synthesis";
 import SortitionDashboardPage from "@/pages/sortition-dashboard";
 import SortitionBodyDetailPage from "@/pages/sortition-body-detail";
+import SortitionCeremonyPage from "@/pages/sortition-ceremony";
 import AmendmentAuthorReview from "@/pages/amendment-author-review";
 import AmendmentCommunitySignal from "@/pages/amendment-community-signal";
 import DeliberationWalkthrough from "@/pages/deliberation-walkthrough";
@@ -108,6 +109,7 @@ function Router() {
         <ProtectedRoute path="/proposals/:id" component={ProposalDetailPage} />
         <ProtectedRoute path="/sortition" component={SortitionDashboardPage} />
         <ProtectedRoute path="/sortition/body/:bodyId" component={SortitionBodyDetailPage} />
+        <ProtectedRoute path="/sortition/:bodyId/ceremony" component={SortitionCeremonyPage} />
         <ProtectedRoute path="/sortition/:id" component={SortitionScoringPage} />
         <ProtectedRoute path="/proposals/:id/sortition" component={SortitionSynthesisPage} />
         <ProtectedRoute path="/proposals/:id/amendments/review" component={AmendmentAuthorReview} />

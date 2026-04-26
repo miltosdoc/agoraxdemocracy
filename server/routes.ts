@@ -1497,7 +1497,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the sortition creation if notifications fail
       }
 
-      res.status(201).json(result);
+      res.status(201).json({
+        ...result,
+        redirectUrl: `/sortition/${result.bodyId}/ceremony`,
+      });
     } catch (error) {
       console.error("Error creating sortition body:", error);
       res.status(500).json({ message: "Failed to create sortition body" });
@@ -1628,6 +1631,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error listing user's sortition bodies:", error);
       res.status(500).json({ message: "Failed to list sortition bodies" });
+    }
+  });
+
+  // Public-ish ceremony view: community, purpose, selected members, and a
+  // deterministic verification hash so any participant can recompute it.
+  app.get("/api/sortition/:bodyId/ceremony", requireAuth, async (req: any, res) => {
+    try {
+      const bodyId = parseInt(req.params.bodyId);
+      const body = await storage.getSortitionBody(bodyId);
+      if (!body) return res.status(404).json({ message: "Sortition body not found" });
+
+      const isMember = await storage.isCommunityMember(body.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      const community = await storage.getCommunity(body.communityId);
+      const proposal = body.proposalId ? await storage.getProposal(body.proposalId) : null;
+      const members = await storage.getSortitionMembers(bodyId);
+
+      const enrichedMembers = await Promise.all(
+        members.map(async (m) => {
+          const user = await storage.getUser(m.userId);
+          return {
+            assignmentId: m.id,
+            userId: m.userId,
+            name: user?.name ?? null,
+            username: user?.username ?? null,
+            profilePicture: user?.profilePicture ?? null,
+          };
+        })
+      );
+
+      // Deterministic verification hash from immutable identifiers.
+      const { createHash } = await import('crypto');
+      const sortedIds = [...members.map(m => m.userId)].sort((a, b) => a - b);
+      const seedSource = `${body.id}|${body.selectedAt?.toISOString() ?? ''}|${sortedIds.join(',')}`;
+      const verificationHash = createHash('sha256').update(seedSource).digest('hex');
+
+      res.json({
+        bodyId: body.id,
+        community: community ? { id: community.id, name: community.name } : null,
+        purpose: body.purpose,
+        proposal: proposal ? { id: proposal.id, question: proposal.question } : null,
+        selectedAt: body.selectedAt,
+        size: body.size,
+        members: enrichedMembers,
+        verificationHash,
+        currentUserAssignmentId:
+          enrichedMembers.find(m => m.userId === req.user.id)?.assignmentId ?? null,
+      });
+    } catch (error) {
+      console.error("Error fetching ceremony view:", error);
+      res.status(500).json({ message: "Failed to fetch ceremony view" });
     }
   });
 
