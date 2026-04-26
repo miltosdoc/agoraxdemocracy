@@ -22,7 +22,9 @@ import {
   isTerminalProposalState,
   type ProposalState,
 } from '@shared/proposal-lifecycle';
-import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
+import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore, enqueueSortitionTimeout } from './job-queue';
+import { completeSortitionBody } from './sortition-timeout';
+import { storage } from '../storage';
 
 export type { ProposalState } from '@shared/proposal-lifecycle';
 
@@ -202,6 +204,80 @@ export async function triggerSideEffects(
       // No side effects for other transitions
       break;
   }
+}
+
+/**
+ * Handle sortition body completion.
+ * 
+ * Called when a sortition body times out or all members have responded.
+ * Computes the average score and transitions the proposal accordingly:
+ * - score <= 33: return to author_review (needs revision)
+ * - score 34-100: advance to voting (approved)
+ * - null (no scores): archive the proposal
+ * 
+ * @param bodyId - The sortition body ID
+ * @param proposalId - The linked proposal ID
+ */
+export async function handleSortitionCompletion(
+  bodyId: number,
+  proposalId: number,
+): Promise<void> {
+  // Complete the body and get the average score
+  const average = await completeSortitionBody(bodyId);
+  
+  // Get the proposal
+  const proposal = await storage.getProposal(proposalId);
+  if (!proposal) {
+    console.error(`Proposal ${proposalId} not found for sortition body ${bodyId}`);
+    return;
+  }
+  
+  // Determine target state based on score
+  let targetState: ProposalState;
+  if (average === null) {
+    // No scores submitted — archive
+    targetState = 'archived';
+  } else if (average <= 33) {
+    // Low score — return to author for revision
+    targetState = 'author_review';
+  } else {
+    // Good score — advance to voting
+    targetState = 'voting';
+  }
+  
+  // Transition the proposal
+  const currentState = assertProposalState(proposal.status);
+  if (!canTransitionProposal(currentState, targetState)) {
+    console.error(
+      `Cannot transition proposal ${proposalId} from ${currentState} to ${targetState}. ` +
+      `Average score: ${average}. Valid transitions: ${getNextProposalStates(currentState).join(', ')}`
+    );
+    return;
+  }
+  
+  await storage.updateProposal(proposalId, { status: targetState });
+  
+  // Trigger side effects for the transition
+  await triggerSideEffects(currentState, targetState, { ...proposal, status: targetState });
+  
+  // Notify author
+  const reason = average === null 
+    ? 'No scores were submitted by the sortition body' 
+    : average <= 33 
+      ? `Low average score (${average.toFixed(1)}/100). Please revise and resubmit.`
+      : `Approved with average score ${average.toFixed(1)}/100. Moving to voting phase.`;
+  
+  await enqueueNotification(
+    proposal.authorId,
+    'sortition_completed',
+    `Your proposal has been ${targetState === 'voting' ? 'approved' : targetState === 'archived' ? 'archived' : 'returned for revision'}: ${reason}`,
+    { proposalId, bodyId, average, targetState },
+  );
+  
+  console.log(
+    `Sortition body ${bodyId} completed for proposal ${proposalId}: ` +
+    `avg=${average ?? 'null'}, transition=${currentState}→${targetState}`
+  );
 }
 
 export { VALID_TRANSITIONS };

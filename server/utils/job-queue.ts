@@ -24,7 +24,8 @@ export type JobType =
   | 'send_notification'     // Notification delivery
   | 'create_sortition'      // Sortition body creation
   | 'recalculate_score'     // Democracy score recalculation
-  | 'cleanup_expired';      // Cleanup expired sessions/votes
+  | 'cleanup_expired'       // Cleanup expired sessions/votes
+  | 'sortition_timeout';    // Sortition deadline sweep & completion
 
 export interface JobPayload {
   type: JobType;
@@ -328,5 +329,18 @@ export async function enqueueRecalculateScore(
     type: 'recalculate_score',
     data: { communityId },
     priority: 'low',
+  });
+}
+
+/**
+ * Enqueue a sortition timeout sweep job.
+ * Sweeps all active sortition bodies, checks deadlines, replaces
+ * non-responders, and completes bodies that have timed out.
+ */
+export async function enqueueSortitionTimeout(): Promise<string> {
+  return enqueueJob({
+    type: 'sortition_timeout',
+    data: {},
+    priority: 'normal',
   });
 }

@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { validateRuntimeConfig } from "./config";
+import { startJobQueue } from "./utils/job-handlers";
 
 validateRuntimeConfig();
 
@@ -53,5 +54,8 @@ app.use((req, res, next) => {
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
+    
+    // Start background job queue worker
+    startJobQueue();
   });
 })();
