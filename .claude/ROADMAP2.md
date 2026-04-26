@@ -29,3 +29,7 @@
 
 ## Phase 2 Complete ✅
 All 6 tasks shipped. `tsc --noEmit` passes with zero errors. Pushed to origin/main.
+
+## Phase 3 — Cleanup (Post-Phase 2)
+
+1. **[DONE] Dead group schema** — Removed `groups` and `groupMembers` table definitions + Zod schemas from `shared/schema.ts`. Frontend i18n keys remain (dead strings, no components reference them). `/groups` redirect in App.tsx preserved for old bookmarks.
