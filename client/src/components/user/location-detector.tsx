@@ -25,6 +25,7 @@ interface LocationData {
 export function LocationDetector({ onComplete }: { onComplete?: () => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [locationData, setLocationData] = useState<LocationData>({
     // Display information from reverse geocoding

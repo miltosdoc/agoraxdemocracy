@@ -9,7 +9,6 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import PollDetailsPage from "@/pages/poll-details";
 import ProfilePage from "@/pages/profile-page";
-import GroupsPage from "@/pages/groups-page";
 import HowItWorksPage from "@/pages/how-it-works";
 import FAQPage from "@/pages/faq";
 import TermsPage from "@/pages/terms";
@@ -94,7 +93,9 @@ function Router() {
         <ProtectedRoute path="/analytics" component={AnalyticsDashboard} />
         <ProtectedRoute path="/admin/accounts" component={AdminAccountsPage} />
         <ProtectedRoute path="/profile" component={ProfilePage} />
-        <ProtectedRoute path="/groups" component={GroupsPage} />
+        <Route path="/groups">
+          <Redirect to="/communities" />
+        </Route>
         <ProtectedRoute path="/communities" component={CommunitiesPage} />
         <ProtectedRoute path="/communities/new" component={CommunityFormPage} />
         <ProtectedRoute path="/communities/:id/settings" component={CommunitySettingsPage} />

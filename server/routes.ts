@@ -302,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/polls/my", requireAuth, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const polls = await storage.getUserPolls(userId);
       res.json(polls);
     } catch (error) {
@@ -312,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/polls/participated", requireAuth, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const polls = await storage.getParticipatedPolls(userId);
       res.json(polls);
     } catch (error) {
@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Parsed poll data:", JSON.stringify(parsedData.data, null, 2));
       const { poll, options } = parsedData.data;
-      const creatorId = req.user.id;
+      const creatorId = req.user!.id;
 
       console.log("Creating poll with creator:", creatorId);
       console.log("Poll object:", JSON.stringify({ ...poll, creatorId }, null, 2));
@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/polls/:id", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       console.log("Poll update request received for poll ID:", pollId);
       console.log("Update data:", JSON.stringify(req.body, null, 2));
@@ -437,14 +437,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedPoll);
     } catch (error) {
       console.error("Error updating poll:", error);
-      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της ψηφοφορίας", error: error.message });
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της ψηφοφορίας", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
   app.delete("/api/polls/:id", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if user is the creator
       const poll = await storage.getPoll(pollId, userId);
@@ -481,7 +481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/polls/:id/community", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if user is the creator
       const poll = await storage.getPoll(pollId, userId);
@@ -505,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/polls/:id/extend", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const { newEndDate } = req.body;
 
       if (!newEndDate) {
@@ -540,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/polls/:id/vote", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if poll exists and is active
       const poll = await storage.getPoll(pollId, userId);
@@ -565,22 +565,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Debug logging for location data
-      console.log(`[VOTE] User location data for user ID ${userId}:`, {
-        city: user.city,
-        region: user.region,
-        country: user.country,
-        city_id: user.city_id,
-        region_id: user.region_id,
-        country_id: user.country_id
-      });
-
-      console.log(`[VOTE] Poll location restrictions:`, {
-        locationScope: poll.locationScope,
-        locationCity: poll.locationCity,
-        locationRegion: poll.locationRegion,
-        locationCountry: poll.locationCountry
-      });
 
       // Import the location validator
       const { isUserEligibleForPoll } = await import('./utils/location-validator');
@@ -732,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/polls/:id/comments", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       const validateComment = insertCommentSchema.safeParse({
         ...req.body,
@@ -781,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification routes
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const notifications = await storage.getUserNotifications(userId);
       res.json(notifications);
     } catch (error) {
@@ -793,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/:id/read", requireAuth, async (req, res) => {
     try {
       const notificationId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       const notifications = await storage.getUserNotifications(userId);
       const notification = notifications.find(n => n.id === notificationId);
@@ -816,7 +800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications/unread/count", requireAuth, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const notifications = await storage.getUserNotifications(userId);
       const unreadCount = notifications.filter(n => !n.read).length;
       res.json({ count: unreadCount });
@@ -938,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/user/location", requireAuth, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const parsedData = locationSchema.safeParse(req.body);
 
       if (!parsedData.success) {
@@ -974,7 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Parsed survey poll data:", JSON.stringify(parsedData.data, null, 2));
       const { poll, questions } = parsedData.data;
-      const creatorId = req.user.id;
+      const creatorId = req.user!.id;
 
       // Organize answers by question
       const questionAnswers = questions.map(question => ({
@@ -1029,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/surveys/:id/respond", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if poll exists and is active
       const poll = await storage.getSurveyPoll(pollId, userId);
@@ -1127,7 +1111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/surveys/:id", requireAuth, async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if user is the creator
       const poll = await storage.getSurveyPoll(pollId);
@@ -1184,15 +1168,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating survey poll:", error);
 
+      const message = error instanceof Error ? error.message : String(error);
+
       // Check if error is about structural edits being blocked
-      if (error.message && error.message.includes("Cannot modify survey structure")) {
+      if (message.includes("Cannot modify survey structure")) {
         return res.status(400).json({
           message: "Δεν μπορείτε να τροποποιήσετε τις ερωτήσεις ή απαντήσεις αφού έχουν υποβληθεί απαντήσεις",
-          error: error.message
+          error: message,
         });
       }
 
-      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της δημοσκόπησης", error: String(error) });
+      res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της δημοσκόπησης", error: message });
     }
   });
 
@@ -1385,15 +1371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Import ballot client
       const { generatePollToken } = await import('./utils/ballot-client');
-      const tokenResponse = await generatePollToken(String(pollId));
+      const token = generatePollToken();
 
-      if (!tokenResponse) {
-        return res.status(503).json({
-          message: "Ballot service unavailable. Please try again later."
-        });
-      }
-
-      res.json(tokenResponse);
+      res.json({ token, pollId: String(pollId) });
     } catch (error) {
       console.error("Error generating ballot token:", error);
       res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία token" });
@@ -1458,7 +1438,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         file.buffer,
         String(pollId),
         String(pollToken),
-        file.originalname
       );
 
       if (result.success) {
@@ -1550,10 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify identity via Python ballot service
       const { verifyIdentity } = await import('./utils/ballot-client');
-      const result = await verifyIdentity(
-        file.buffer,
-        file.originalname
-      );
+      const result = await verifyIdentity(file.buffer);
 
       if (result.success) {
         // Check if this voter hash is already used by another account
@@ -1697,7 +1673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/communities/:id/members", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check if already a member
       const isMember = await storage.isCommunityMember(communityId, userId);
@@ -1717,7 +1693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/communities/:id/members", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       await storage.removeCommunityMember(communityId, userId);
       res.json({ success: true });
@@ -1762,7 +1738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/communities/:communityId/proposals", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.communityId);
-      const userId = req.user.id;
+      const userId = req.user!.id;
 
       // Check membership
       const isMember = await storage.isCommunityMember(communityId, userId);
@@ -1904,16 +1880,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       
-      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user!.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
 
       // Check amendment cap
       const community = await storage.getCommunity(proposal.communityId);
-      if (community && community.maxAmendmentsPerProposal > 0) {
+      const cap = community?.maxAmendmentsPerProposal ?? -1;
+      if (cap > 0) {
         const currentCount = await storage.countAmendmentsForProposal(proposalId);
-        if (currentCount >= community.maxAmendmentsPerProposal) {
-          return res.status(400).json({ 
-            message: `Amendment limit reached (${community.maxAmendmentsPerProposal} per proposal)` 
+        if (currentCount >= cap) {
+          return res.status(400).json({
+            message: `Amendment limit reached (${cap} per proposal)`,
           });
         }
       }
@@ -2632,7 +2609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's sortition notifications
   app.get("/api/sortition-notifications", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       const unreadOnly = req.query.unread === 'true';
@@ -2675,7 +2652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unread notification count (lightweight)
   app.get("/api/sortition-notifications/unread-count", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const result = await db.execute(sql`
         SELECT COUNT(*) as count FROM sortition_notifications
         WHERE user_id = ${userId} AND read = FALSE
@@ -2690,7 +2667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark single notification as read
   app.post("/api/sortition-notifications/:id/read", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const notificationId = parseInt(req.params.id);
 
       // Verify ownership
@@ -2719,7 +2696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark all notifications as read
   app.post("/api/sortition-notifications/mark-all-read", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       await db.execute(sql`
         UPDATE sortition_notifications SET read = TRUE, read_at = NOW()
         WHERE user_id = ${userId} AND read = FALSE
@@ -2734,7 +2711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get notification preferences
   app.get("/api/notification-preferences", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const { getOrCreatePreferences } = await import('./utils/notifications');
       const prefs = await getOrCreatePreferences(userId);
       res.json(prefs);
@@ -2747,7 +2724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update notification preferences
   app.patch("/api/notification-preferences", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user!.id;
       const { updatePreferences } = await import('./utils/notifications');
       await updatePreferences(userId, req.body);
       res.json({ success: true });

@@ -62,6 +62,27 @@ import {
   proposalVotes
 } from "@shared/schema";
 
+// Frontend submits survey questions with temporary numeric ids so the server
+// can wire up parent/child relationships before the real DB ids exist.
+export interface SurveyQuestionInput {
+  id?: number;
+  text: string;
+  questionType: string;
+  required?: boolean;
+  order: number;
+  parentId?: number | null;
+  parentAnswerId?: number | null;
+}
+
+export interface SurveyAnswerGroup {
+  questionId?: number; // matches SurveyQuestionInput.id (the temp id)
+  answers: {
+    id?: number;       // temp id for React keys / parent wiring
+    text: string;
+    order: number;
+  }[];
+}
+
 export interface ProposalVoteResults {
   yes: number;
   no: number;
@@ -161,9 +182,9 @@ export interface IStorage {
   deletePoll(id: number): Promise<boolean>;
 
   // Survey Poll methods
-  createSurveyPoll(poll: InsertPoll, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll>;
+  createSurveyPoll(poll: InsertPoll, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll>;
   getSurveyPoll(id: number, userId?: number): Promise<PollWithQuestions | undefined>;
-  updateSurveyStructure(id: number, updates: Partial<Poll>, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll>;
+  updateSurveyStructure(id: number, updates: Partial<Poll>, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll>;
   updateSurveyMetadata(id: number, updates: Partial<Poll>): Promise<Poll>;
 
   // Survey Response methods
@@ -185,7 +206,6 @@ export interface IStorage {
 
 
   // Notification methods
-  createPollNotification(notification: InsertPollNotification): Promise<PollNotification>;
   getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { community?: { id: number; name: string } | null } })[]>;
   markNotificationAsRead(notificationId: number): Promise<PollNotification>;
 
@@ -1017,7 +1037,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Survey Poll methods
-  async createSurveyPoll(poll: InsertPoll, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll> {
+  async createSurveyPoll(poll: InsertPoll, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll> {
     console.log("Creating survey poll with:", JSON.stringify(poll, null, 2));
 
     // Convert date strings to Date objects if they are strings
@@ -1315,7 +1335,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll> {
+  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: Omit<InsertPollQuestion, 'pollId'>[], answers: { questionId?: number; answers: { id?: number; text: string; order: number }[] }[]): Promise<Poll> {
     try {
       // Check if there are any responses
       const hasResponses = await this.hasAnyResponses(id);

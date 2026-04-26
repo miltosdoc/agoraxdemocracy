@@ -8,6 +8,7 @@ import { BarChart, Download, User, Calendar } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "@/hooks/use-translation";
 import { HtmlContent } from "@/components/ui/html-content";
+import type { PollWithOptions, PollResult } from "@shared/schema";
 
 interface ResultsModalProps {
   pollId: number;
@@ -29,19 +30,19 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
   const { t, locale } = useTranslation();
   const { toast } = useToast();
 
-  const { data: poll, isLoading: pollLoading } = useQuery({
+  const { data: poll, isLoading: pollLoading } = useQuery<PollWithOptions>({
     queryKey: [`/api/polls/${pollId}`],
     enabled: isOpen,
   });
 
-  const { data: results, isLoading: resultsLoading } = useQuery({
+  const { data: results, isLoading: resultsLoading } = useQuery<PollResult[]>({
     queryKey: [`/api/polls/${pollId}/results`],
     enabled: isOpen,
   });
 
-  const { data: comments, isLoading: commentsLoading } = useQuery({
+  const { data: comments, isLoading: commentsLoading } = useQuery<PollComment[]>({
     queryKey: [`/api/polls/${pollId}/comments`],
-    enabled: isOpen && poll?.allowComments,
+    enabled: isOpen && !!poll?.allowComments,
   });
 
   const isLoading = pollLoading || resultsLoading || (poll?.allowComments && commentsLoading);
@@ -106,10 +107,9 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
                 </div>
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1" />
-                  {poll?.isActive 
+                  {poll && (poll.isActive
                     ? `${t("Expires in")} ${formatDistance(new Date(poll.endDate), new Date(), { locale: el })}`
-                    : `${t("Completed on")} ${format(new Date(poll.endDate), "d MMM", { locale: el })}`
-                  }
+                    : `${t("Completed on")} ${format(new Date(poll.endDate), "d MMM", { locale: el })}`)}
                 </div>
               </div>
             </div>
@@ -150,14 +150,14 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
                           <div className="mt-2">
                             <span className="font-medium block mb-1">{t("Rank distribution")}:</span>
                             <div className="flex gap-1 flex-wrap">
-                              {Object.entries(result.rankingStats.rankDistribution).map(([rank, count]) => (
-                                <div 
-                                  key={rank} 
+                              {Object.entries(result.rankingStats?.rankDistribution ?? {}).map(([rank, count]) => (
+                                <div
+                                  key={rank}
                                   className="px-2 py-1 bg-muted rounded text-xs flex flex-col items-center"
                                   title={`${count} ${t("voters ranked this option as their")} #${rank} ${t("choice")}`}
                                 >
                                   <span className="font-medium">#{rank}</span>
-                                  <span>{count}</span>
+                                  <span>{Number(count)}</span>
                                 </div>
                               ))}
                             </div>
@@ -185,12 +185,12 @@ export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
               </div>
             </div>
 
-            {poll?.allowComments && comments?.length > 0 && (
+            {poll?.allowComments && comments && comments.length > 0 && (
               <div className="mb-6 border-t border-border pt-4">
                 <h4 className="font-medium mb-3">{t("Top Comments")}:</h4>
 
                 <div className="space-y-4 max-h-40 overflow-y-auto">
-                  {comments.slice(0, 3).map((comment: PollComment) => (
+                  {comments.slice(0, 3).map((comment) => (
                     <div key={comment.id} className="p-3 bg-muted rounded-md">
                       <div className="flex items-start">
                         <User className="h-5 w-5 text-muted-foreground mr-2" />
