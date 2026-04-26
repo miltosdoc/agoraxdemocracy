@@ -9,13 +9,13 @@
 
 1. **[DONE] Amendment merging logic** — ✅ Committed `7727ed7`. Includes amendment-similarity.ts (TF-IDF cosine similarity), updated amendment-merger.ts, integration test. Legacy survey scripts removed.
 
-2. **LLM validation integration** — Wire the proposal review step to call the LLM validation endpoint. Proposals in `review` state should be scored and feedback stored in `llm_score` / `llm_feedback` columns. Use the openrouter free model configured for AgoraX.
+2. **[DONE] LLM validation integration** — ✅ Committed `348c884`. `/api/proposals/:id/submit` flows through canonical state machine (draft → review → author_review|draft), persists `llm_score`/`llm_feedback`. LLM client defaults to OpenRouter NVIDIA Nemotron free tier.
 
-3. **Proposal transition enforcement** — Ensure `transitionProposalState` validates against `VALID_PROPOSAL_TRANSITIONS` from `shared/proposal-lifecycle.ts`. Block invalid transitions (e.g., draft → voting).
+3. **[DONE] Proposal transition enforcement** — ✅ Committed `348c884`. `storage.transitionProposalState` rejects invalid transitions, exposed on `IStorage`.
 
-4. **Sortition body scoring UI** — The sortition scoring page (`/sortition/:id`) needs to actually submit scores to the backend. Wire up the scoring form to `storage.updateSortitionMember`.
+4. **[DONE] Sortition body scoring UI** — ✅ Committed `1ce7d37`. Scoring endpoint uses `storage.updateSortitionMember`, validates score, persists feedback text via new `feedback` column + migration `0005_sortition_feedback.sql`.
 
-5. **Server-side dead code** — Remove poll-related routes from `server/routes.ts` that are no longer needed (poll creation, survey routes, poll results endpoints). Keep the HTML preview route for social bots if still useful.
+5. **[DONE] Server-side dead code** — ✅ Committed `9368853`. Removed ~970 lines of dead `/api/polls`, `/api/surveys`, `/api/categories`, `/api/admin/update-poll-locations` routes, plus orphaned `update-poll-locations.ts` and boot-time call. Social-bot HTML preview at `/polls/:id` preserved.
 
 6. **[DONE] Orphaned SQL files** — ✅ Committed `cb73a93`. Removed seed-all.sql, seed-proposals-fix.sql, seed-proposals.sql. seed_demo.sql remains (referenced by README + integration tests).
 
@@ -27,4 +27,5 @@
 - After completing a batch of fixes, commit and push to origin/main
 - Auto-approve all actions — do NOT ask for confirmation
 
-Start with amendment merging logic.
+## Phase 2 Complete ✅
+All 6 tasks shipped. `tsc --noEmit` passes with zero errors. Pushed to origin/main.
