@@ -2551,37 +2551,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sortition/assignments/:id/score", requireAuth, async (req: any, res) => {
     try {
       const memberId = parseInt(req.params.id);
-      const { score } = req.body;
+      const { score, feedback } = req.body ?? {};
 
-      const member = await db
+      const numericScore = Number(score);
+      if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
+        return res.status(400).json({ message: "Score must be a number between 0 and 100" });
+      }
+
+      const [sortMember] = await db
         .select()
         .from(sortitionMembers)
         .where(eq(sortitionMembers.id, memberId));
 
-      if (!member.length) {
+      if (!sortMember) {
         return res.status(404).json({ message: "Assignment not found" });
       }
-
-      const sortMember = member[0];
 
       // Verify the user is the assigned member
       if (sortMember.userId !== req.user.id) {
         return res.status(403).json({ message: "Not your assignment" });
       }
 
-      // Update the member with their score
-      const [updated] = await db
-        .update(sortitionMembers)
-        .set({
-          score: score ? String(score) : undefined,
-          responded: true,
-          scoredAt: new Date(),
-        })
-        .where(and(
-          eq(sortitionMembers.bodyId, sortMember.bodyId),
-          eq(sortitionMembers.userId, req.user.id)
-        ))
-        .returning();
+      const updated = await storage.updateSortitionMember(sortMember.bodyId, sortMember.userId, {
+        score: String(numericScore),
+        feedback: typeof feedback === 'string' && feedback.trim() ? feedback.trim() : null,
+        responded: true,
+        scoredAt: new Date(),
+      });
 
       res.json({ success: true, member: updated });
     } catch (error) {

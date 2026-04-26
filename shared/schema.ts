@@ -331,6 +331,7 @@ export const sortitionMembers = pgTable("sortition_members", {
   userId: integer("user_id").notNull().references(() => users.id),
   responded: boolean("responded").default(false),
   score: numeric("score"),                    // individual score (0-10 or 0-100)
+  feedback: text("feedback"),                  // optional written justification for the score
   scoredAt: timestamp("scored_at"),
 }, (table) => ({
   sortitionMemberUnique: uniqueIndex('sortition_member_unique').on(table.bodyId, table.userId),

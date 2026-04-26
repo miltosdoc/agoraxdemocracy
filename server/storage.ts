@@ -264,6 +264,7 @@ export interface IStorage {
   getSortitionBody(id: number): Promise<SortitionBody | undefined>;
   getSortitionMembers(bodyId: number): Promise<SortitionMember[]>;
   addSortitionMember(bodyId: number, userId: number): Promise<SortitionMember>;
+  updateSortitionMember(bodyId: number, userId: number, updates: Partial<SortitionMember>): Promise<SortitionMember>;
   completeSortitionBody(id: number): Promise<SortitionBody>;
 
   // ─── Demopolis: Debate methods ─────────────────────────────────────────────
