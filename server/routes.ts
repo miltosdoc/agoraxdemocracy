@@ -861,22 +861,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // User location routes
   const locationSchema = z.object({
-    // Display names (for UI)
-    city: z.string().optional(),
-    region: z.string().optional(),
-    country: z.string().optional(),
-
-    // Standardized IDs (for database lookups and comparisons)
-    city_id: z.string().optional(),
-    region_id: z.string().optional(),
-    country_id: z.string().optional(),
-
-    // Coordinates
     latitude: z.string().optional(),
     longitude: z.string().optional(),
-
-    // Confirmation flag
-    locationConfirmed: z.boolean().optional()
+    locationConfirmed: z.boolean().optional(),
   });
 
   // Location verification schema

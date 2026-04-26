@@ -138,23 +138,10 @@ export interface IStorage {
   getUserByVoterHash(voterHash: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserLocation(userId: number, locationData: {
-    // Display names
-    city?: string,
-    region?: string,
-    country?: string,
-    // Standardized IDs
-    city_id?: string,
-    region_id?: string,
-    country_id?: string,
-    // Duplicate fields for clarity in API
-    city_display?: string,
-    region_display?: string,
-    country_display?: string,
-    // Coordinates
-    latitude?: string,
-    longitude?: string,
-    locationConfirmed?: boolean,
-    locationVerified?: boolean
+    latitude?: string;
+    longitude?: string;
+    locationConfirmed?: boolean;
+    locationVerified?: boolean;
   }): Promise<User>;
 
   verifyUserLocation(userId: number, verified: boolean): Promise<User>;
@@ -285,7 +272,7 @@ export interface IStorage {
   // ─── Demopolis: Proposal Support methods ───────────────────────────────────
   createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport>;
   removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
-  getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }>;
+  getProposalSupport(proposalId: number, userId?: number): Promise<{ support: number; oppose: number; userVote?: string | null }>;
   getAllProposals(limit?: number): Promise<Proposal[]>;
 
   // ─── Demopolis: Proposal Final Vote methods ────────────────────────────────
@@ -354,62 +341,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserLocation(userId: number, locationData: {
-    city?: string,
-    region?: string,
-    country?: string,
-    city_id?: string,
-    region_id?: string,
-    country_id?: string,
-    city_display?: string,
-    region_display?: string,
-    country_display?: string,
-    latitude?: string,
-    longitude?: string,
-    locationConfirmed?: boolean,
-    locationVerified?: boolean
+    latitude?: string;
+    longitude?: string;
+    locationConfirmed?: boolean;
+    locationVerified?: boolean;
   }): Promise<User> {
-    console.log(`[Storage] Updating user location with data:`, JSON.stringify(locationData, null, 2));
-
-    // Extract standardized location data
-    const updateData: any = {
-      // Standard location ID fields 
-      city_id: locationData.city_id,
-      region_id: locationData.region_id,
-      country_id: locationData.country_id,
-
-      // Legacy location display fields (should still be set for backward compatibility)
-      city: locationData.city_display || locationData.city,
-      region: locationData.region_display || locationData.region,
-      country: locationData.country_display || locationData.country,
-
-      // Coordinates
+    const updateData: Partial<typeof users.$inferInsert> = {
       latitude: locationData.latitude,
-      longitude: locationData.longitude
+      longitude: locationData.longitude,
+      locationConfirmed: locationData.locationConfirmed,
+      locationVerified: locationData.locationVerified,
     };
 
-    // Handle location confirmation
-    updateData.locationConfirmed = locationData.locationConfirmed !== undefined
-      ? locationData.locationConfirmed
-      : (updateData.city_id && updateData.region_id && updateData.country_id ? true :
-        (updateData.city && updateData.region && updateData.country ? true : undefined));
-
-    // If coordinates are being updated, reset verification status
-    if (locationData.latitude !== undefined || locationData.longitude !== undefined) {
-      // GPS location detection is considered verified by default
-      // Manual entries need explicit verification
-      updateData.locationVerified = locationData.locationVerified !== undefined
-        ? locationData.locationVerified
-        : false;
+    // If coordinates are being updated without an explicit verification flag,
+    // treat them as unverified until the user confirms manually.
+    if (
+      (locationData.latitude !== undefined || locationData.longitude !== undefined) &&
+      locationData.locationVerified === undefined
+    ) {
+      updateData.locationVerified = false;
     }
 
-    // Remove undefined values
-    Object.keys(updateData).forEach(key => {
+    for (const key of Object.keys(updateData) as (keyof typeof updateData)[]) {
       if (updateData[key] === undefined) {
         delete updateData[key];
       }
-    });
-
-    console.log(`[Storage] Final update data:`, JSON.stringify(updateData, null, 2));
+    }
 
     const [user] = await db
       .update(users)
@@ -504,36 +461,22 @@ export class DatabaseStorage implements IStorage {
           poll.region
         );
 
-        // Prepare poll data with location information if available
-        const pollData: any = {
+        const pollData: typeof polls.$inferInsert = {
           ...poll,
           isActive: true,
-          geoRegion
+          geoRegion,
         };
 
-        // Add location data from reverse geocoding if available
         if (locationData) {
-          // Set both standardized ID fields and display names
           pollData.locationCity = locationData.city;
           pollData.locationRegion = locationData.region;
           pollData.locationCountry = locationData.country;
-
-          // Set standardized location IDs
           pollData.locationCityId = locationData.cityId;
           pollData.locationRegionId = locationData.regionId;
           pollData.locationCountryId = locationData.countryId;
-
-          // Set legacy fields for backward compatibility
           pollData.city = locationData.city;
           pollData.region = locationData.region;
           pollData.country = locationData.country;
-
-          console.log("Adding location data to poll:", JSON.stringify({
-            locationCity: pollData.locationCity,
-            locationRegion: pollData.locationRegion,
-            locationCountry: pollData.locationCountry,
-            geoRegion: pollData.geoRegion
-          }, null, 2));
         }
 
         // Create poll with all data
@@ -2393,7 +2336,13 @@ export class DatabaseStorage implements IStorage {
         LIMIT 30
       `);
 
-      return trends.rows.map((row: any) => ({
+      const trendRows = trends.rows as Array<{
+        date: Date | string;
+        polls: string;
+        votes: string;
+        comments: string;
+      }>;
+      return trendRows.map((row) => ({
         date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
         polls: parseInt(row.polls),
         votes: parseInt(row.votes),
@@ -2437,12 +2386,14 @@ export class DatabaseStorage implements IStorage {
         ORDER BY EXTRACT(DOW FROM created_at)
       `);
 
+      const hourlyRows = hourlyActivity.rows as Array<{ hour: string; activity: string }>;
+      const dailyRows = dailyActivity.rows as Array<{ day: string; activity: string }>;
       return {
-        hourlyActivity: hourlyActivity.rows.map((row: any) => ({
+        hourlyActivity: hourlyRows.map((row) => ({
           hour: parseInt(row.hour),
           activity: parseInt(row.activity)
         })),
-        dailyActivity: dailyActivity.rows.map((row: any) => ({
+        dailyActivity: dailyRows.map((row) => ({
           day: row.day.trim(),
           activity: parseInt(row.activity)
         }))
