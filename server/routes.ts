@@ -1793,11 +1793,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
       if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
 
-      // ─── LLM Validation ───────────────────────────────────────────────────
+      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('./storage');
+
+      // draft → review (validated by the state machine; archived states blocked).
+      const inReview = await transitionProposal(proposal, 'review', storageInstance);
+      await triggerSideEffects(proposal.status, 'review', inReview);
+
+      // ─── LLM Validation while the proposal sits in `review` ───────────────
       let llmScore: string | undefined;
       let llmFeedback: string | undefined;
       let llmValidatedAt: Date | undefined;
-      let nextStatus = 'review';
+      let nextStatus: 'author_review' | 'draft' | 'review' = 'review';
+      let category: 'return' | 'sortition' | 'auto_approve' | null = null;
 
       try {
         const { validateProposal } = await import('./utils/llm-validation');
@@ -1806,36 +1814,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         llmScore = String(result.score);
         llmFeedback = result.feedback;
         llmValidatedAt = new Date();
+        category = result.category;
 
-        // Canonical lifecycle mapping:
-        // - return: back to draft for author revision
-        // - auto_approve/sortition: validated, now ready for amendment author review
-        if (result.category === 'return') {
-          nextStatus = 'draft';
-        } else {
-          nextStatus = 'author_review';
-        }
+        // Canonical lifecycle mapping from review:
+        // - return:   review → draft   (author revises)
+        // - sortition / auto_approve: review → author_review (amendments open)
+        nextStatus = result.category === 'return' ? 'draft' : 'author_review';
       } catch (llmError) {
         console.error('LLM validation failed:', llmError);
-        // Fall back to canonical review state if LLM is unavailable.
-        nextStatus = 'review';
+        // Persist the failure on the row but leave it in `review` for manual handling.
         llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
+        llmValidatedAt = new Date();
       }
 
-      // Update proposal with LLM validation results and transition state
-      const updated = await storage.updateProposal(proposalId, {
-        status: nextStatus,
+      // Persist the LLM scoring on the in-review row first so the columns stay
+      // populated even if the follow-up transition is skipped.
+      const scored = await storageInstance.updateProposal(proposalId, {
         llmScore,
         llmFeedback,
         llmValidatedAt,
       });
+
+      let updated = scored;
+      if (nextStatus !== 'review') {
+        updated = await transitionProposal(scored, nextStatus, storageInstance);
+        await triggerSideEffects('review', nextStatus, updated);
+      }
 
       res.json({
         ...updated,
         validation: {
           score: llmScore ? Number(llmScore) : null,
           feedback: llmFeedback,
-          category: llmScore ? (Number(llmScore) < 20 ? 'return' : Number(llmScore) > 90 ? 'auto_approve' : 'sortition') : null,
+          category,
         },
       });
     } catch (error) {

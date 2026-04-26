@@ -234,9 +234,9 @@ npm run dev
 ### Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection string (**required**)
-- `LLM_API_KEY` — API key for LLM validation (optional, uses free tier by default)
+- `LLM_API_KEY` — OpenRouter (or OpenAI-compatible) key for proposal validation; without a key the service returns a deterministic mock
 - `LLM_MODEL` — LLM model name (default: `nvidia/nemotron-3-nano-30b-a3b:free`)
-- `LLM_API_URL` — OpenAI-compatible LLM API endpoint (default: `https://api.openai.com/v1`)
+- `LLM_API_URL` — OpenAI-compatible LLM API endpoint (default: `https://openrouter.ai/api/v1`)
 - `JWT_SECRET` — Secret for JWT tokens (required; use a long random value)
 - `SESSION_SECRET` — Secret for session cookies (required; use a long random value)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth credentials

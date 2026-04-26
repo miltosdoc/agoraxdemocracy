@@ -1,4 +1,10 @@
 import {
+  assertProposalState,
+  canTransitionProposal,
+  getNextProposalStates,
+  isProposalState,
+} from "@shared/proposal-lifecycle";
+import {
   User,
   InsertUser,
   Poll,
@@ -245,6 +251,7 @@ export interface IStorage {
   getProposal(id: number): Promise<Proposal | undefined>;
   getProposals(communityId: number, filters?: { status?: string; category?: string }): Promise<Proposal[]>;
   updateProposal(id: number, updates: Partial<Proposal>): Promise<Proposal>;
+  transitionProposalState(id: number, newState: string): Promise<Proposal>;
 
   // ─── Demopolis: Amendment methods ──────────────────────────────────────────
   createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
@@ -2614,6 +2621,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async transitionProposalState(id: number, newState: string): Promise<Proposal> {
+    if (!isProposalState(newState)) {
+      throw new Error(`Invalid proposal state: ${newState}`);
+    }
+
+    const proposal = await this.getProposal(id);
+    if (!proposal) throw new Error("Proposal not found");
+
+    const fromState = assertProposalState(proposal.status);
+    if (!canTransitionProposal(fromState, newState)) {
+      throw new Error(
+        `Invalid proposal transition: ${fromState} → ${newState}. ` +
+        `Valid transitions from ${fromState}: ${getNextProposalStates(fromState).join(', ') || '(terminal)'}`,
+      );
+    }
+
     return this.updateProposal(id, { status: newState });
   }
 
