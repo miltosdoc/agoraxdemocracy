@@ -9,16 +9,14 @@ import {
   insertVoteSchema,
   rankingVoteSchema,
   insertCommentSchema,
-  users,
   votes,
-  insertPollUserResponseSchema,
   sortitionMembers,
   sortitionBodies,
   castProposalVoteSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   authorReviewAmendment,
   castRejectionVote,
@@ -2514,7 +2512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sortition/assignments/:id/score", requireAuth, async (req: any, res) => {
     try {
       const memberId = parseInt(req.params.id);
-      const { score, feedback } = req.body;
+      const { score } = req.body;
 
       const member = await db
         .select()
@@ -2613,17 +2611,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       const unreadOnly = req.query.unread === 'true';
-
-      let query = sql`
-        SELECT * FROM sortition_notifications
-        WHERE user_id = ${userId}
-      `;
-      if (unreadOnly) {
-        query = sql`
-          SELECT * FROM sortition_notifications
-          WHERE user_id = ${userId} AND read = FALSE
-        `;
-      }
 
       const result = await db.execute(sql`
         SELECT * FROM sortition_notifications

@@ -55,7 +55,7 @@ interface ValidationResult {
 }
 
 export function BallotVoteModal({ poll, isOpen, onClose, onVoteSubmit }: BallotVoteModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
     const [step, setStep] = useState<Step>("instructions");
     const [token, setToken] = useState<BallotToken | null>(null);
     const [instructions, setInstructions] = useState<BallotInstructions | null>(null);

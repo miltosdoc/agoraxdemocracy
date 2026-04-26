@@ -18,7 +18,6 @@
  * 6. Amendment adoption rate (positive weight)
  */
 
-import type { Community, CommunityMember, Proposal, ProposalAmendment } from '@shared/schema';
 import type { IStorage } from '../storage';
 
 // ─── Types ──────────────────────────────────────────────────────────────────

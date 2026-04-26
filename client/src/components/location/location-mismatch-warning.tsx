@@ -8,7 +8,7 @@ interface LocationMismatchWarningProps {
 }
 
 export function LocationMismatchWarning({ type, onDismiss }: LocationMismatchWarningProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   let title = '';
   let description = '';
   

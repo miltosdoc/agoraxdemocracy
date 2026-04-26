@@ -63,7 +63,6 @@ export async function mergeAmendments(proposalId: number): Promise<MergedProposa
 
   const accepted = amendments.filter(a => a.status === 'accepted');
   const rejected = amendments.filter(a => a.status === 'rejected');
-  const pending = amendments.filter(a => a.status === 'pending' || a.status === 'under_review');
   const counterProposals = amendments.filter(a => a.type === 'counter_proposal' && a.status === 'accepted');
 
   // Start with original text

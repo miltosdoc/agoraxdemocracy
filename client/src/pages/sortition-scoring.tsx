@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock } from 'lucide-react';
 import Footer from '@/components/layout/footer';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/hooks/use-translation';

@@ -14,7 +14,7 @@ interface ErrorMessageProps {
  * with special handling for validation errors from the API.
  */
 export function ErrorMessage({ error, className = "" }: ErrorMessageProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   if (!error) return null;
   
   let errorMessage = typeof error === "string" ? error : error.message;

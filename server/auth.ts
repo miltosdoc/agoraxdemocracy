@@ -1,13 +1,13 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Express, Request } from "express";
+import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
-import { db, pool } from "./db";
+import { db } from "./db";
 import { users, User, SafeUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import rateLimit from "express-rate-limit";

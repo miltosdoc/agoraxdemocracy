@@ -125,47 +125,38 @@ async function seed() {
   //     sortition_synthesis → voting → decided / archived
   const day = 24 * 60 * 60 * 1000;
 
-  const [proposalDraft] = await db
-    .insert(proposals)
-    .values({
-      communityId: community1.id,
-      authorId: user2.id,
-      question: 'Δημιουργία γειτονιάς χωρίς αυτοκίνητα στο κέντρο της Αθήνας',
-      solution: 'Πιλοτικός πεζόδρομος σε 4 οικοδομικά τετράγωνα γύρω από την πλατεία Εξαρχείων, με σταδιακή επέκταση μετά από αξιολόγηση 12 μηνών.',
-      status: 'draft',
-      createdAt: new Date(Date.now() - 1 * day),
-    })
-    .returning();
+  await db.insert(proposals).values({
+    communityId: community1.id,
+    authorId: user2.id,
+    question: 'Δημιουργία γειτονιάς χωρίς αυτοκίνητα στο κέντρο της Αθήνας',
+    solution: 'Πιλοτικός πεζόδρομος σε 4 οικοδομικά τετράγωνα γύρω από την πλατεία Εξαρχείων, με σταδιακή επέκταση μετά από αξιολόγηση 12 μηνών.',
+    status: 'draft',
+    createdAt: new Date(Date.now() - 1 * day),
+  });
 
-  const [proposalReview] = await db
-    .insert(proposals)
-    .values({
-      communityId: community1.id,
-      authorId: user3.id,
-      question: 'Αναβάθμιση δημοτικών παιδικών χαρών με προσβάσιμο εξοπλισμό',
-      solution: 'Πρόγραμμα ανακαίνισης 25 παιδικών χαρών εντός 2 ετών με εξοπλισμό προσβάσιμο σε παιδιά με κινητικές δυσκολίες.',
-      status: 'review',
-      llmScore: '78',
-      llmFeedback: 'Ξεκάθαρος στόχος και χρονοδιάγραμμα. Χρειάζεται εκτίμηση κόστους και πηγής χρηματοδότησης.',
-      llmValidatedAt: new Date(Date.now() - 1 * day),
-      createdAt: new Date(Date.now() - 2 * day),
-    })
-    .returning();
+  await db.insert(proposals).values({
+    communityId: community1.id,
+    authorId: user3.id,
+    question: 'Αναβάθμιση δημοτικών παιδικών χαρών με προσβάσιμο εξοπλισμό',
+    solution: 'Πρόγραμμα ανακαίνισης 25 παιδικών χαρών εντός 2 ετών με εξοπλισμό προσβάσιμο σε παιδιά με κινητικές δυσκολίες.',
+    status: 'review',
+    llmScore: '78',
+    llmFeedback: 'Ξεκάθαρος στόχος και χρονοδιάγραμμα. Χρειάζεται εκτίμηση κόστους και πηγής χρηματοδότησης.',
+    llmValidatedAt: new Date(Date.now() - 1 * day),
+    createdAt: new Date(Date.now() - 2 * day),
+  });
 
-  const [proposalAuthorReview] = await db
-    .insert(proposals)
-    .values({
-      communityId: community1.id,
-      authorId: user2.id,
-      question: 'Επέκταση ωραρίου δημοτικών βιβλιοθηκών το Σαββατοκύριακο',
-      solution: 'Παροχή πρόσβασης στις δημοτικές βιβλιοθήκες κάθε Σάββατο και Κυριακή, 10:00–18:00, με μερική στελέχωση από εθελοντές.',
-      status: 'author_review',
-      llmScore: '81',
-      llmFeedback: 'Χρήσιμη υπηρεσία. Διευκρινίστε το πλαίσιο εθελοντισμού και τυχόν πρόσθετο κόστος.',
-      llmValidatedAt: new Date(Date.now() - 4 * day),
-      createdAt: new Date(Date.now() - 5 * day),
-    })
-    .returning();
+  await db.insert(proposals).values({
+    communityId: community1.id,
+    authorId: user2.id,
+    question: 'Επέκταση ωραρίου δημοτικών βιβλιοθηκών το Σαββατοκύριακο',
+    solution: 'Παροχή πρόσβασης στις δημοτικές βιβλιοθήκες κάθε Σάββατο και Κυριακή, 10:00–18:00, με μερική στελέχωση από εθελοντές.',
+    status: 'author_review',
+    llmScore: '81',
+    llmFeedback: 'Χρήσιμη υπηρεσία. Διευκρινίστε το πλαίσιο εθελοντισμού και τυχόν πρόσθετο κόστος.',
+    llmValidatedAt: new Date(Date.now() - 4 * day),
+    createdAt: new Date(Date.now() - 5 * day),
+  });
 
   const [proposal1] = await db
     .insert(proposals)
@@ -227,20 +218,17 @@ async function seed() {
     })
     .returning();
 
-  const [proposalArchived] = await db
-    .insert(proposals)
-    .values({
-      communityId: community3.id,
-      authorId: user2.id,
-      question: 'Καθολική απαγόρευση κυνηγιού στην Αττική',
-      solution: 'Πλήρης απαγόρευση κυνηγετικής δραστηριότητας σε όλη την Αττική χωρίς εξαιρέσεις ή μεταβατική περίοδο.',
-      status: 'archived',
-      llmScore: '34',
-      llmFeedback: 'Η πρόταση χρειάζεται μεγαλύτερη τεκμηρίωση επιπτώσεων και διαβούλευση με εμπλεκόμενες ομάδες πριν προχωρήσει.',
-      llmValidatedAt: new Date(Date.now() - 20 * day),
-      createdAt: new Date(Date.now() - 21 * day),
-    })
-    .returning();
+  await db.insert(proposals).values({
+    communityId: community3.id,
+    authorId: user2.id,
+    question: 'Καθολική απαγόρευση κυνηγιού στην Αττική',
+    solution: 'Πλήρης απαγόρευση κυνηγετικής δραστηριότητας σε όλη την Αττική χωρίς εξαιρέσεις ή μεταβατική περίοδο.',
+    status: 'archived',
+    llmScore: '34',
+    llmFeedback: 'Η πρόταση χρειάζεται μεγαλύτερη τεκμηρίωση επιπτώσεων και διαβούλευση με εμπλεκόμενες ομάδες πριν προχωρήσει.',
+    llmValidatedAt: new Date(Date.now() - 20 * day),
+    createdAt: new Date(Date.now() - 21 * day),
+  });
 
   console.log(`  ✅ 8 proposals created (one per lifecycle state)`);
 

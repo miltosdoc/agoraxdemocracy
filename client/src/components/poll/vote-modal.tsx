@@ -10,7 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, ApiError } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { format, formatDistance } from "date-fns";
+import { formatDistance } from "date-fns";
 import { el } from "date-fns/locale";
 import { PollWithOptions } from "@shared/schema";
 import { Vote, Clock, MapPin, AlertTriangle, Shield } from "lucide-react";
@@ -31,7 +31,7 @@ interface VoteModalProps {
 }
 
 export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
@@ -120,20 +120,6 @@ export function VoteModal({ poll, isOpen, onClose, onVoteSubmit }: VoteModalProp
       setLocationState("needsDetection");
       return;
     }
-
-    // Helper function for case-insensitive location matching
-    const locationMatches = (pollLocation: string | null | undefined, userLocation: string | null | undefined): boolean => {
-      if (!pollLocation || !userLocation) return false;
-
-      // Convert to lowercase and trim for comparison
-      const normalizedPoll = pollLocation.toLowerCase().trim();
-      const normalizedUser = userLocation.toLowerCase().trim();
-
-      // Check exact match or if one contains the other
-      return normalizedPoll === normalizedUser ||
-        normalizedPoll.includes(normalizedUser) ||
-        normalizedUser.includes(normalizedPoll);
-    };
 
     // Check if user's location matches poll restrictions
     let isEligible = false;

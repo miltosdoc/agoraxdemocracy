@@ -143,7 +143,6 @@ export default function AmendmentCommunitySignal() {
           {amendments.map(amendment => {
             const signal = signals.find(s => s.amendmentId === amendment.id);
             const netScore = (signal?.netScore ?? 0);
-            const totalVotes = (signal?.totalVotes ?? 0);
             const ratio = (signal?.ratio ?? 0);
             const flagged = signal?.flagged ?? false;
             const userVote = userVotes[amendment.id];

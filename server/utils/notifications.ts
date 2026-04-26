@@ -11,7 +11,7 @@
  */
 
 import { db } from '../db';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 // ─── Notification Types ─────────────────────────────────────────────────────
 

@@ -27,7 +27,7 @@ interface QuestionResult {
 }
 
 export function SurveyResultsModal({ poll, isOpen, onClose }: SurveyResultsModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { data: results, isLoading, error } = useQuery<QuestionResult[]>({
     queryKey: [`/api/surveys/${poll.id}/results`],
     enabled: isOpen,

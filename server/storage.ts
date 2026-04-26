@@ -7,12 +7,10 @@ import {
   InsertVote,
   RankingVote,
   InsertComment,
-  PollOption,
   Vote,
   Comment,
   PollWithOptions,
   PollNotification,
-  InsertPollNotification,
   users,
   polls,
   pollOptions,
@@ -23,11 +21,8 @@ import {
   pollAnswers,
   pollUserResponses,
   accountActivity,
-  InsertPollQuestion,
-  InsertPollAnswer,
   InsertPollUserResponse,
   InsertAccountActivity,
-  PollQuestion,
   PollAnswer,
   PollUserResponse,
   SelectAccountActivity,
@@ -36,7 +31,6 @@ import {
   Community,
   InsertCommunity,
   CommunityMember,
-  InsertCommunityMember,
   Proposal,
   InsertProposal,
   ProposalAmendment,
@@ -44,11 +38,9 @@ import {
   SortitionBody,
   InsertSortitionBody,
   SortitionMember,
-  InsertSortitionMember,
   DebateArgument,
   InsertDebateArgument,
   ProposalSupport,
-  InsertProposalSupport,
   ProposalVote,
   ProposalVoteChoice,
   communities,
@@ -99,7 +91,7 @@ import { reverseGeocode } from "./utils/reverse-geocoding";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
-import { eq, and, or, desc, asc, inArray, sql, isNull, not, count, gt, gte } from "drizzle-orm";
+import { eq, and, or, desc, asc, inArray, sql, isNull, count } from "drizzle-orm";
 import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
@@ -1027,9 +1019,7 @@ export class DatabaseStorage implements IStorage {
           .where(eq(pollQuestions.pollId, id));
 
         // Finally delete the poll
-        const result = await tx
-          .delete(polls)
-          .where(eq(polls.id, id));
+        await tx.delete(polls).where(eq(polls.id, id));
 
         return true;
       });
@@ -2588,7 +2578,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCommunity(id: number): Promise<boolean> {
-    const result = await db.delete(communities).where(eq(communities.id, id));
+    await db.delete(communities).where(eq(communities.id, id));
     return true;
   }
 

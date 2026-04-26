@@ -8,7 +8,7 @@ import { useLocation } from "wouter";
 import { Trash2 } from "lucide-react";
 
 export function DeleteAccount() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [deletePolls, setDeletePolls] = useState(false);
   const [open, setOpen] = useState(false);

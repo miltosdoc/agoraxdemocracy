@@ -16,7 +16,6 @@
  * - Transparent selection process (seed is recorded for verification)
  */
 
-import type { CommunityMember, SortitionBody, SortitionMember } from '@shared/schema';
 import type { IStorage } from '../storage';
 import { db } from '../db';
 import { sortitionBodies, sortitionMembers } from '@shared/schema';

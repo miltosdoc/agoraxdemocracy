@@ -1,5 +1,3 @@
-import type { Community } from './schema';
-
 export const COMMUNITY_TYPES = ['autonomous', 'managed'] as const;
 export type CommunityType = typeof COMMUNITY_TYPES[number];
 

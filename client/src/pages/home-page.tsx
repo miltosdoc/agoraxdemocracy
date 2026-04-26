@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Users, FileText, Vote, Shield, ArrowRight, Plus, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
+import { Users, FileText, ArrowRight, Plus, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';

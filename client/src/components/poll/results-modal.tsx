@@ -27,7 +27,7 @@ interface PollComment {
 }
 
 export function ResultsModal({ pollId, isOpen, onClose }: ResultsModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   const { data: poll, isLoading: pollLoading } = useQuery<PollWithOptions>({

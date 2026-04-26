@@ -57,9 +57,9 @@ export function LocationSelector({
   showValidationErrors = false,
   className = ""
 }: LocationSelectorProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   // State for drop-down selectors
-  const [countries, setCountries] = useState<CountryItem[]>(getCountries());
+  const [countries] = useState<CountryItem[]>(getCountries());
   const [regions, setRegions] = useState<RegionItem[]>([]);
   const [cities, setCities] = useState<CityItem[]>([]);
   

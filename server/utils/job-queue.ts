@@ -120,17 +120,13 @@ export async function failJob(jobId: string, error: string, retry: boolean = tru
   if (!job) return;
   
   if (retry && job.retryCount < job.maxRetries) {
-    // Schedule retry with exponential backoff
-    const backoffMs = Math.pow(2, job.retryCount) * 1000; // 1s, 2s, 4s, ...
-    
+    // The next poll picks the job back up; exponential backoff is not yet
+    // wired into the queue (no scheduled-job mechanism in place).
     await db.execute(sql`
-      UPDATE jobs 
+      UPDATE jobs
       SET status = 'pending', error = ${error}, retry_count = ${job.retryCount + 1}, started_at = NULL
       WHERE id = ${jobId}
     `);
-    
-    // In production, you'd use a delayed job or cron to retry after backoff
-    // For now, the next poll will pick it up
   } else {
     // Max retries exceeded — mark as permanently failed
     await db.execute(sql`

@@ -7,16 +7,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Share2, 
-  Copy, 
-  Check,
-  Facebook,
-  Twitter,
-  Linkedin,
-  MessageCircle,
-  Send
-} from "lucide-react";
+import { Share2, Copy, Check } from "lucide-react";
 import { useShare } from "@/hooks/use-share";
 import { useTranslation } from "@/hooks/use-translation";
 import { FaFacebook, FaTwitter, FaLinkedin, FaWhatsapp, FaTelegram } from "react-icons/fa";
@@ -38,7 +29,7 @@ export default function ShareButtonNew({
   size = "default",
   className 
 }: ShareButtonProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const share = useShare();
 

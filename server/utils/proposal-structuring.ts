@@ -20,8 +20,6 @@
  * Human review (via sortition panel) is always the final gate.
  */
 
-import type { Proposal } from '@shared/schema';
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface StructuredProposal {

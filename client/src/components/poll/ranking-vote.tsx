@@ -13,7 +13,7 @@ interface RankingVoteProps {
 }
 
 export function RankingVote({ options, onChange }: RankingVoteProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   // We create a copy of the options array because we'll be reordering it
   const [items, setItems] = useState<RankableItem[]>([...options]);
 

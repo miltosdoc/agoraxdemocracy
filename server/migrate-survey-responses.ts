@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { pollUserResponses, pollQuestions } from "@shared/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 /**
  * Migration script to normalize legacy multiple choice survey responses.
@@ -138,15 +138,9 @@ export async function migrateSurveyResponses() {
 }
 
 // Run migration if called directly
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 if (import.meta.url === `file://${process.argv[1]}`) {
   migrateSurveyResponses()
-    .then((result) => {
+    .then(() => {
       console.log("\nMigration completed successfully!");
       process.exit(0);
     })

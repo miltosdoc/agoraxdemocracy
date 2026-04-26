@@ -24,11 +24,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { 
-  FileText, CheckCircle, Users, MessageSquare, Vote, 
-  ArrowRight, Clock, ThumbsUp, ThumbsDown,
-  Edit3, Shield, PenTool, TrendingUp, 
-  Zap, Globe, Lock, BarChart3, ChevronRight, ExternalLink
+import {
+  FileText, CheckCircle, Users, MessageSquare, Vote,
+  ArrowRight, ThumbsUp, ThumbsDown,
+  Edit3, Shield, PenTool, TrendingUp,
+  Zap, Lock, BarChart3, ExternalLink
 } from 'lucide-react';
 import { useTranslation } from '@/hooks/use-translation';
 import { Link } from 'wouter';

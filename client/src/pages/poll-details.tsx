@@ -26,18 +26,15 @@ import {
   Edit,
   BarChart,
   User,
-  Tag,
   Vote,
   Info,
   ChevronLeft,
-  Share2,
   MessageSquare,
   LogIn,
   UserPlus,
   Loader2,
   MapPin,
   Map,
-  Shield,
   Building,
   Home,
   Mail,
@@ -46,8 +43,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/hooks/use-translation";
 import { PollWithOptions, PollWithQuestions } from "@shared/schema";
-import { reverseGeocode } from "@/lib/geofencing";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface PollComment {
@@ -198,7 +194,7 @@ function LocationDetails({ latitude, longitude }: LocationDetailsProps) {
 }
 
 export default function PollDetailsPage() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const params = useParams();
   const pollId = parseInt(params.id || "0");
   const [, navigate] = useLocation();

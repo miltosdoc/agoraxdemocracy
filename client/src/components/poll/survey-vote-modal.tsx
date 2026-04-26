@@ -9,14 +9,13 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient, ApiError } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { PollWithQuestions, PollQuestionWithAnswers } from "@shared/schema";
-import { Vote, Clock, MapPin, AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
+import { PollWithQuestions } from "@shared/schema";
+import { MapPin, AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LocationDetector } from "@/components/user/location-detector";
 import { isWithinGeofence } from "@/lib/geofencing";
 import { useTranslation } from "@/hooks/use-translation";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { HtmlContent } from "@/components/ui/html-content";
 import { RankingVote } from "./ranking-vote";
 import { Progress } from "@/components/ui/progress";
 
@@ -34,7 +33,7 @@ interface QuestionResponse {
 }
 
 export function SurveyVoteModal({ poll, isOpen, onClose, onVoteSubmit }: SurveyVoteModalProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [, navigate] = useLocation();
   const [responses, setResponses] = useState<Record<number, QuestionResponse>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);

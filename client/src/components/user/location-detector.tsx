@@ -41,7 +41,7 @@ export function LocationDetector({ onComplete }: { onComplete?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   
   const [showManualSelection, setShowManualSelection] = useState(false);
-  const [isGpsLocation, setIsGpsLocation] = useState<boolean>(
+  const [, setIsGpsLocation] = useState<boolean>(
     !!(user?.latitude && user?.longitude)
   );
 
