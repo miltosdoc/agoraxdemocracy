@@ -6,11 +6,13 @@ import {
   sortitionMembers,
   sortitionBodies,
   sortitionNotifications,
+  communityMembers,
+  proposals,
   castProposalVoteSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import {
   authorReviewAmendment,
   castRejectionVote,
@@ -1556,6 +1558,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enriched);
     } catch (error) {
       console.error("Error listing sortition bodies:", error);
+      res.status(500).json({ message: "Failed to list sortition bodies" });
+    }
+  });
+
+  // List sortition bodies across all communities the user is a member of.
+  // Used by the personal sortition dashboard.
+  app.get("/api/sortition/my-bodies", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const memberships = await db
+        .select({ communityId: communityMembers.communityId })
+        .from(communityMembers)
+        .where(eq(communityMembers.userId, userId));
+
+      if (memberships.length === 0) {
+        return res.json([]);
+      }
+
+      const communityIds = memberships.map(m => m.communityId);
+
+      const bodies = await db
+        .select()
+        .from(sortitionBodies)
+        .where(inArray(sortitionBodies.communityId, communityIds))
+        .orderBy(desc(sortitionBodies.createdAt));
+
+      const enriched = await Promise.all(
+        bodies.map(async (body) => {
+          const members = await storage.getSortitionMembers(body.id);
+          const community = await storage.getCommunity(body.communityId);
+          const proposal = body.proposalId ? await storage.getProposal(body.proposalId) : null;
+          const responded = members.filter(m => m.responded).length;
+          const scores = members
+            .filter(m => m.responded && m.score !== null)
+            .map(m => parseFloat(m.score as unknown as string))
+            .filter(n => Number.isFinite(n));
+          const averageScore = scores.length
+            ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+            : null;
+          const deadline = body.selectedAt
+            ? new Date(new Date(body.selectedAt).getTime() + (body.responseHours ?? 72) * 60 * 60 * 1000).toISOString()
+            : null;
+          const userMember = members.find(m => m.userId === userId) ?? null;
+
+          return {
+            id: body.id,
+            communityId: body.communityId,
+            communityName: community?.name ?? null,
+            proposalId: body.proposalId,
+            proposalQuestion: proposal?.question ?? null,
+            purpose: body.purpose,
+            status: body.status,
+            size: body.size,
+            memberCount: members.length,
+            respondedCount: responded,
+            averageScore,
+            selectedAt: body.selectedAt,
+            completedAt: body.completedAt,
+            deadline,
+            isMember: !!userMember,
+            userAssignmentId: userMember?.id ?? null,
+            userResponded: userMember?.responded ?? false,
+          };
+        })
+      );
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error listing user's sortition bodies:", error);
       res.status(500).json({ message: "Failed to list sortition bodies" });
     }
   });
