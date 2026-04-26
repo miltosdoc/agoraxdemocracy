@@ -7,7 +7,7 @@
 
 ## Tasks (execute in order)
 
-1. **Amendment merging logic** — When multiple amendments target the same proposal, implement merge/dedup logic. Amendments with overlapping text should be consolidated or flagged for author review.
+1. **[DONE] Amendment merging logic** — ✅ Committed `7727ed7`. Includes amendment-similarity.ts (TF-IDF cosine similarity), updated amendment-merger.ts, integration test. Legacy survey scripts removed.
 
 2. **LLM validation integration** — Wire the proposal review step to call the LLM validation endpoint. Proposals in `review` state should be scored and feedback stored in `llm_score` / `llm_feedback` columns. Use the openrouter free model configured for AgoraX.
 
@@ -17,7 +17,7 @@
 
 5. **Server-side dead code** — Remove poll-related routes from `server/routes.ts` that are no longer needed (poll creation, survey routes, poll results endpoints). Keep the HTML preview route for social bots if still useful.
 
-6. **Orphaned SQL files** — Clean up `seed-proposals.sql`, `seed-proposals-fix.sql`, `seed-all.sql`, `seed_demo.sql` if they're superseded by `server/seed-demo.ts`.
+6. **[DONE] Orphaned SQL files** — ✅ Committed `cb73a93`. Removed seed-all.sql, seed-proposals-fix.sql, seed-proposals.sql. seed_demo.sql remains (referenced by README + integration tests).
 
 ## Constraints
 - Do NOT run build steps (no `npm run build`, `pnpm build`, etc.)
