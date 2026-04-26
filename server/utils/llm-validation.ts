@@ -124,7 +124,7 @@ async function callLLM(prompt: string): Promise<string> {
       throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { message?: { content?: string } };
     return data.message?.content || JSON.stringify({ score: 50, feedback: 'Error parsing response', details: { structure: 5, specificity: 5, feasibility: 5, completeness: 5, clarity: 5 } });
   }
 
@@ -151,7 +151,7 @@ async function callLLM(prompt: string): Promise<string> {
     throw new Error(`LLM API error: ${response.status} ${response.statusText} — ${errorBody}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { choices?: { message?: { content?: string } }[] };
   const content = data.choices?.[0]?.message?.content;
 
   if (!content) {

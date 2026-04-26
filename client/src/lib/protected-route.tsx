@@ -17,7 +17,7 @@ export function ProtectedRoute({
 
   if (DEMO_MODE) {
     // Bypass auth in demo mode
-    return <Route path={path} component={Component} />;
+    return <Route path={path} component={Component as ComponentType<any>} />;
   }
 
   if (isLoading) {
@@ -38,5 +38,5 @@ export function ProtectedRoute({
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return <Route path={path} component={Component as ComponentType<any>} />;
 }

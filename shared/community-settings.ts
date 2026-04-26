@@ -24,25 +24,27 @@ export interface CommunitySettingsInput {
   requireGovgrVerification?: unknown;
 }
 
-export type CommunityCreateSettings = Pick<
-  Community,
-  | 'name'
-  | 'description'
-  | 'type'
-  | 'governanceModel'
-  | 'maxConcurrentVotes'
-  | 'minParticipationPct'
-  | 'sortitionSize'
-  | 'sortitionMode'
-  | 'sortitionResponseHours'
-  | 'amendmentThreshold'
-  | 'maxAmendmentsPerProposal'
-  | 'requireGovgrVerification'
->;
+// Sanitized community settings — narrow literal types instead of the wide
+// nullable column types from `Community`. These are what create/update routes
+// can safely accept from the client.
+export interface CommunityCreateSettings {
+  name: string;
+  description?: string | null;
+  type: CommunityType;
+  governanceModel: CommunityGovernanceModel;
+  maxConcurrentVotes: number;
+  minParticipationPct: string;
+  sortitionSize: number;
+  sortitionMode: CommunitySortitionMode;
+  sortitionResponseHours: number;
+  amendmentThreshold: string;
+  maxAmendmentsPerProposal: number;
+  requireGovgrVerification: boolean;
+}
 
 export type CommunityUpdateSettings = Partial<CommunityCreateSettings>;
 
-const DEFAULT_COMMUNITY_SETTINGS: Omit<CommunityCreateSettings, 'name' | 'description'> = {
+const DEFAULT_COMMUNITY_SETTINGS = {
   type: 'autonomous',
   governanceModel: 'no_admin',
   maxConcurrentVotes: -1,
@@ -53,7 +55,7 @@ const DEFAULT_COMMUNITY_SETTINGS: Omit<CommunityCreateSettings, 'name' | 'descri
   amendmentThreshold: '0.5',
   maxAmendmentsPerProposal: -1,
   requireGovgrVerification: false,
-};
+} as const;
 
 function optionalString(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;

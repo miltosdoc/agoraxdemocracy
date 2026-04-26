@@ -59,10 +59,10 @@ export default function AmendmentCommunitySignal() {
   async function loadData() {
     try {
       const [amendmentsRes, signalsRes] = await Promise.all([
-        api.get(`/api/proposals/${proposalId}/amendments`),
-        api.get(`/api/proposals/${proposalId}/amendments/signals`),
+        api.get<(RejectedAmendment & { authorDecision?: string })[]>(`/api/proposals/${proposalId}/amendments`),
+        api.get<CommunitySignal[]>(`/api/proposals/${proposalId}/amendments/signals`),
       ]);
-      setAmendments(amendmentsRes.data.filter((a: any) => a.authorDecision === 'rejected'));
+      setAmendments(amendmentsRes.data.filter((a) => a.authorDecision === 'rejected'));
       setSignals(signalsRes.data);
     } catch (e) {
       setError(t('amendment.error.loadDataFailed'));

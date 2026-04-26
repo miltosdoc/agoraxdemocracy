@@ -210,7 +210,7 @@ export interface IStorage {
   markNotificationAsRead(notificationId: number): Promise<PollNotification>;
 
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   // Analytics methods
   getAnalyticsOverview(): Promise<{
@@ -303,7 +303,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
@@ -590,7 +590,10 @@ export class DatabaseStorage implements IStorage {
       } = filters;
 
       // Build query
-      let query = db.select().from(polls);
+      // Drizzle's chained query types narrow at every step, which makes
+      // reassigning `query` after .where/.orderBy/.limit not type-check. We
+      // build the query imperatively and cast to `any` for the chain.
+      let query: any = db.select().from(polls);
       const conditions = [];
 
       // Apply filters
@@ -774,7 +777,7 @@ export class DatabaseStorage implements IStorage {
         countConditions.push(isNull(polls.communityId));
       }
 
-      let countQuery = baseQuery;
+      let countQuery: any = baseQuery;
       if (countConditions.length > 0) {
         countQuery = countQuery.where(and(...countConditions));
       }
@@ -803,7 +806,7 @@ export class DatabaseStorage implements IStorage {
 
       // Enrich polls with options and creator info
       const enrichedPolls = await Promise.all(
-        resultsPolls.map(poll => this.enrichPoll(poll, userId))
+        resultsPolls.map((poll: Poll) => this.enrichPoll(poll, userId))
       );
 
       return {
@@ -861,7 +864,7 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.communityId, userId);
+      const isMember = await this.isCommunityMember(poll.communityId, userId);
       if (!isMember) {
         // User is not a member of this community
         return undefined;
@@ -1124,7 +1127,7 @@ export class DatabaseStorage implements IStorage {
 
         // Update parent references for questions
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentId = createdQuestions[question.parentId];
 
@@ -1146,6 +1149,7 @@ export class DatabaseStorage implements IStorage {
         const createdAnswers: Record<number, number> = {}; // Map temporary answer IDs to real IDs
 
         for (const { questionId, answers: questionAnswers } of answers) {
+          if (questionId === undefined) continue;
           const realQuestionId = createdQuestions[questionId];
 
           if (!realQuestionId) {
@@ -1155,6 +1159,7 @@ export class DatabaseStorage implements IStorage {
 
           for (const answer of questionAnswers) {
             const tempAnswerId = answer.id; // Temporary ID for reference
+            if (tempAnswerId === undefined) continue;
 
             const [insertedAnswer] = await tx
               .insert(pollAnswers)
@@ -1173,7 +1178,7 @@ export class DatabaseStorage implements IStorage {
 
         // Now update parent answer IDs for questions that have them
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentAnswerId = createdAnswers[question.parentAnswerId];
 
@@ -1213,7 +1218,7 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.communityId, userId);
+      const isMember = await this.isCommunityMember(poll.communityId, userId);
       if (!isMember) {
         // User is not a member of this community
         return undefined;
@@ -1279,7 +1284,7 @@ export class DatabaseStorage implements IStorage {
     for (const question of questions) {
       if (question.parentId && questionMap[question.parentId]) {
         // Add this question as a child of its parent
-        questionMap[question.parentId].childQuestions.push(questionMap[question.id]);
+        questionMap[question.parentId].childQuestions!.push(questionMap[question.id]);
       }
     }
 
@@ -1335,7 +1340,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: Omit<InsertPollQuestion, 'pollId'>[], answers: { questionId?: number; answers: { id?: number; text: string; order: number }[] }[]): Promise<Poll> {
+  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll> {
     try {
       // Check if there are any responses
       const hasResponses = await this.hasAnyResponses(id);
@@ -1401,12 +1406,14 @@ export class DatabaseStorage implements IStorage {
         const createdAnswers: Record<number, number> = {};
 
         for (const { questionId, answers: questionAnswers } of answers) {
+          if (questionId === undefined) continue;
           const realQuestionId = createdQuestions[questionId];
 
           if (!realQuestionId) continue;
 
           for (const answer of questionAnswers) {
             const tempAnswerId = answer.id;
+            if (tempAnswerId === undefined) continue;
 
             const [insertedAnswer] = await tx
               .insert(pollAnswers)
@@ -1423,7 +1430,7 @@ export class DatabaseStorage implements IStorage {
 
         // Finally update parent relationships
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentId = createdQuestions[question.parentId];
             const realParentAnswerId = createdAnswers[question.parentAnswerId];
@@ -1956,7 +1963,8 @@ export class DatabaseStorage implements IStorage {
         p_locationCityId: polls.locationCityId,
         p_locationRegionId: polls.locationRegionId,
         p_locationCountryId: polls.locationCountryId,
-        p_geoRegion: polls.geoRegion
+        p_geoRegion: polls.geoRegion,
+        p_communityId: polls.communityId,
       })
       .from(pollNotifications)
       .innerJoin(polls, eq(pollNotifications.pollId, polls.id))
@@ -2002,7 +2010,8 @@ export class DatabaseStorage implements IStorage {
         locationCityId: n.p_locationCityId,
         locationRegionId: n.p_locationRegionId,
         locationCountryId: n.p_locationCountryId,
-        geoRegion: n.p_geoRegion
+        geoRegion: n.p_geoRegion,
+        communityId: n.p_communityId,
       }
     }));
   }
@@ -2031,17 +2040,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(pollOptions.order));
 
     // Handle community mode or get creator
-    let safeCreator;
+    let safeCreator: User;
 
     if (poll.communityMode) {
       // For community mode, use a generic "Community" creator
-      safeCreator = {
-        id: 0, // Using 0 as a special ID for community
-        username: "community",
-        password: "",
-        name: "Κοινότητα",
-        email: ""
-      };
+      safeCreator = { id: 0, username: "community", password: "", name: "Κοινότητα", email: "" } as User;
     } else {
       // Get the actual creator
       const [creator] = await db
@@ -2050,13 +2053,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, poll.creatorId));
 
       // If no creator is found (should not happen), provide a default
-      safeCreator = creator || {
-        id: poll.creatorId,
-        username: "unknown",
-        password: "",
-        name: "Άγνωστος",
-        email: ""
-      };
+      safeCreator = creator ?? ({ id: poll.creatorId, username: "unknown", password: "", name: "Άγνωστος", email: "" } as User);
     }
 
     // Get vote count based on poll type
@@ -2640,7 +2637,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(communityMembers)
       .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
-    return member?.role;
+    return member?.role ?? undefined;
   }
 
   // ─── Demopolis: Proposal methods ───────────────────────────────────────────

@@ -348,8 +348,8 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/communities').catch(() => ({ data: [] as Community[] })),
-      api.get('/api/proposals?limit=10').catch(() => ({ data: [] as Proposal[] })),
+      api.get<Community[]>('/api/communities').catch(() => ({ data: [] as Community[] })),
+      api.get<Proposal[]>('/api/proposals?limit=10').catch(() => ({ data: [] as Proposal[] })),
     ]).then(([commResp, propResp]) => {
       setCommunities(commResp.data || []);
       setProposals(propResp.data || []);

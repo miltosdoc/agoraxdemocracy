@@ -46,7 +46,7 @@ export default function SortitionScoringPage() {
     if (!assignmentId) return;
 
     // DEMO MODE: Use mock data when backend is unavailable
-    api.get(`/api/sortition/assignments/${assignmentId}`)
+    api.get<SortitionAssignment>(`/api/sortition/assignments/${assignmentId}`)
       .then(resp => {
         setAssignment(resp.data);
         setLoading(false);

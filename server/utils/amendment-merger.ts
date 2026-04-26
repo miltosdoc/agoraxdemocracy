@@ -30,7 +30,7 @@ export interface AmendmentSummary {
   type: string;
   text: string;
   authorName: string;
-  status: string;
+  status: string | null;
   supportCount: number;
   opposeCount: number;
 }

@@ -67,6 +67,7 @@ interface LocationDetailsProps {
 }
 
 function LocationDetails({ latitude, longitude }: LocationDetailsProps) {
+  const { t } = useTranslation();
   const [locationData, setLocationData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

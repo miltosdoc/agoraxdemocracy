@@ -35,7 +35,8 @@ export function CommunityForm() {
         type,
         governanceModel,
       });
-      navigate(`/communities/${resp.data.id}`);
+      const data = resp.data as { id: number };
+      navigate(`/communities/${data.id}`);
     } catch (err: any) {
       setError(err.response?.data?.message || t('community.create_error'));
     }

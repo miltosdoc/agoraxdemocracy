@@ -54,8 +54,8 @@ export default function ProposalDetailPage() {
     if (!proposalId) return;
 
     Promise.all([
-      api.get(`/api/proposals/${proposalId}`),
-      api.get(`/api/proposals/${proposalId}/support`).catch(() => ({ data: { support: 0, oppose: 0 } })),
+      api.get<Proposal>(`/api/proposals/${proposalId}`),
+      api.get<SupportCounts>(`/api/proposals/${proposalId}/support`).catch(() => ({ data: { support: 0, oppose: 0 } as SupportCounts })),
     ]).then(([proposalResp, supportResp]) => {
       setProposal(proposalResp.data);
       setSupport(supportResp.data);
@@ -85,7 +85,7 @@ export default function ProposalDetailPage() {
     if (!proposalId || voting) return;
     setVoting(true);
     try {
-      const resp = await api.post(`/api/proposals/${proposalId}/support`, { type });
+      const resp = await api.post<SupportCounts>(`/api/proposals/${proposalId}/support`, { type });
       setSupport(resp.data);
       setVoted(true);
     } catch (error) {
