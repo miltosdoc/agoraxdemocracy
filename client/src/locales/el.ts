@@ -149,7 +149,13 @@ const el: TranslationDictionary = {
   'proposal.opposeCount': 'Αντίθεση ({count})',
   'proposal.totalVotes': 'Συνολικές ψήφοι: {count}',
   'proposal.proposalDecided': 'Αυτή η πρόταση έχει αποφασιστεί.',
+  'proposal.proposalArchived': 'Η πρόταση αρχειοθετήθηκε (δεν επιτεύχθηκε απαρτία).',
   'proposal.votingNotOpen': 'Η ψηφοφορία δεν έχει ανοίξει. Τρέχουσα κατάσταση: {status}',
+  'proposal.abstain': 'Αποχή',
+  'proposal.finalize': 'Οριστικοποίηση ψηφοφορίας',
+  'proposal.participation': 'Συμμετοχή: {pct}% (απαρτία {quorum}%)',
+  'proposal.voteFailed': 'Αποτυχία καταγραφής ψήφου',
+  'proposal.finalizeFailed': 'Αποτυχία οριστικοποίησης ψήφου',
 
   // Amendment Author Review
   'amendment.authorReview.title': 'Κρίση Τροπολογιών',

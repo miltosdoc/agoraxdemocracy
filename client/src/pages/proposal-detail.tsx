@@ -267,14 +267,14 @@ export default function ProposalDetailPage() {
               {isVoting ? (
                 <div className="space-y-6">
                   <p className="text-muted-foreground">{t('proposal.votingOpen')}</p>
-                  
-                  {!voted ? (
+
+                  {!userVoted ? (
                     <div className="flex gap-4 justify-center">
                       <Button
                         size="lg"
                         variant="outline"
                         className="gap-2 border-green-500 text-green-600 hover:bg-green-50"
-                        onClick={() => handleVote('support')}
+                        onClick={() => handleCastVote('yes')}
                         disabled={voting}
                       >
                         <ThumbsUp className="w-5 h-5" />
@@ -284,11 +284,21 @@ export default function ProposalDetailPage() {
                         size="lg"
                         variant="outline"
                         className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
-                        onClick={() => handleVote('oppose')}
+                        onClick={() => handleCastVote('no')}
                         disabled={voting}
                       >
                         <ThumbsDown className="w-5 h-5" />
                         {t('proposal.oppose')}
+                      </Button>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => handleCastVote('abstain')}
+                        disabled={voting}
+                      >
+                        <MinusCircle className="w-5 h-5" />
+                        {t('proposal.abstain')}
                       </Button>
                     </div>
                   ) : (
@@ -298,70 +308,89 @@ export default function ProposalDetailPage() {
                     </div>
                   )}
 
+                  {voteError && (
+                    <div className="flex items-center justify-center gap-2 text-red-600 text-sm">
+                      <XCircle className="w-4 h-4" />
+                      <span>{voteError}</span>
+                    </div>
+                  )}
+
                   <div className="p-4 bg-muted rounded">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="w-4 h-4 text-green-600" />
-                        {t('proposal.supportCount', { count: support.support })}
+                        {t('proposal.supportCount', { count: voteResults.yes })}
                       </span>
-                      <span className="font-medium">{supportPercent}%</span>
+                      <span className="font-medium">{yesPercent}%</span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-3 mb-3">
-                      <div 
-                        className="bg-green-500 h-3 rounded-full transition-all" 
-                        style={{ width: `${supportPercent}%` }} 
+                      <div
+                        className="bg-green-500 h-3 rounded-full transition-all"
+                        style={{ width: `${yesPercent}%` }}
                       />
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1">
                         <ThumbsDown className="w-4 h-4 text-red-600" />
-                        {t('proposal.opposeCount', { count: support.oppose })}
+                        {t('proposal.opposeCount', { count: voteResults.no })}
                       </span>
-                      <span className="font-medium">{opposePercent}%</span>
+                      <span className="font-medium">{noPercent}%</span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-3 mt-1">
-                      <div 
-                        className="bg-red-500 h-3 rounded-full transition-all" 
-                        style={{ width: `${opposePercent}%` }} 
+                      <div
+                        className="bg-red-500 h-3 rounded-full transition-all"
+                        style={{ width: `${noPercent}%` }}
                       />
                     </div>
                     <div className="text-center text-xs text-muted-foreground mt-2">
-                      {t('proposal.totalVotes', { count: totalVotes })}
+                      {t('proposal.totalVotes', { count: voteResults.total })}
+                      {' · '}
+                      {t('proposal.participation', { pct: participationPercent, quorum: quorumPercent })}
                     </div>
                   </div>
+
+                  {userIsAuthor && (
+                    <div className="flex justify-center">
+                      <Button onClick={handleFinalize} disabled={finalizing}>
+                        {finalizing ? t('general.loading') : t('proposal.finalize')}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              ) : isDecided ? (
+              ) : isDecided || isArchived ? (
                 <div>
-                  <p className="mb-4 text-muted-foreground">{t('proposal.proposalDecided')}</p>
+                  <p className="mb-4 text-muted-foreground">
+                    {isArchived ? t('proposal.proposalArchived') : t('proposal.proposalDecided')}
+                  </p>
                   <div className="p-4 bg-muted rounded">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="w-4 h-4 text-green-600" />
-                        {t('proposal.supportCount', { count: support.support })}
+                        {t('proposal.supportCount', { count: voteResults.yes })}
                       </span>
-                      <span className="font-medium">{supportPercent}%</span>
+                      <span className="font-medium">{yesPercent}%</span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-3 mb-3">
-                      <div 
-                        className="bg-green-500 h-3 rounded-full" 
-                        style={{ width: `${supportPercent}%` }} 
+                      <div
+                        className="bg-green-500 h-3 rounded-full"
+                        style={{ width: `${yesPercent}%` }}
                       />
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1">
                         <ThumbsDown className="w-4 h-4 text-red-600" />
-                        {t('proposal.opposeCount', { count: support.oppose })}
+                        {t('proposal.opposeCount', { count: voteResults.no })}
                       </span>
-                      <span className="font-medium">{opposePercent}%</span>
+                      <span className="font-medium">{noPercent}%</span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-3 mt-1">
-                      <div 
-                        className="bg-red-500 h-3 rounded-full" 
-                        style={{ width: `${opposePercent}%` }} 
+                      <div
+                        className="bg-red-500 h-3 rounded-full"
+                        style={{ width: `${noPercent}%` }}
                       />
                     </div>
                     <div className="text-center text-xs text-muted-foreground mt-2">
-                      {t('proposal.totalVotes', { count: totalVotes })}
+                      {t('proposal.totalVotes', { count: voteResults.total })}
                     </div>
                   </div>
                 </div>

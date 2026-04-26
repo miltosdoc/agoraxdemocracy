@@ -149,7 +149,13 @@ const en: TranslationDictionary = {
   'proposal.opposeCount': 'Oppose ({count})',
   'proposal.totalVotes': 'Total votes: {count}',
   'proposal.proposalDecided': 'This proposal has been decided.',
+  'proposal.proposalArchived': 'This proposal was archived (quorum not met).',
   'proposal.votingNotOpen': 'Voting not yet open. Current status: {status}',
+  'proposal.abstain': 'Abstain',
+  'proposal.finalize': 'Finalize vote',
+  'proposal.participation': 'Participation: {pct}% (quorum {quorum}%)',
+  'proposal.voteFailed': 'Failed to cast vote',
+  'proposal.finalizeFailed': 'Failed to finalize vote',
 
   // Amendment Author Review
   'amendment.authorReview.title': 'Amendment Review',
