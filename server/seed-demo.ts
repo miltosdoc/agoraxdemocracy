@@ -12,12 +12,12 @@ import {
   communityMembers,
   proposals,
   proposalAmendments,
+  proposalVotes,
   debateArguments,
   sortitionBodies,
   sortitionMembers,
   adminActions,
 } from '../shared/schema';
-import { eq } from 'drizzle-orm';
 
 async function seed() {
   console.log('🌱 Seeding demo data...\n');
@@ -118,6 +118,55 @@ async function seed() {
   console.log(`  ✅ 7 community memberships created`);
 
   // ─── Proposals ────────────────────────────────────────────────────────────
+  // Seed one proposal per canonical lifecycle state defined in
+  // server/utils/proposal-state-machine.ts so the demo dashboard exercises
+  // every branch of the UI:
+  //   draft → review → author_review → community_signal →
+  //     sortition_synthesis → voting → decided / archived
+  const day = 24 * 60 * 60 * 1000;
+
+  const [proposalDraft] = await db
+    .insert(proposals)
+    .values({
+      communityId: community1.id,
+      authorId: user2.id,
+      question: 'Δημιουργία γειτονιάς χωρίς αυτοκίνητα στο κέντρο της Αθήνας',
+      solution: 'Πιλοτικός πεζόδρομος σε 4 οικοδομικά τετράγωνα γύρω από την πλατεία Εξαρχείων, με σταδιακή επέκταση μετά από αξιολόγηση 12 μηνών.',
+      status: 'draft',
+      createdAt: new Date(Date.now() - 1 * day),
+    })
+    .returning();
+
+  const [proposalReview] = await db
+    .insert(proposals)
+    .values({
+      communityId: community1.id,
+      authorId: user3.id,
+      question: 'Αναβάθμιση δημοτικών παιδικών χαρών με προσβάσιμο εξοπλισμό',
+      solution: 'Πρόγραμμα ανακαίνισης 25 παιδικών χαρών εντός 2 ετών με εξοπλισμό προσβάσιμο σε παιδιά με κινητικές δυσκολίες.',
+      status: 'review',
+      llmScore: '78',
+      llmFeedback: 'Ξεκάθαρος στόχος και χρονοδιάγραμμα. Χρειάζεται εκτίμηση κόστους και πηγής χρηματοδότησης.',
+      llmValidatedAt: new Date(Date.now() - 1 * day),
+      createdAt: new Date(Date.now() - 2 * day),
+    })
+    .returning();
+
+  const [proposalAuthorReview] = await db
+    .insert(proposals)
+    .values({
+      communityId: community1.id,
+      authorId: user2.id,
+      question: 'Επέκταση ωραρίου δημοτικών βιβλιοθηκών το Σαββατοκύριακο',
+      solution: 'Παροχή πρόσβασης στις δημοτικές βιβλιοθήκες κάθε Σάββατο και Κυριακή, 10:00–18:00, με μερική στελέχωση από εθελοντές.',
+      status: 'author_review',
+      llmScore: '81',
+      llmFeedback: 'Χρήσιμη υπηρεσία. Διευκρινίστε το πλαίσιο εθελοντισμού και τυχόν πρόσθετο κόστος.',
+      llmValidatedAt: new Date(Date.now() - 4 * day),
+      createdAt: new Date(Date.now() - 5 * day),
+    })
+    .returning();
+
   const [proposal1] = await db
     .insert(proposals)
     .values({
@@ -128,8 +177,8 @@ async function seed() {
       status: 'community_signal',
       llmScore: '72',
       llmFeedback: 'Η πρόταση είναι καλά δομημένη με σαφή στόχο και χρονοδιάγραμμα. Προτείνεται να προστεθούν λεπτομέρειες για τη χρηματοδότηση και τις τοποθεσίες.',
-      llmValidatedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      llmValidatedAt: new Date(Date.now() - 6 * day),
+      createdAt: new Date(Date.now() - 7 * day),
     })
     .returning();
 
@@ -143,8 +192,8 @@ async function seed() {
       status: 'sortition_synthesis',
       llmScore: '85',
       llmFeedback: 'Εξαιρετικά τεκμηριωμένη πρόταση με συγκεκριμένο προϋπολογισμό και έκταση. Απαιτείται επιπλέον τεκμηρίωση για τις πηγές χρηματοδότησης.',
-      llmValidatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      llmValidatedAt: new Date(Date.now() - 2 * day),
+      createdAt: new Date(Date.now() - 3 * day),
     })
     .returning();
 
@@ -158,8 +207,8 @@ async function seed() {
       status: 'decided',
       llmScore: '92',
       llmFeedback: 'Υψηλής ποιότητας πρόταση με σαφές χρονοδιάγραμμα και μετρήσιμους στόχους.',
-      llmValidatedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+      llmValidatedAt: new Date(Date.now() - 13 * day),
+      createdAt: new Date(Date.now() - 14 * day),
     })
     .returning();
 
@@ -173,12 +222,27 @@ async function seed() {
       status: 'voting',
       llmScore: '68',
       llmFeedback: 'Η πρόταση έχει περιβαλλοντική αξία αλλά χρειάζεται περισσότερη τεκμηρίωση για τις οικονομικές επιπτώσεις στους κατοίκους της περιοχής.',
-      llmValidatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      llmValidatedAt: new Date(Date.now() - 4 * day),
+      createdAt: new Date(Date.now() - 5 * day),
     })
     .returning();
 
-  console.log(`  ✅ 4 proposals created`);
+  const [proposalArchived] = await db
+    .insert(proposals)
+    .values({
+      communityId: community3.id,
+      authorId: user2.id,
+      question: 'Καθολική απαγόρευση κυνηγιού στην Αττική',
+      solution: 'Πλήρης απαγόρευση κυνηγετικής δραστηριότητας σε όλη την Αττική χωρίς εξαιρέσεις ή μεταβατική περίοδο.',
+      status: 'archived',
+      llmScore: '34',
+      llmFeedback: 'Η πρόταση χρειάζεται μεγαλύτερη τεκμηρίωση επιπτώσεων και διαβούλευση με εμπλεκόμενες ομάδες πριν προχωρήσει.',
+      llmValidatedAt: new Date(Date.now() - 20 * day),
+      createdAt: new Date(Date.now() - 21 * day),
+    })
+    .returning();
+
+  console.log(`  ✅ 8 proposals created (one per lifecycle state)`);
 
   // ─── Amendments ───────────────────────────────────────────────────────────
   await db.insert(proposalAmendments).values([
@@ -225,6 +289,19 @@ async function seed() {
   ]);
 
   console.log(`  ✅ 2 debate arguments created`);
+
+  // ─── Proposal Votes (final ratification) ──────────────────────────────────
+  // Voters must be members of the proposal's community (cf. routes.ts cast
+  // handler). proposal4 lives in community3 (members: user2, user3). proposal3
+  // lives in community2 (members: user1, user2).
+  await db.insert(proposalVotes).values([
+    { proposalId: proposal4.id, userId: user2.id, choice: 'yes', castAt: new Date(Date.now() - 1 * day) },
+    { proposalId: proposal4.id, userId: user3.id, choice: 'abstain', castAt: new Date(Date.now() - 1 * day) },
+    { proposalId: proposal3.id, userId: user1.id, choice: 'yes', castAt: new Date(Date.now() - 11 * day) },
+    { proposalId: proposal3.id, userId: user2.id, choice: 'yes', castAt: new Date(Date.now() - 11 * day) },
+  ]);
+
+  console.log(`  ✅ 4 proposal votes recorded`);
 
   // ─── Sortition Bodies ─────────────────────────────────────────────────────
   const [sortition1] = await db
