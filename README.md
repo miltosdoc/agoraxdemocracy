@@ -55,7 +55,7 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 
 AgoraX is in **active development** with a complete backend and rapidly evolving frontend.
 
-**Completed (Phases 1–4):**
+**Completed (Phases 1–5):**
 - TypeScript compilation clean (0 errors)
 - 8-state proposal lifecycle with state machine
 - LLM validation pipeline (tiered scoring: reject / sortition / auto-approve)
@@ -65,12 +65,19 @@ AgoraX is in **active development** with a complete backend and rapidly evolving
 - Community system — autonomous/managed split, democracy scoring
 - Job queue — 6 async handlers (sortition timeout, LLM validation, notifications, etc.)
 - UI: AppShell layout system, LifecycleStepper, Proposal Index, Debate Panel, Landing/Dashboard split
+- UI: Proposal workspace — 5-tab detail page (Overview, Debate, Amendments, Sortition, Votes)
+- UI: AmendmentsPanel — status badges, duplicate grouping, community signal, submit form
+- UI: SortitionPanel — body status, member count, response rate, average score, deadline
+- UI: NextActionPanel — context-aware action panel based on proposal lifecycle state
+- UI: VotePanel — full voting component with progress bars, participation tracking, finalize
 - 53/54 tests passing (1 pre-existing failure requiring DATABASE_URL)
 
-**In Progress (Phase 5):**
-- End-to-end voting flow (proposal_votes table wiring)
-- Proposal detail workspace redesign
-- Sortition member scoring experience
+**In Progress (Phase 6):**
+- Platform settings UI
+- Community type display (autonomous/managed badges)
+- Attendance tracking system (backend schema, API, UI)
+- Search & discovery
+- Mobile responsiveness
 
 ---
 

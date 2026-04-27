@@ -1,6 +1,6 @@
 # AgoraX — Project Roadmap
 
-**Last updated:** 2026-04-28 (Phase 4 complete)
+**Last updated:** 2026-04-28 (Phase 5 complete)
 
 ---
 
@@ -34,48 +34,48 @@
 - **Dashboard Split** — `/` = public landing page, `/home` = authenticated dashboard
 - All pages migrated to AppShell layout
 
+### Phase 5: Proposal Workspace & Voting
+- **VotePanel** (363 LOC) — full voting component with progress bars, participation tracking, finalize
+- **AmendmentsPanel** — status badges, duplicate grouping, community signal, submit form
+- **SortitionPanel** — body status, member count, response rate, average score, deadline
+- **NextActionPanel** — context-aware action panel based on proposal lifecycle state
+- **Proposal Detail** — 5-tab workspace (Overview, Debate, Amendments, Sortition, Votes)
+- **i18n** — 12 new keys (en/el): amendments.new, amendments.placeholder, amendments.submit,
+  amendments.submitFailed, amendments.duplicateGroup, proposal.questionLabel
+
 ---
 
 ## Remaining — Priority Order
 
-### 1. Proposal Votes Table (Backend)
-- **Status:** Schema exists but voting logic may be incomplete
-- **What's needed:** End-to-end voting flow — cast vote, tally results, transition proposal state on completion
-- **Why first:** Without real voting, the core deliberation loop is broken
+### 1. Platform Settings UI
+- **Status:** Backend exists (platform_settings table), no UI
+- **What's needed:** Admin interface for platform-wide settings (min participation, sortition size, etc.)
+- **Why first:** Needed for production governance configuration
 
-### 2. Proposal Detail Workspace
-- **Status:** Has content + debate panel, but not a cohesive workspace
-- **What's needed:**
-  - Lifecycle stepper showing current state + next action
-  - "Next Action" panel (e.g., "Submit for Review", "Start Sortition", "Cast Vote")
-  - Amendment list with similarity grouping
-  - Sortition body summary (if active)
-  - Tabs or sections: Overview / Debate / Amendments / Sortition / Votes
+### 2. Community Type Display
+- **Status:** Backend has autonomous/managed split
+- **What's needed:** Badges/indicators on community cards showing governance type
 
-### 3. Sortition Member Experience
-- **Status:** Backend complete, UI exists for dashboard/body detail
-- **What's needed:**
-  - Scoring interface for selected members (0-100 slider + feedback textarea)
-  - Deadline timer / countdown
-  - Notification when selected for a body
-  - "My Assignments" section in dashboard
+### 3. Attendance Tracking System
+- **Status:** Not yet implemented
+- **What's needed:** Backend schema, API endpoints, UI for tracking community member attendance
 
-### 4. Amendment UI
-- **Status:** Backend complete (TF-IDF similarity, merge logic)
-- **What's needed:**
-  - Amendment list on proposal detail page
-  - "Submit Amendment" form
-  - Similarity grouping visualization (grouped amendments with cosine score)
-  - Merge/unmerge controls for moderators
+### 4. Search & Discovery
+- **Status:** Not yet implemented
+- **What's needed:** Full-text search across proposals, debates, amendments
 
-### 5. LLM Validation UI
+### 5. Mobile Responsiveness
+- **Status:** Basic responsive layout exists
+- **What's needed:** Mobile-first refinements, touch-friendly interactions
+
+### 6. LLM Validation UI
 - **Status:** Backend complete (OpenRouter free models, score-based routing)
 - **What's needed:**
   - Validation results display (score, category, reasoning)
   - "Resubmit" flow for author_review proposals
   - Validation progress indicator during LLM processing
 
-### 6. Notifications System
+### 7. Notifications System
 - **Status:** `sortitionNotifications` table exists
 - **What's needed:**
   - In-app notification center
