@@ -158,6 +158,10 @@ export default function Header() {
                   {t('auth.register')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/proposals")} className="cursor-pointer">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {t('nav.proposals')}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/walkthrough")} className="cursor-pointer">
                   <MessageSquare className="mr-2 h-4 w-4" />
                   {t('nav.process')}
@@ -174,6 +178,15 @@ export default function Header() {
             >
               <PlusCircle className="h-4 w-4" />
               <span>{t('nav.newProposal')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              onClick={() => navigate("/proposals")}
+              data-testid="button-proposals"
+            >
+              <FileText className="h-4 w-4" />
+              <span>{t('nav.proposals')}</span>
             </Button>
             <Button
               variant="outline"
@@ -309,6 +322,14 @@ export default function Header() {
                 >
                   <User className="mr-2 h-4 w-4" />
                   {t('nav.profile')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/proposals")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-proposals"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  {t('nav.proposals')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/communities")}
