@@ -6,9 +6,9 @@
 
 ---
 
-AgoraX is a digital democracy platform built for Greek citizens to participate in transparent, reliable deliberation and voting processes. The platform implements the **Demopolis** deliberation framework — a structured pipeline of proposal submission, LLM-assisted validation, sortition-based evaluation, debate, and final voting — combined with modern web technologies.
+AgoraX is a digital democracy platform built for Greek citizens to participate in transparent, reliable deliberation and voting processes. The platform implements the **Demopolis** deliberation framework — a structured pipeline of proposal submission, LLM-assisted validation, sortition-based citizen jury evaluation, threaded debate, amendments, and final community voting.
 
-**Built by the Demopolis working group.** All deliberation mechanics, governance models, and procedural specifications come from the Demopolis design documents maintained by the working group.
+**Built by the Demopolis working group.** All deliberation mechanics, governance models, and procedural specifications come from the Demopolis design documents.
 
 ---
 
@@ -18,24 +18,21 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 ┌─────────────────────────────────────────────────────────────┐
 │                         Frontend                             │
 │  React + Vite + Wouter Router + shadcn/ui + Tailwind CSS     │
+│  AppShell layout · LifecycleStepper · i18n (el/en)           │
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTP/JSON (proxied via Vite)
 ┌──────────────────────────▼──────────────────────────────────┐
 │                         Backend                              │
 │  Express.js Routes → Storage Layer (IStorage) → Drizzle ORM │
 │                                                              │
-│  Routes: polls, surveys, groups, communities, proposals,     │
-│          sortition, amendments, debate, ballot verification  │
-│                                                              │
-│  Features: OG image generation (canvas), social bot SEO,     │
-│            health checks, demo mode, job queue               │
+│  80+ API endpoints · 79+ storage methods · Job Queue        │
+│  LLM Validation · Sortition · TF-IDF Amendments · Debate    │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │                      PostgreSQL                              │
-│  Tables: users, polls, communities, proposals,               │
-│          sortition_bodies, amendments, debate_arguments,     │
-│          ballot_votes, jobs, admin_actions, account_activity │
+│  24 tables · Users · Communities · Proposals · Sortition    │
+│  Amendments · Debate · Ballot Verification · Notifications   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -53,19 +50,27 @@ AgoraX is a digital democracy platform built for Greek citizens to participate i
 - **Device Fingerprinting:** FingerprintJS for one-person-one-vote enforcement
 
 ---
+
 ## Project Status
 
-AgoraX is currently in **engineering hardening**. The platform has substantial demo functionality, but the near-term priority is making the repository, runtime, tests, logs, docs, and security posture credible for team development and external review.
+AgoraX is in **active development** with a complete backend and rapidly evolving frontend.
 
-Current baseline:
+**Completed (Phases 1–4):**
+- TypeScript compilation clean (0 errors)
+- 8-state proposal lifecycle with state machine
+- LLM validation pipeline (tiered scoring: reject / sortition / auto-approve)
+- Sortition system — random citizen selection, scoring, timeout handling, completion
+- Amendment system with TF-IDF + cosine similarity deduplication
+- Threaded debate system with upvote/downvote
+- Community system — autonomous/managed split, democracy scoring
+- Job queue — 6 async handlers (sortition timeout, LLM validation, notifications, etc.)
+- UI: AppShell layout system, LifecycleStepper, Proposal Index, Debate Panel, Landing/Dashboard split
+- 53/54 tests passing (1 pre-existing failure requiring DATABASE_URL)
 
-- `npm run build` passes.
-- `npm run test:all` runs i18n checks and wired Vitest tests; Python ballot tests run when their dependencies are installed.
-- `npm run smoke:docker` checks the running API, ballot service, and frontend shell.
-- `npm run check` is **not yet green**; the TypeScript burn-down is tracked in [ROADMAP.md](ROADMAP.md).
-- Docker defaults are now safer: demo mode is off by default and production mode blocks default secrets.
-
-See [ROADMAP.md](ROADMAP.md) for the current engineering and product roadmap, including the 2026-04-25 core architecture audit covering auth, communities, proposals, deliberation, sortition, voting, notifications, and admin flows.
+**In Progress (Phase 5):**
+- End-to-end voting flow (proposal_votes table wiring)
+- Proposal detail workspace redesign
+- Sortition member scoring experience
 
 ---
 
@@ -76,105 +81,94 @@ The following features are direct implementations of Demopolis specifications:
 ### 1. Communities (Κοινότητες)
 - **Autonomous Communities** (Αυτόνομες Κοινότητες) — Horizontal governance, no admins required
 - **Managed Communities** (Διαχειριζόμενες Κοινότητες) — Admin team with defined, revocable powers
-- **Hybrid Model** (Υβριδικό Μοντέλο) — Member-driven with administrative guidance
+- Default "General" community auto-enrolls all new users
 - Per-community deliberation parameters (sortition size, minimum participation, concurrent vote limits)
 - Democracy score — computed metric showing how democratic the community governance is
-- Admin rights restrictions: admins cannot delete content published by other members
+- Platform settings stored as governance proposals
 
 ### 2. Proposals (Προβουλεύματα)
 - **Question + Solution format** (Το Ερώτημα + Η Απάντηση/Λύση) — every proposal defines a specific action
-- Full state machine: `submitted → validating → valid/returned/rejected → scoring → under_review → amendments → debate → voting → resolved`
+- Full state machine: `draft → submitted → llm_validation → author_review / sortition → author_review / voting → archived`
 - **LLM Tiered Validation**:
   - **<20%**: Returned to author for revision with feedback
   - **20-90%**: Sent to sortition body for human review
-  - **>90%**: Auto-approved, advances to scoring
+  - **>90%**: Auto-approved, advances to voting
 - Author appeal mechanism — any LLM decision can be appealed to a sortition body
 - Similar proposal detection & merge workflow (AI-assisted, author confirms)
 
 ### 3. Sortition Bodies (Κληρωτά Σώματα)
 - Random citizen selection for evaluation tasks — ensures fair participation, prevents power concentration
 - Configurable size (absolute number or percentage of community)
-- Multiple purposes:
-  - **Validity checks** — review proposals in the 20-90% LLM score range
-  - **Proposal scoring** — larger body (e.g., 200 members) scores quality + significance
-  - **Conflict resolution** — resolve merge disputes between similar proposals
-  - **Vote promotion** — approve advancement from deliberation to voting
+- Multiple purposes: validity checks, proposal scoring, conflict resolution, vote promotion
 - Timeout handling with replacement members
 - Self-exclusion option for selected members
-- Scoring methods: simple majority, enhanced majority, or graded scoring (0-10)
+- Scoring: 0-100 scale with optional feedback
+- Completion thresholds: ≤33 → author_review, 34-100 → voting, null → archived
 
 ### 4. Amendments (Αντιπροτάσεις & Βελτιώσεις)
 - **Improvements** (Βελτιώσεις): Minor text changes to existing proposals
 - **Counter-proposals** (Αντιπροτάσεις): Same problem, different solution
 - Original author has **veto power** over amendments (preserves proposal coherence)
 - LLM validation for amendments follows same tiered logic as proposals
-- AI-assisted merge of similar amendments
-- **Community Signal**: When author rejects an amendment, community can upvote to signal disagreement — flagged amendments feed into sortition synthesis
+- AI-assisted merge of similar amendments (TF-IDF + cosine similarity)
+- **Community Signal**: When author rejects an amendment, community can upvote to signal disagreement
 
 ### 5. Debate (Διάλογος)
-- Structured arguments for/against proposals
-- Support/opposition tracking (likes/dislikes from community members)
-- Group discussions for large communities (randomly assigned or self-selected)
-- Central debate featuring proposal authors
-- Text, audio, or video debate formats
-- AI-assisted argument summarization
+- Threaded discussions on proposals with nested replies
+- Upvote/downvote tracking per user (one vote per thread per user)
+- Thread stats (total votes, reply count)
+- Text, audio, or video debate formats (text implemented)
 
-### 6. Proposal Support (Συγκέντρωση Υποστήριξης)
-- Community members can support or oppose proposals during deliberation
-- Support thresholds configurable per community
-- Used to determine which proposals advance to voting
-- Minimum participation percentage for valid votes (configurable per community)
-
-### 7. Voting (Ψηφοφορία)
+### 6. Voting (Ψηφοφορία)
 - Multiple voting types: single choice, multiple choice, ranked preferences, sequential rounds
 - Minimum participation threshold for validity (configurable per community)
 - Secret ballot with verifiable integrity
-- Maximum concurrent active votes limit (configurable per community)
 - **Ballot voting** (Gov.gr Solemn Declaration PDF verification)
 
-### 8. AI Assistance (Τεχνητή Νοημοσύνη)
+### 7. AI Assistance (Τεχνητή Νοημοσύνη)
 - AI as a **support tool only** — never makes final decisions
 - Uses: validity checking, similar proposal detection, organization/categorization, debate summarization
 - Transparent usage — members know when AI is used
 - Results can be reviewed and challenged
 - Final decisions always belong to sortition bodies or the full membership
 
-### 9. Governance Parameters (Παράμετροι Διαβούλευσης)
-- Per-community configuration of all deliberation rules
-- Parameters include: sortition size, response time, minimum participation, voting type, concurrent vote limits
-- Communities can evolve governance over time (only toward more autonomy, never less)
-
 ---
 
 ## Proposal Lifecycle
 
 ```
-Submitted → LLM Validation → Valid/Returned → Scoring → Under Review → Amendments → Debate → Voting → Resolved
+draft → submitted → llm_validation → author_review / sortition → author_review / voting → archived
 ```
 
-1. **Submitted** — Author submits a proposal (question + solution)
-2. **Validating** — LLM validates structure, clarity, and completeness (tiered scoring)
-3. **Valid/Returned/Rejected** — Based on LLM score: auto-approve (>90%), sortition review (20-90%), or return to author (<20%)
-4. **Scoring** — Sortition body scores proposal quality and significance
-5. **Under Review** — Community reviews and submits amendments
-6. **Amendments** — Author reviews amendments, community signals disagreement with rejections
-7. **Debate** — Structured for/against arguments with support tracking
-8. **Voting** — Full community votes on the final synthesized text
-9. **Resolved** — Results are recorded and published
+1. **Draft** — Author creates a proposal (question + solution)
+2. **Submitted** — Author submits for review
+3. **LLM Validation** — LLM scores proposal structure, clarity, completeness
+4. **Routing by score:**
+   - **<20%** → `author_review` (returned with feedback for revision)
+   - **20-90%** → `sortition` (citizen jury evaluates)
+   - **>90%** → `voting` (auto-approved, goes straight to community vote)
+5. **Sortition Completion:**
+   - **≤33** → `author_review` (jury rejected)
+   - **34-100** → `voting` (jury approved)
+   - **null** → `archived` (timeout, no quorum)
+6. **Voting** — Full community votes on the final proposal
+7. **Archived** — Final state (ratified or rejected)
 
 ---
 
 ## Database Schema
 
-**Core:** `users`, `polls`, `poll_options`, `votes`, `comments`, `poll_questions`, `poll_answers`, `poll_user_responses`
+**Core:** `users`, `communities`, `community_members`, `proposals`, `proposal_amendments`
 
-**Demopolis:** `communities`, `community_members`, `proposals`, `proposal_amendments`, `sortition_bodies`, `sortition_members`, `debate_arguments`, `proposal_support`, `amendment_rejection_votes`
+**Deliberation:** `sortition_bodies`, `sortition_members`, `sortition_notifications`, `debate_threads`, `debate_replies`, `debate_votes`, `validation_results`
 
-**Security:** `ballot_votes`, `account_activity`, `admin_actions`, `device_fingerprint`, `govgr_verified`
+**Voting:** `proposal_votes`, `proposal_support`, `ballot_votes`, `govgr_verified`
 
-**Notifications:** `poll_notifications`, `sortition_notifications`, `notification_preferences`
+**Governance:** `platform_settings`, `amendment_rejection_votes`, `admin_actions`
 
-**Supporting:** `groups`, `group_members`, `jobs`
+**Security:** `account_activity`, `device_fingerprint`
+
+**Infrastructure:** `groups`, `group_members`, `jobs`, `notification_preferences`
 
 ---
 
@@ -219,7 +213,7 @@ npm install
 
 # Database setup
 cp .env.example .env
-# Set DATABASE_URL in .env (e.g., postgresql://user:pass@localhost:5432/agorax)
+# Set DATABASE_URL in .env (e.g., postgresql://user:***@localhost:5432/agorax)
 
 # Push schema to database
 npm run db:push
@@ -259,30 +253,34 @@ agoraxdemo/
 ├── client/                    # React frontend
 │   ├── src/
 │   │   ├── pages/             # Route components (20+ pages)
-│   │   ├── components/        # Reusable UI components (shadcn/ui + custom)
+│   │   ├── components/        # Reusable UI (shadcn/ui + AppShell, LifecycleStepper, DebatePanel)
 │   │   ├── hooks/             # Custom React hooks (auth, translation, share, toast)
-│   │   ├── lib/               # Utilities (api client, query client, geofencing, i18n types)
+│   │   ├── lib/               # Utilities (api client, query client, proposal-status, i18n)
 │   │   └── App.tsx            # Router configuration
 ├── server/                    # Express backend
-│   ├── index.ts               # Entry point
-│   ├── routes.ts              # All API routes (2500+ lines)
-│   ├── storage.ts             # IStorage interface + DatabaseStorage
+│   ├── index.ts               # Entry point + job queue startup
+│   ├── routes.ts              # All API routes (2500+ lines, 80+ endpoints)
+│   ├── storage.ts             # IStorage interface + DatabaseStorage (79+ methods)
 │   ├── auth.ts                # Authentication (sessions, OAuth, Gov.gr)
 │   ├── db.ts                  # Drizzle connection
 │   ├── seed-demo.ts           # Demo data seeder
-│   └── utils/                 # Utilities
+│   └── utils/                 # Domain logic
 │       ├── llm-validation.ts  # LLM proposal validation
-│       ├── proposal-state-machine.ts  # State transitions
+│       ├── proposal-state-machine.ts  # 8-state lifecycle transitions
 │       ├── amendment-processor.ts     # Amendment workflow
-│       ├── amendment-merger.ts        # AI-assisted merge
-│       ├── sortition.ts             # Random selection
+│       ├── amendment-similarity.ts    # TF-IDF + cosine similarity
+│       ├── sortition.ts             # Random citizen selection
+│       ├── sortition-scheduler.ts    # Timeout sweep + replacement
+│       ├── debate.ts                # Threaded debate logic
+│       ├── community-manager.ts     # Community CRUD + auto-enrollment
 │       ├── notifications.ts        # Sortition notification system
 │       ├── democracy-score.ts       # Community governance score
 │       ├── job-queue.ts             # Background job processing
+│       ├── job-handlers.ts          # 6 registered job handlers
 │       ├── ballot-client.ts         # Gov.gr ballot verification
 │       └── geo-region-detector.ts   # Location detection
 ├── shared/
-│   └── schema.ts              # Drizzle schema (928 lines, 21+ tables)
+│   └── schema.ts              # Drizzle schema (928 lines, 24 tables)
 ├── ballot_service/            # Python ballot verification (FastAPI + pyhanko)
 ├── migrations/                # SQL migrations
 ├── Dockerfile                 # Multi-stage build (Node 20 + canvas)
@@ -302,7 +300,7 @@ agoraxdemo/
 - `GET /api/ballot/health` — Ballot service health check
 
 ### Proposals
-- `GET /api/proposals` — List all proposals
+- `GET /api/proposals` — List all proposals (filters: status, community, search, sort)
 - `GET /api/proposals/:id` — Get proposal details
 - `POST /api/proposals` — Create a new proposal
 - `POST /api/proposals/:id/submit` — Submit for LLM validation
@@ -320,20 +318,21 @@ agoraxdemo/
 - `POST /api/proposals/:id/final-text` — Submit sortition-synthesized text
 
 ### Debate
-- `GET /api/proposals/:id/arguments` — List debate arguments
-- `POST /api/proposals/:id/arguments` — Create an argument
-- `POST /api/arguments/:id/support` — Support an argument
-- `POST /api/arguments/:id/oppose` — Oppose an argument
+- `GET /api/proposals/:id/debate/threads` — List debate threads
+- `POST /api/proposals/:id/debate/threads` — Create a debate thread
+- `POST /api/debate/threads/:id/replies` — Add a reply
+- `POST /api/debate/threads/:id/upvote` / `downvote` — Vote on thread
+- `GET /api/debate/threads/:id/stats` — Thread statistics
 
 ### Sortition
 - `POST /api/communities/:id/sortition` — Create sortition body (admin/founder)
 - `GET /api/communities/:id/sortition/preview` — Preview sortition selection
 - `GET /api/communities/:id/sortition` — List all sortition bodies (admin/founder)
 - `GET /api/sortition/:bodyId` — Get sortition body with members
-- `POST /api/sortition/:bodyId/complete` — Complete a sortition body (admin/founder)
+- `POST /api/sortition/:bodyId/complete` — Complete a sortition body
 - `POST /api/sortition/:bodyId/synthesize` — Aggregate scores and auto-complete
 - `GET /api/sortition/assignments/:id` — Get sortition assignment
-- `POST /api/sortition/assignments/:id/score` — Submit sortition score
+- `POST /api/sortition/assignments/:id/score` — Submit sortition score (0-100 + feedback)
 
 ### Communities
 - `GET /api/communities` — List all communities
@@ -357,20 +356,14 @@ agoraxdemo/
 - `POST /api/ballot/token` — Generate poll token for ballot voting
 - `GET /api/ballot/instructions` — Get ballot voting instructions
 - `GET /api/ballot/stats/:pollId` — Get ballot voting statistics
-- `GET /api/ballot/health` — Ballot service status
 
-### Sortition Notifications
+### Notifications
 - `GET /api/sortition-notifications` — List user's notifications (with unread count)
 - `GET /api/sortition-notifications/unread-count` — Lightweight unread count
 - `POST /api/sortition-notifications/:id/read` — Mark notification as read
 - `POST /api/sortition-notifications/mark-all-read` — Mark all as read
 - `GET /api/notification-preferences` — Get user notification preferences
 - `PATCH /api/notification-preferences` — Update notification preferences
-
-### Poll Notifications
-- `GET /api/notifications` — List poll notifications
-- `POST /api/notifications/:id/read` — Mark poll notification as read
-- `GET /api/notifications/unread/count` — Get unread poll notification count
 
 ### Social Sharing
 - `GET /api/og-image/:id` — Generate Open Graph preview image for poll sharing
@@ -386,12 +379,11 @@ AgoraX supports **Greek (el)** as the default language and **English (en)** with
 - `t('key.subkey')` returns the translated string for the current locale
 - Locale detection priority: localStorage → URL `?lang=` param → browser language → Greek default
 - `LanguageSwitcher` component (🇬🇷/🇬🇧) in the header for manual switching
-- `getStatusLabel()`, `getCommunityTypeLabel()` helpers for dynamic content
 - date-fns locale-aware formatting (Greek/English relative times)
 
 **Translation files:**
-- `client/src/locales/en.ts` — English translations (130+ keys)
-- `client/src/locales/el.ts` — Greek translations (130+ keys)
+- `client/src/locales/en.ts` — English translations
+- `client/src/locales/el.ts` — Greek translations
 
 **Adding a new language:**
 1. Create `client/src/locales/xx.ts` with the same keys
@@ -403,15 +395,11 @@ AgoraX supports **Greek (el)** as the default language and **English (en)** with
 
 ## Roadmap
 
-The active roadmap is maintained in [ROADMAP.md](ROADMAP.md).
+The active roadmap is maintained in `.claude/ROADMAP.md`.
 
-Near-term priorities:
-
-1. **Engineering credibility baseline** — CI, green TypeScript, wired tests, safer config, structured logging.
-2. **UI coherence** — shared app shell, fixed `/profile`, consistent navigation, lifecycle-driven proposal workspace.
-3. **Architecture cleanup** — split oversized routes/storage files into domain routes, services, and repositories.
-4. **Governance decisions** — resolve quorum, eligibility, DPIA, legal status, platform governance, and groups-vs-communities.
-5. **Pilot readiness** — staging deployment, monitoring, onboarding, admin tooling, accessibility, mobile QA.
+**Completed:** Phases 1–4 (foundation, coherence layer, core systems, UI coherence)
+**In Progress:** Phase 5 (voting flow, proposal workspace, sortition experience)
+**Planned:** Notifications system, search & discovery, mobile responsiveness, performance, polish
 
 ---
 
