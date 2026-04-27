@@ -25,7 +25,10 @@ export const TERMINAL_PROPOSAL_STATES = ['decided', 'archived'] as const satisfi
 
 export const VALID_PROPOSAL_TRANSITIONS: Record<ProposalState, readonly ProposalState[]> = {
   draft: ['review', 'archived'],
-  review: ['author_review', 'draft', 'archived'],
+  // review → voting is the LLM auto-approve fast path (score > 90): the
+  // proposal is high-confidence enough to skip deliberation and go straight
+  // to ratification.
+  review: ['author_review', 'draft', 'voting', 'archived'],
   author_review: ['community_signal', 'archived'],
   community_signal: ['sortition_synthesis', 'voting', 'archived'],
   sortition_synthesis: ['voting', 'author_review', 'archived'],

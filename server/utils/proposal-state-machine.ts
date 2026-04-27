@@ -25,6 +25,10 @@ import {
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore, enqueueSortitionTimeout } from './job-queue';
 import { completeSortitionBody } from './sortition-timeout';
 import { storage } from '../storage';
+import { db } from '../db';
+import { proposals, validationResults } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { validateProposal, type LLMValidationResult } from './llm-validation';
 
 export type { ProposalState } from '@shared/proposal-lifecycle';
 
@@ -281,3 +285,143 @@ export async function handleSortitionCompletion(
 }
 
 export { VALID_TRANSITIONS };
+
+// ─── LLM Validation Transition ──────────────────────────────────────────────
+
+export interface ValidationTransitionOutcome {
+  proposalId: number;
+  validationResultId: number;
+  fromState: ProposalState;
+  toState: ProposalState;
+  category: LLMValidationResult['category'];
+  score: number;
+}
+
+/**
+ * Map a tiered LLM validation outcome to the appropriate canonical state.
+ *
+ * - `return`     → `draft`        (low confidence: send back for author revision)
+ * - `sortition`  → `author_review` (mid confidence: open deliberation, sortition body
+ *                                   created as a side effect for additional scoring)
+ * - `auto_approve` → `voting`     (high confidence: skip deliberation, ratify directly)
+ */
+function targetStateFor(category: LLMValidationResult['category']): ProposalState {
+  switch (category) {
+    case 'return':
+      return 'draft';
+    case 'sortition':
+      return 'author_review';
+    case 'auto_approve':
+      return 'voting';
+  }
+}
+
+/**
+ * Run LLM validation on a proposal and route it to the next canonical state.
+ *
+ * Persists the full structured result to `validation_results` (history), and
+ * mirrors the latest score/feedback onto the proposal row for fast list
+ * rendering. Side effects:
+ *  - `return`       → notifies the author that their proposal was returned
+ *  - `sortition`    → enqueues a sortition body for proposal scoring
+ *  - `auto_approve` → recalculates the community democracy score
+ *
+ * The proposal must currently be in the `review` state — calling this from
+ * any other state throws to keep the lifecycle honest.
+ */
+export async function transitionToValidation(proposalId: number): Promise<ValidationTransitionOutcome> {
+  const proposal = await storage.getProposal(proposalId);
+  if (!proposal) {
+    throw new Error(`transitionToValidation: proposal ${proposalId} not found`);
+  }
+
+  const fromState = assertProposalState(proposal.status);
+  if (fromState !== 'review') {
+    throw new Error(
+      `transitionToValidation: proposal ${proposalId} must be in 'review' state ` +
+      `(current: ${fromState})`
+    );
+  }
+
+  const result = await validateProposal(proposal.question, proposal.solution);
+  const toState = targetStateFor(result.category);
+
+  if (!canTransitionProposal(fromState, toState)) {
+    throw new Error(
+      `transitionToValidation: cannot route ${fromState} → ${toState} ` +
+      `for category ${result.category}`
+    );
+  }
+
+  // Persist the full structured result for history and audit.
+  const [persisted] = await db
+    .insert(validationResults)
+    .values({
+      proposalId,
+      score: Math.round(result.score),
+      feedback: result.feedback,
+      details: result.details,
+      category: result.category,
+    })
+    .returning();
+
+  // Mirror the latest scalar score onto the proposal row + advance state.
+  await db
+    .update(proposals)
+    .set({
+      status: toState,
+      llmScore: String(result.score),
+      llmFeedback: result.feedback,
+      llmValidatedAt: new Date(),
+      llmValidationRound: (proposal.llmValidationRound ?? 0) + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(proposals.id, proposalId));
+
+  // Side effects per category. We do not reuse `triggerSideEffects` here
+  // because the natural transition map (e.g. `review->author_review`) already
+  // sends a generic "amendments ready" notification, which would be
+  // misleading for a freshly-validated proposal.
+  switch (result.category) {
+    case 'return':
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_returned',
+        `Η πρόταση επιστράφηκε για αναθεώρηση (βαθμός ${Math.round(result.score)}/100): ${result.feedback}`,
+        { proposalId, score: result.score, feedback: result.feedback },
+      );
+      break;
+    case 'sortition':
+      await enqueueCreateSortition(proposal.communityId, 12, proposalId, 'scoring');
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_validated',
+        `Η πρόταση πέρασε στην κοινοτική διαβούλευση (βαθμός ${Math.round(result.score)}/100).`,
+        { proposalId, score: result.score },
+      );
+      break;
+    case 'auto_approve':
+      await enqueueRecalculateScore(proposal.communityId);
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_auto_approved',
+        `Η πρόταση εγκρίθηκε αυτόματα (βαθμός ${Math.round(result.score)}/100) και πέρασε σε ψηφοφορία.`,
+        { proposalId, score: result.score },
+      );
+      break;
+  }
+
+  console.log(
+    `[validation] proposal ${proposalId}: score=${result.score} ` +
+    `category=${result.category} transition=${fromState}→${toState}`
+  );
+
+  return {
+    proposalId,
+    validationResultId: persisted.id,
+    fromState,
+    toState,
+    category: result.category,
+    score: result.score,
+  };
+}

@@ -92,7 +92,11 @@ describe('State Machine - Valid Next States', () => {
   });
 
   it('should return correct next states for review', () => {
-    expect(getNextStates('review')).toEqual(['author_review', 'draft', 'archived']);
+    expect(getNextStates('review')).toEqual(['author_review', 'draft', 'voting', 'archived']);
+  });
+
+  it('should allow review → voting (auto-approve fast path)', () => {
+    expect(canTransition('review', 'voting')).toBe(true);
   });
 
   it('should return correct next states for author_review', () => {

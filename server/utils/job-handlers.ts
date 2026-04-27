@@ -6,7 +6,7 @@
  */
 
 import { registerHandler, startWorker, type JobPayload } from './job-queue';
-import { handleSortitionCompletion } from './proposal-state-machine';
+import { handleSortitionCompletion, transitionToValidation } from './proposal-state-machine';
 import { checkSortitionTimeout, completeSortitionBody, replaceNonRespondingMembers } from './sortition-timeout';
 import { db } from '../db';
 import { sortitionBodies } from '@shared/schema';
@@ -14,11 +14,28 @@ import { eq } from 'drizzle-orm';
 
 // ─── Handler: structure_proposal ────────────────────────────────────────────
 
+/**
+ * Handle the `structure_proposal` job.
+ *
+ * Drives the proposal through LLM validation: scores it, persists the full
+ * result to `validation_results`, and routes to the next canonical state
+ * (`draft` for return, `author_review` for sortition, `voting` for auto-
+ * approve). Notifications and follow-up jobs (sortition body, score recalc)
+ * are queued by `transitionToValidation`. Errors propagate so the job queue
+ * can retry — failure here leaves the proposal in `review`.
+ */
 async function handleStructureProposal(payload: JobPayload): Promise<void> {
-  const { proposalId, question, solution } = payload.data;
-  console.log(`[job] Structuring proposal ${proposalId}`);
-  // TODO: Call LLM to structure the proposal
-  // For now, just log — the LLM integration is handled via routes
+  const { proposalId } = payload.data as { proposalId: number };
+  if (typeof proposalId !== 'number') {
+    throw new Error(`structure_proposal: missing or invalid proposalId in payload`);
+  }
+
+  console.log(`[job] Validating proposal ${proposalId} via LLM`);
+  const outcome = await transitionToValidation(proposalId);
+  console.log(
+    `[job] Proposal ${proposalId} validated: score=${outcome.score} ` +
+    `category=${outcome.category} → ${outcome.toState}`
+  );
 }
 
 // ─── Handler: send_notification ─────────────────────────────────────────────

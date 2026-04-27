@@ -288,6 +288,24 @@ export const amendmentRejectionVotes = pgTable("amendment_rejection_votes", {
   amendmentVoteUnique: uniqueIndex('amendment_vote_unique').on(table.amendmentId, table.userId),
 }));
 
+// ─── Demopolis: LLM Validation Results (Αξιολογήσεις LLM) ────────────────────
+// Persists the structured output of `validateProposal` so the score, the
+// freeform feedback, the per-criterion breakdown, and the routing category
+// (return / sortition / auto_approve) survive across requests. The
+// `proposals.llmScore` / `llmFeedback` columns keep the latest scalar values
+// for fast list rendering; the full history (one row per validation round)
+// lives here.
+
+export const validationResults = pgTable("validation_results", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  score: integer("score").notNull(),                    // 0-100
+  feedback: text("feedback"),                            // Λεκτικό σχόλιο LLM
+  details: jsonb("details"),                             // { structure, specificity, feasibility, completeness, clarity }
+  category: text("category").notNull(),                  // 'return' | 'sortition' | 'auto_approve'
+  validatedAt: timestamp("validated_at").notNull().defaultNow(),
+});
+
 // ─── Demopolis: Sortition Notifications ──────────────────────────────────────
 
 export const sortitionNotifications = pgTable("sortition_notifications", {
@@ -582,6 +600,14 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   debateArguments: many(debateArguments),
   support: many(proposalSupport),
   sortitionBodies: many(sortitionBodies),
+  validationResults: many(validationResults),
+}));
+
+export const validationResultsRelations = relations(validationResults, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [validationResults.proposalId],
+    references: [proposals.id],
+  }),
 }));
 
 export const proposalAmendmentsRelations = relations(proposalAmendments, ({ one }) => ({
@@ -734,6 +760,7 @@ export const insertCommunitySchema = createInsertSchema(communities).omit({ id: 
 export const insertCommunityMemberSchema = createInsertSchema(communityMembers).omit({ id: true, joinedAt: true });
 export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProposalAmendmentSchema = createInsertSchema(proposalAmendments).omit({ id: true, createdAt: true });
+export const insertValidationResultSchema = createInsertSchema(validationResults).omit({ id: true, validatedAt: true });
 export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omit({ id: true, createdAt: true });
 export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
 export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
@@ -900,6 +927,7 @@ export type Community = typeof communities.$inferSelect;
 export type CommunityMember = typeof communityMembers.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type ProposalAmendment = typeof proposalAmendments.$inferSelect;
+export type ValidationResult = typeof validationResults.$inferSelect;
 export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
 export type SortitionNotification = typeof sortitionNotifications.$inferSelect;
@@ -914,6 +942,7 @@ export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
 export type InsertCommunityMember = z.infer<typeof insertCommunityMemberSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertProposalAmendment = z.infer<typeof insertProposalAmendmentSchema>;
+export type InsertValidationResult = z.infer<typeof insertValidationResultSchema>;
 export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
 export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
 export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
