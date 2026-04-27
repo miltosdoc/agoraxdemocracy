@@ -94,10 +94,10 @@ export function setupAuth(app: Express) {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: process.env.DEMO_MODE === "true" ? 999 : 10,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.method === "GET",
+    skip: (req) => req.method === "GET" || process.env.DEMO_MODE === "true",
   });
 
   passport.use(
