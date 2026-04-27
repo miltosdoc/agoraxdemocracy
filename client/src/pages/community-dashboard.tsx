@@ -7,8 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,21 +43,17 @@ export default function CommunityDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('common.loading')}</div>
-        <Footer />
-      </div>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('common.loading')}</div>
+      </AppShell>
     );
   }
 
   if (!summary) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('community.not_found')}</div>
-        <Footer />
-      </div>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('community.not_found')}</div>
+      </AppShell>
     );
   }
 
@@ -70,9 +65,7 @@ export default function CommunityDashboardPage() {
   const description = community.description?.trim();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
+    <AppShell breadcrumb={[{ label: t('nav.communities'), href: '/communities' }, { label: community.name }]}>
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         {t('common.back')}
@@ -205,8 +198,6 @@ export default function CommunityDashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

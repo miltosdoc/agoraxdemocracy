@@ -14,8 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, MinusCircle, CheckCircle, XCircle } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
-import Footer from '@/components/layout/footer';
+import AppShell from '@/components/layout/AppShell';
+import LifecycleStepper from '@/components/ui/LifecycleStepper';
 import { DebateArguments } from '@/components/debate/debate-arguments';
+import { getStatusForProposal } from '@/lib/proposal-status';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
 
 interface Proposal {
@@ -147,11 +149,19 @@ export default function ProposalDetailPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">{t('general.loading')}</div>;
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('general.loading')}</div>
+      </AppShell>
+    );
   }
 
   if (!proposal) {
-    return <div className="flex items-center justify-center min-h-[50vh]">{t('proposal.notFound')}</div>;
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('proposal.notFound')}</div>
+      </AppShell>
+    );
   }
 
   const decisiveTotal = voteResults.yes + voteResults.no;
@@ -166,11 +176,17 @@ export default function ProposalDetailPage() {
   const userVoted = voteResults.userVote !== null;
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
+    <AppShell breadcrumb={[{ label: t('home.proposals'), href: '/proposals' }, { label: proposal.question.length > 60 ? proposal.question.slice(0, 60) + '…' : proposal.question }]}>
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         {t('general.back')}
       </Button>
+
+      <Card className="mb-4">
+        <CardContent className="py-4">
+          <LifecycleStepper status={proposal.status} />
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader>
@@ -181,12 +197,8 @@ export default function ProposalDetailPage() {
                 {t('proposal.by')} {proposal.authorName || t('proposal.userWithId', { id: proposal.authorId })} · {new Date(proposal.createdAt).toLocaleDateString()}
               </CardDescription>
             </div>
-            <Badge variant={
-              proposal.status === 'voting' ? 'default' :
-              proposal.status === 'decided' ? 'outline' :
-              proposal.status === 'sortition_synthesis' ? 'secondary' :
-              'outline'
-            }>
+            <Badge className={getStatusForProposal(proposal).color} variant="outline">
+              <span className="mr-1">{getStatusForProposal(proposal).icon}</span>
               {getStatusLabel(proposal.status, t)}
             </Badge>
           </div>
@@ -401,7 +413,6 @@ export default function ProposalDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

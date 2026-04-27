@@ -7,8 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'wouter';
-import Header from '@/components/layout/header';
-import Footer from '@/components/layout/footer';
+import AppShell from '@/components/layout/AppShell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,9 +61,10 @@ export default function SortitionBodyDetailPage() {
     : null;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="container mx-auto py-6 px-4 max-w-3xl flex-grow">
+    <AppShell
+      title="Σώμα τυχαίας επιλογής"
+      breadcrumb={[{ label: "Σώματα", href: "/sortition" }]}
+    >
         <Link href="/sortition">
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-1" /> Όλα τα σώματα
@@ -165,8 +165,6 @@ export default function SortitionBodyDetailPage() {
             </Card>
           </>
         )}
-      </div>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

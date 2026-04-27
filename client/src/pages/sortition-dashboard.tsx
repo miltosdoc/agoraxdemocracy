@@ -8,8 +8,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import Header from '@/components/layout/header';
-import Footer from '@/components/layout/footer';
+import AppShell from '@/components/layout/AppShell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,17 +85,12 @@ export default function SortitionDashboardPage() {
   }, [bodies, filter]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="container mx-auto py-6 px-4 max-w-5xl flex-grow">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-1">Κληρωτά Σώματα</h1>
-          <p className="text-sm text-muted-foreground">
-            Κάθε σώμα στο οποίο μπορείς να συμμετάσχεις ή να παρακολουθήσεις.
-          </p>
-        </div>
+    <AppShell title="Κληρωτά Σώματα">
+      <p className="text-sm text-muted-foreground -mt-4 mb-6">
+        Κάθε σώμα στο οποίο μπορείς να συμμετάσχεις ή να παρακολουθήσεις.
+      </p>
 
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="mb-6">
+      <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="mb-6">
           <TabsList>
             <TabsTrigger value="all">Όλα</TabsTrigger>
             <TabsTrigger value="active">Ενεργά</TabsTrigger>
@@ -204,9 +198,7 @@ export default function SortitionDashboardPage() {
               })}
             </div>
           </TabsContent>
-        </Tabs>
-      </div>
-      <Footer />
-    </div>
+      </Tabs>
+    </AppShell>
   );
 }

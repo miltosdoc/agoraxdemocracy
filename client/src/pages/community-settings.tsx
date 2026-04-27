@@ -8,8 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import Header from '@/components/layout/header';
-import Footer from '@/components/layout/footer';
+import AppShell from '@/components/layout/AppShell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,13 +109,11 @@ export default function CommunitySettingsPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
-        <Button variant="ghost" className="mb-4" onClick={() => navigate(`/communities/${communityId}`)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          {t('common.back')}
-        </Button>
+    <AppShell breadcrumb={[{ label: t('nav.communities'), href: '/communities' }, { label: t('community.settings_title') }]}>
+      <Button variant="ghost" className="mb-4" onClick={() => navigate(`/communities/${communityId}`)}>
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        {t('common.back')}
+      </Button>
 
         <Card>
           <CardHeader>
@@ -265,8 +262,6 @@ export default function CommunitySettingsPage() {
             )}
           </CardContent>
         </Card>
-      </main>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

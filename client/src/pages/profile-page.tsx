@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,50 +31,45 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="container mx-auto flex flex-grow items-center justify-center px-4 py-8 pb-20 sm:pb-8">
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </main>
-        <Footer />
-      </div>
+        </div>
+      </AppShell>
     );
   }
 
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      <Badge variant={effectiveUser.govgrVerified ? "default" : "secondary"} className="min-h-8 px-3">
+        <BadgeCheck className="mr-1.5 h-4 w-4" />
+        {effectiveUser.govgrVerified ? t('ballot.verified') : t('ballot.unverified')}
+      </Badge>
+      {effectiveUser.isAdmin && (
+        <Badge variant="outline" className="min-h-8 px-3">
+          <Shield className="mr-1.5 h-4 w-4" />
+          {t('profile.adminRole')}
+        </Badge>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex min-h-screen flex-col" data-testid="page-profile-settings">
-      <Header />
-      <main className="container mx-auto flex-grow px-4 py-6 pb-20 sm:py-8 sm:pb-8">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mb-3 -ml-2"
-              onClick={() => setLocation("/home")}
-              data-testid="button-profile-back"
-            >
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              {t('general.back')}
-            </Button>
-            <h1 className="text-3xl font-bold tracking-tight">{t('profile.accountSettings')}</h1>
-            <p className="mt-2 max-w-2xl text-muted-foreground">
-              {t('profile.accountSettingsDescription')}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={effectiveUser.govgrVerified ? "default" : "secondary"} className="min-h-8 px-3">
-              <BadgeCheck className="mr-1.5 h-4 w-4" />
-              {effectiveUser.govgrVerified ? t('ballot.verified') : t('ballot.unverified')}
-            </Badge>
-            {effectiveUser.isAdmin && (
-              <Badge variant="outline" className="min-h-8 px-3">
-                <Shield className="mr-1.5 h-4 w-4" />
-                {t('profile.adminRole')}
-              </Badge>
-            )}
-          </div>
-        </div>
+    <AppShell title={t('profile.accountSettings')} actions={headerActions}>
+      <div data-testid="page-profile-settings">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-3 -ml-2"
+          onClick={() => setLocation("/home")}
+          data-testid="button-profile-back"
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          {t('general.back')}
+        </Button>
+        <p className="mb-6 max-w-2xl text-muted-foreground">
+          {t('profile.accountSettingsDescription')}
+        </p>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-1">
@@ -171,8 +165,7 @@ export default function ProfilePage() {
             </Card>
           </div>
         </div>
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </AppShell>
   );
 }
