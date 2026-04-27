@@ -16,7 +16,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import AppShell from '@/components/layout/AppShell';
 import LifecycleStepper from '@/components/ui/LifecycleStepper';
-import { DebateArguments } from '@/components/debate/debate-arguments';
+import { DebatePanel } from '@/components/debate/DebatePanel';
 import { getStatusForProposal } from '@/lib/proposal-status';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
 
@@ -250,7 +250,7 @@ export default function ProposalDetailPage() {
         </TabsList>
         
         <TabsContent value="debate">
-          <DebateArguments proposalId={proposal.id} />
+          <DebatePanel proposalId={proposal.id} />
         </TabsContent>
         
         <TabsContent value="sortition">
