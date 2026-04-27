@@ -180,6 +180,10 @@ export const communities = pgTable("communities", {
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull().default("autonomous"), // 'autonomous' | 'managed'
+  // Διαχειριστές για managed κοινότητες· κενός πίνακας για autonomous.
+  adminIds: jsonb("admin_ids").default("[]"),
+  // Σημαία για τη μοναδική «Γενική» κοινότητα όπου εγγράφεται κάθε νέος χρήστης.
+  isGeneral: boolean("is_general").default(false),
   governanceModel: text("governance_model").default("no_admin"), // 'no_admin' | 'admin_team' | 'hybrid'
   creatorId: integer("creator_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -438,6 +442,22 @@ export const adminActions = pgTable("admin_actions", {
   targetId: integer("target_id"),
   details: jsonb("details"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+// ─── Platform Settings (Καθολικές ρυθμίσεις πλατφόρμας) ─────────────────────
+// Key/value store for instance-wide defaults that the General community can
+// vote to change (sortition body size, validation model, similarity
+// threshold, etc.). Values are stored as text — callers parse to the type
+// they expect. lastChangedBy/At record who flipped the switch and when, so
+// changes have an audit trail without a separate log table.
+
+export const platformSettings = pgTable("platform_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  lastChangedBy: integer("last_changed_by").references(() => users.id),
+  lastChangedAt: timestamp("last_changed_at").defaultNow(),
 });
 
 // ─── Job Queue ──────────────────────────────────────────────────────────────
@@ -816,6 +836,7 @@ export const insertPollAnswerSchema = createInsertSchema(pollAnswers).omit({ id:
 export const insertPollUserResponseSchema = createInsertSchema(pollUserResponses).omit({ id: true, createdAt: true });
 // Demopolis Insert Schemas
 export const insertCommunitySchema = createInsertSchema(communities).omit({ id: true, createdAt: true });
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({ id: true, lastChangedAt: true });
 export const insertCommunityMemberSchema = createInsertSchema(communityMembers).omit({ id: true, joinedAt: true });
 export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProposalAmendmentSchema = createInsertSchema(proposalAmendments).omit({ id: true, createdAt: true });
@@ -985,6 +1006,7 @@ export type BallotVote = typeof ballotVotes.$inferSelect;
 
 // Demopolis Types
 export type Community = typeof communities.$inferSelect;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
 export type CommunityMember = typeof communityMembers.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type ProposalAmendment = typeof proposalAmendments.$inferSelect;
@@ -1002,6 +1024,7 @@ export type AdminAction = typeof adminActions.$inferSelect;
 
 // Demopolis Insert Types
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
 export type InsertCommunityMember = z.infer<typeof insertCommunityMemberSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertProposalAmendment = z.infer<typeof insertProposalAmendmentSchema>;

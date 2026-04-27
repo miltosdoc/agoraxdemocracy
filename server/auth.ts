@@ -11,6 +11,7 @@ import { db } from "./db";
 import { users, User, SafeUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
+import { addMember as addCommunityMember, getGeneralCommunity } from "./utils/community-manager";
 
 // Extend session interface to include returnTo property
 declare module "express-session" {
@@ -250,6 +251,18 @@ export function setupAuth(app: Express) {
         action: 'registration',
         userAgent: req.headers['user-agent'] || null,
       });
+
+      // Auto-enrol new users in the General community so they have at least
+      // one place to deliberate from day one. Best-effort: a missing General
+      // community (e.g. fresh install before seed) must not block signup.
+      try {
+        const general = await getGeneralCommunity();
+        if (general) {
+          await addCommunityMember(general.id, user.id);
+        }
+      } catch (enrolErr) {
+        console.error('General community auto-enrollment failed:', enrolErr);
+      }
 
       req.login(user, (err) => {
         if (err) return next(err);

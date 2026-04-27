@@ -10,6 +10,7 @@ import {
   users,
   communities,
   communityMembers,
+  platformSettings,
   proposals,
   proposalAmendments,
   proposalVotes,
@@ -102,10 +103,38 @@ async function seed() {
     })
     .returning();
 
-  console.log(`  ✅ 3 communities created`);
+  // ─── General community (catch-all) ────────────────────────────────────────
+  // The General community is the instance-wide default that every user
+  // belongs to. It owns platform-wide settings as proposals (sortition body
+  // size, validation model, etc.) so changes to the defaults go through the
+  // same deliberation cycle as any other proposal.
+  const [generalCommunity] = await db
+    .insert(communities)
+    .values({
+      name: 'Γενική Κοινότητα',
+      description: 'Η καθολική κοινότητα της πλατφόρμας — εδώ ψηφίζονται οι πλατφορμικές ρυθμίσεις.',
+      type: 'managed',
+      governanceModel: 'admin_team',
+      creatorId: user1.id,
+      adminIds: [user1.id],
+      isGeneral: true,
+      sortitionSize: 20,
+      sortitionResponseHours: 72,
+      democracyScore: '90',
+      createdAt: new Date(),
+    })
+    .returning();
+
+  console.log(`  ✅ 4 communities created (incl. General)`);
+
+  const day = 24 * 60 * 60 * 1000;
 
   // ─── Community Members ────────────────────────────────────────────────────
   await db.insert(communityMembers).values([
+    // General community: every user is a member; user1 is the admin.
+    { communityId: generalCommunity.id, userId: user1.id, role: 'admin', joinedAt: new Date() },
+    { communityId: generalCommunity.id, userId: user2.id, role: 'member', joinedAt: new Date() },
+    { communityId: generalCommunity.id, userId: user3.id, role: 'member', joinedAt: new Date() },
     { communityId: community1.id, userId: user1.id, role: 'founder', joinedAt: new Date() },
     { communityId: community1.id, userId: user2.id, role: 'member', joinedAt: new Date() },
     { communityId: community1.id, userId: user3.id, role: 'member', joinedAt: new Date() },
@@ -115,7 +144,83 @@ async function seed() {
     { communityId: community3.id, userId: user3.id, role: 'member', joinedAt: new Date() },
   ]);
 
-  console.log(`  ✅ 7 community memberships created`);
+  console.log(`  ✅ 10 community memberships created`);
+
+  // ─── Platform Settings (καθολικές ρυθμίσεις) ───────────────────────────────
+  await db.insert(platformSettings).values([
+    {
+      key: 'min_participation_pct',
+      value: '10',
+      description: 'Ελάχιστο ποσοστό συμμετοχής (%) για να θεωρηθεί έγκυρη μια ψηφοφορία',
+      lastChangedBy: user1.id,
+    },
+    {
+      key: 'sortition_body_size',
+      value: '20',
+      description: 'Προεπιλεγμένο μέγεθος κληρωτού σώματος',
+      lastChangedBy: user1.id,
+    },
+    {
+      key: 'proposal_validation_model',
+      value: 'nvidia/nemotron-3-nano-30b-a3b:free',
+      description: 'Μοντέλο LLM για την αξιολόγηση προτάσεων',
+      lastChangedBy: user1.id,
+    },
+    {
+      key: 'amendment_similarity_threshold',
+      value: '0.7',
+      description: 'Κατώφλι ομοιότητας για ομαδοποίηση διπλών αντιπροτάσεων',
+      lastChangedBy: user1.id,
+    },
+  ]);
+
+  console.log(`  ✅ 4 platform settings seeded`);
+
+  // ─── Platform Setting Proposals (στη Γενική Κοινότητα) ────────────────────
+  // Each setting is mirrored as a proposal so members can move the value
+  // through the standard deliberation lifecycle. They start as drafts —
+  // the demo data deliberately avoids advancing them so the General
+  // community always has open governance proposals to work on.
+  await db.insert(proposals).values([
+    {
+      communityId: generalCommunity.id,
+      authorId: user1.id,
+      question: 'Ελάχιστο ποσοστό συμμετοχής στις ψηφοφορίες',
+      solution: 'Ορισμός ελάχιστου ποσοστού συμμετοχής στο 10% των μελών για κάθε δεσμευτική ψηφοφορία.',
+      status: 'draft',
+      category: 'platform_settings',
+      createdAt: new Date(Date.now() - 1 * day),
+    },
+    {
+      communityId: generalCommunity.id,
+      authorId: user1.id,
+      question: 'Προεπιλεγμένο μέγεθος κληρωτού σώματος',
+      solution: 'Ορισμός προεπιλεγμένου μεγέθους κληρωτού σώματος στα 20 μέλη.',
+      status: 'draft',
+      category: 'platform_settings',
+      createdAt: new Date(Date.now() - 1 * day),
+    },
+    {
+      communityId: generalCommunity.id,
+      authorId: user1.id,
+      question: 'Μοντέλο LLM για αξιολόγηση προτάσεων',
+      solution: 'Χρήση του NVIDIA Nemotron (free tier) για την προ-αξιολόγηση προτάσεων.',
+      status: 'draft',
+      category: 'platform_settings',
+      createdAt: new Date(Date.now() - 1 * day),
+    },
+    {
+      communityId: generalCommunity.id,
+      authorId: user1.id,
+      question: 'Κατώφλι ομοιότητας αντιπροτάσεων',
+      solution: 'Ορισμός κατωφλίου ομοιότητας (TF-IDF cosine) στο 0.7 για ομαδοποίηση διπλών αντιπροτάσεων.',
+      status: 'draft',
+      category: 'platform_settings',
+      createdAt: new Date(Date.now() - 1 * day),
+    },
+  ]);
+
+  console.log(`  ✅ 4 platform-setting proposals seeded in General community`);
 
   // ─── Proposals ────────────────────────────────────────────────────────────
   // Seed one proposal per canonical lifecycle state defined in
@@ -123,7 +228,6 @@ async function seed() {
   // every branch of the UI:
   //   draft → review → author_review → community_signal →
   //     sortition_synthesis → voting → decided / archived
-  const day = 24 * 60 * 60 * 1000;
 
   await db.insert(proposals).values({
     communityId: community1.id,
