@@ -49,6 +49,8 @@ import {
   ProposalSupport,
   ProposalVote,
   ProposalVoteChoice,
+  PlatformSetting,
+  InsertPlatformSetting,
   communities,
   communityMembers,
   proposals,
@@ -57,7 +59,8 @@ import {
   sortitionMembers,
   debateArguments,
   proposalSupport,
-  proposalVotes
+  proposalVotes,
+  platformSettings
 } from "@shared/schema";
 
 // Frontend submits survey questions with temporary numeric ids so the server
@@ -282,6 +285,10 @@ export interface IStorage {
   castProposalVote(proposalId: number, userId: number, choice: ProposalVoteChoice): Promise<ProposalVote>;
   getUserProposalVote(proposalId: number, userId: number): Promise<ProposalVote | undefined>;
   getProposalVoteResults(proposalId: number): Promise<ProposalVoteResults>;
+
+  // ─── Platform Settings ─────────────────────────────────────────────────────
+  getPlatformSettings(): Promise<PlatformSetting[]>;
+  updatePlatformSetting(key: string, value: string, userId: number): Promise<PlatformSetting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2885,6 +2892,33 @@ export class DatabaseStorage implements IStorage {
       meetsQuorum,
       minParticipationPct,
     };
+  }
+
+  // ─── Platform Settings ─────────────────────────────────────────────────────
+  async getPlatformSettings(): Promise<PlatformSetting[]> {
+    return await db.select().from(platformSettings);
+  }
+
+  async updatePlatformSetting(key: string, value: string, userId: number): Promise<PlatformSetting> {
+    const [existing] = await db
+      .select()
+      .from(platformSettings)
+      .where(eq(platformSettings.key, key));
+
+    if (existing) {
+      const [updated] = await db
+        .update(platformSettings)
+        .set({ value, lastChangedBy: userId, lastChangedAt: new Date() })
+        .where(eq(platformSettings.key, key))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(platformSettings)
+      .values({ key, value, lastChangedBy: userId })
+      .returning();
+    return created;
   }
 }
 

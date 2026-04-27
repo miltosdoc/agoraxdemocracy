@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -1113,3 +1114,24 @@ export interface PollResult {
   isRanking?: boolean;
   rankingStats?: RankingStats;
 }
+
+// ─── Sortition Attendance ──────────────────────────────────────────────────
+export const sortitionAttendance = pgTable(
+  "sortition_attendance",
+  {
+    id: serial("id").primaryKey(),
+    bodyId: integer("body_id").notNull().references(() => sortitionBodies.id, { onDelete: "cascade" }),
+    memberId: integer("member_id").notNull(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull(), // 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed'
+    invitedAt: timestamp("invited_at").notNull(),
+    respondedAt: timestamp("responded_at"),
+    completedAt: timestamp("completed_at"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
+export type SortitionAttendance = InferSelectModel<typeof sortitionAttendance>;
+export type InsertSortitionAttendance = InferInsertModel<typeof sortitionAttendance>;

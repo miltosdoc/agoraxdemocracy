@@ -839,6 +839,31 @@ const el: TranslationDictionary = {
   'workspace.sortition.responded': 'Απάντησαν',
   'workspace.sortition.average': 'Μέσος όρος',
   'workspace.sortition.deadline': 'Προθεσμία',
+
+  // Platform Settings
+  'platformSettings.title': 'Ρυθμίσεις Πλατφόρμας',
+  'platformSettings.general': 'Γενικά',
+  'platformSettings.platformName': 'Όνομα Πλατφόρμας',
+  'platformSettings.platformDescription': 'Περιγραφή Πλατφόρμας',
+  'platformSettings.defaultCommunityType': 'Τύπος Κοινότητας',
+  'platformSettings.defaultLanguage': 'Γλώσσα Προεπιλογής',
+  'platformSettings.proposals': 'Προτάσεις',
+  'platformSettings.minParticipation': 'Ελάχιστη Συμμετοχή (%)',
+  'platformSettings.debatePeriodDays': 'Περίοδος Συζήτησης (ημέρες)',
+  'platformSettings.votingPeriodDays': 'Περίοδος Ψηφοφορίας (ημέρες)',
+  'platformSettings.sortitionSize': 'Μέγεθος Κληρωτού Σώματος',
+  'platformSettings.sortition': 'Κληρωτό Σώμα',
+  'platformSettings.responseDeadlineHours': 'Προθεσμία Απάντησης (ώρες)',
+  'platformSettings.minScorePass': 'Ελάχιστο Βαθμό',
+  'platformSettings.maxSortitionMembers': 'Μέγιστα Μέλη Κληρώσεως',
+  'platformSettings.notifications': 'Ειδοποιήσεις',
+  'platformSettings.emailEnabled': 'Email Ειδοποιήσεις',
+  'platformSettings.inAppEnabled': 'Ειδοποιήσεις Εφαρμογής',
+  'platformSettings.save': 'Αποθήκευση',
+  'platformSettings.saving': 'Αποθήκευση...',
+  'platformSettings.saved': 'Οι ρυθμίσεις αποθηκεύτηκαν',
+  'platformSettings.loadError': 'Αποτυχία φόρτωσης ρυθμίσεων',
+  'platformSettings.saveError': 'Αποτυχία αποθήκευσης',
 };
 
 export default el;

@@ -868,6 +868,31 @@ const en: TranslationDictionary = {
 
   // Sortition notification badge
   'sortition.notifications.aria': 'Sortition notifications',
+
+  // Platform Settings
+  'platformSettings.title': 'Platform Settings',
+  'platformSettings.general': 'General',
+  'platformSettings.platformName': 'Platform Name',
+  'platformSettings.platformDescription': 'Platform Description',
+  'platformSettings.defaultCommunityType': 'Default Community Type',
+  'platformSettings.defaultLanguage': 'Default Language',
+  'platformSettings.proposals': 'Proposals',
+  'platformSettings.minParticipation': 'Min Participation (%)',
+  'platformSettings.debatePeriodDays': 'Debate Period (days)',
+  'platformSettings.votingPeriodDays': 'Voting Period (days)',
+  'platformSettings.sortitionSize': 'Sortition Body Size',
+  'platformSettings.sortition': 'Sortition',
+  'platformSettings.responseDeadlineHours': 'Response Deadline (hours)',
+  'platformSettings.minScorePass': 'Min Score to Pass',
+  'platformSettings.maxSortitionMembers': 'Max Sortition Members',
+  'platformSettings.notifications': 'Notifications',
+  'platformSettings.emailEnabled': 'Email Notifications',
+  'platformSettings.inAppEnabled': 'In-App Notifications',
+  'platformSettings.save': 'Save Changes',
+  'platformSettings.saving': 'Saving...',
+  'platformSettings.saved': 'Settings saved successfully',
+  'platformSettings.loadError': 'Failed to load settings',
+  'platformSettings.saveError': 'Failed to save settings',
 };
 
 export default en;

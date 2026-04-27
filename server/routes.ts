@@ -2107,6 +2107,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── End Sortition Notification Routes ──────────────────────────────────
 
+  // ─── Platform Settings Routes ────────────────────────────────────────────
+  app.get("/api/platform-settings", requireAuth, async (req: any, res) => {
+    try {
+      const settings = await storage.getPlatformSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error getting platform settings:", error);
+      res.status(500).json({ message: "Failed to get platform settings" });
+    }
+  });
+
+  app.put("/api/platform-settings", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { key, value } = req.body;
+      if (!key || !value) {
+        return res.status(400).json({ message: "key and value are required" });
+      }
+      const setting = await storage.updatePlatformSetting(key, value, userId);
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating platform setting:", error);
+      res.status(500).json({ message: "Failed to update platform setting" });
+    }
+  });
+
+  // ─── End Platform Settings Routes ────────────────────────────────────────
+
   const httpServer = createServer(app);
 
   return httpServer;
