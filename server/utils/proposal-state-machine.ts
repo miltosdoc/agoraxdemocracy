@@ -25,7 +25,16 @@ import {
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore, enqueueSortitionTimeout } from './job-queue';
 import { completeSortitionBody } from './sortition-timeout';
 import { storage } from '../storage';
-import { db } from '../db';
+// Lazy import — db throws if DATABASE_URL is unset (e.g. CI unit tests).
+// Only transitionToValidation() needs it, so defer until called.
+let getDb: () => typeof import('../db')['db'];
+function database() {
+  if (!getDb) {
+    const dbMod = require('../db');
+    getDb = () => dbMod.db;
+  }
+  return getDb();
+}
 import { proposals, validationResults } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { validateProposal, type LLMValidationResult } from './llm-validation';
@@ -354,6 +363,7 @@ export async function transitionToValidation(proposalId: number): Promise<Valida
   }
 
   // Persist the full structured result for history and audit.
+  const db = database();
   const [persisted] = await db
     .insert(validationResults)
     .values({
