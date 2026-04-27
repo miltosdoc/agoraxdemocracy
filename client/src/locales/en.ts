@@ -260,6 +260,9 @@ const en: TranslationDictionary = {
   // Notifications
   'notification.title': 'Notifications',
   'notification.empty': 'No notifications',
+  'notification.all': 'All',
+  'notification.unread': 'Unread',
+  'notification.noNew': 'You have no new notifications',
   'notification.markRead': 'Mark as read',
   'notification.markAllRead': 'Mark all as read',
   'notification.sortitionAssigned': 'You have been selected for a sortition body',

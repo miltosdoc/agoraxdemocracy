@@ -25,22 +25,9 @@ import logoImage from "../../assets/logo.png";
 import { VerifyGovgrModal } from "../user/verify-govgr-modal";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
-interface NotificationWithPoll {
-  id: number;
-  userId: number;
-  pollId: number;
-  read: boolean;
-  createdAt: string;
-  poll: {
-    id: number;
-    title: string;
-    groupId: number | null;
-    group?: {
-      id: number;
-      name: string;
-    } | null;
-  };
-}
+import { useUnreadCount, useNotifications, useMarkAsRead } from "@/hooks/use-notifications";
+import type { SortitionNotification } from "@/types/notifications";
+import { notificationTypeConfig } from "@/types/notifications";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
@@ -57,38 +44,32 @@ export default function Header() {
   };
 
   // Fetch unread notification count
-  const { data: unreadCountData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/unread/count"],
-    enabled: !!user,
-    refetchInterval: 30000,
-  });
+  const { data: unreadCountData } = useUnreadCount();
 
-  // Fetch all notifications
-  const { data: notifications, isLoading: notificationsLoading } = useQuery<NotificationWithPoll[]>({
-    queryKey: ["/api/notifications"],
-    enabled: !!user && isNotificationsOpen,
+  // Fetch notifications when popover is open
+  const { data: notificationsData, isLoading: notificationsLoading } = useNotifications({
+    limit: 20,
   });
 
   // Mark notification as read mutation
-  const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: number) => {
-      return await apiRequest("POST", `/api/notifications/${notificationId}/read`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
-    },
-  });
+  const markAsRead = useMarkAsRead();
 
-  const handleNotificationClick = (notification: NotificationWithPoll) => {
+  const handleNotificationClick = (notification: SortitionNotification) => {
     if (!notification.read) {
-      markAsReadMutation.mutate(notification.id);
+      markAsRead.mutate(notification.id);
     }
     setIsNotificationsOpen(false);
-    navigate(`/polls/${notification.pollId}`);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    } else if (notification.proposalId) {
+      navigate(`/proposals/${notification.proposalId}`);
+    } else {
+      navigate("/notifications");
+    }
   };
 
   const unreadCount = unreadCountData?.count || 0;
+  const notifications = notificationsData?.notifications || [];
 
   return (
     <header className="bg-background/95 backdrop-blur-sm border-b border-border shadow-md sticky top-0 z-50 transition-smooth">
@@ -227,39 +208,40 @@ export default function Header() {
                     <div className="p-4 text-center text-sm text-muted-foreground" data-testid="text-loading-notifications">
                       {t('notification.loading')}
                     </div>
-                  ) : notifications && notifications.length > 0 ? (
+                  ) : notifications.length > 0 ? (
                     <div className="divide-y" data-testid="list-notifications">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`p-4 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-blue-50 dark:bg-blue-950" : ""}`}
-                          data-testid={`notification-item-${notification.id}`}
-                        >
-                          <div className="flex items-start gap-2">
-                            {!notification.read && (
-                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" data-testid="indicator-unread" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
-                                {notification.poll.group
-                                  ? `${t('notification.newPollIn')} ${notification.poll.group.name}`
-                                  : `${t('notification.newPollIn')} ${t('notification.community')}`
-                                }
-                              </p>
-                              <p className="text-sm text-primary font-medium truncate mt-1" data-testid={`text-poll-title-${notification.id}`}>
-                                {notification.poll.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1" data-testid={`text-time-ago-${notification.id}`}>
-                                {formatDistanceToNow(new Date(notification.createdAt), {
-                                  addSuffix: true,
-                                  locale: dateFnsLocale
-                                })}
-                              </p>
+                      {notifications.map((notification) => {
+                        const config = notificationTypeConfig[notification.type] || { icon: '📋', color: 'bg-gray-50 border-gray-200' };
+                        return (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`p-3 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-muted/30" : ""}`}
+                            data-testid={`notification-item-${notification.id}`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg flex-shrink-0 mt-0.5">{config.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
+                                  {notification.title}
+                                </p>
+                                {notification.message && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{notification.message}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1" data-testid={`text-time-ago-${notification.id}`}>
+                                  {formatDistanceToNow(new Date(notification.createdAt), {
+                                    addSuffix: true,
+                                    locale: dateFnsLocale
+                                  })}
+                                </p>
+                              </div>
+                              {!notification.read && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" data-testid="indicator-unread" />
+                              )}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-8 text-center text-sm text-muted-foreground" data-testid="text-no-notifications">
@@ -314,6 +296,20 @@ export default function Header() {
                     {t('ballot.verify')}
                   </DropdownMenuItem>
                 )}
+
+                <DropdownMenuItem
+                  onClick={() => navigate("/notifications")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-notifications"
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  {t('notification.title')}
+                  {unreadCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </DropdownMenuItem>
 
                 <DropdownMenuItem
                   onClick={() => navigate("/profile")}

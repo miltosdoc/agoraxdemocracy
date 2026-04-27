@@ -18,6 +18,7 @@ import AdminAccountsPage from "@/pages/admin-accounts";
 import CommunityDashboardPage from "@/pages/community-dashboard";
 import CommunitySettingsPage from "@/pages/community-settings";
 import { PlatformSettingsPage } from "@/pages/platform-settings";
+import NotificationsPage from "@/pages/notifications";
 import ProposalDetailPage from "@/pages/proposal-detail";
 import ProposalsPage from "@/pages/proposals-page";
 import SortitionScoringPage from "@/pages/sortition-scoring";
@@ -119,6 +120,7 @@ function Router() {
         <ProtectedRoute path="/proposals/:id/amendments/review" component={AmendmentAuthorReview} />
         <ProtectedRoute path="/proposals/:id/amendments/signals" component={AmendmentCommunitySignal} />
         <ProtectedRoute path="/settings" component={PlatformSettingsPage} />
+        <ProtectedRoute path="/notifications" component={NotificationsPage} />
         <Route path="/walkthrough" component={DeliberationWalkthrough} />
         <Route path="/how-it-works" component={HowItWorksPage} />
         <Route path="/faq" component={FAQPage} />

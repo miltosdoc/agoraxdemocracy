@@ -260,6 +260,9 @@ const el: TranslationDictionary = {
   // Notifications
   'notification.title': 'Ειδοποιήσεις',
   'notification.empty': 'Δεν υπάρχουν ειδοποιήσεις',
+  'notification.all': 'Όλες',
+  'notification.unread': 'Μη αναγνωσμένες',
+  'notification.noNew': 'Δεν υπάρχουν νέες ειδοποιήσεις',
   'notification.markRead': 'Επισήμανση ως αναγνωσμένη',
   'notification.markAllRead': 'Όλες ως αναγνωσμένες',
   'notification.sortitionAssigned': 'Έχετε επιλεγεί για σώμα κλήρωσης',
