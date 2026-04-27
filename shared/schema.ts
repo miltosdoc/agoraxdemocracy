@@ -354,6 +354,35 @@ export const sortitionMembers = pgTable("sortition_members", {
   sortitionMemberUnique: uniqueIndex('sortition_member_unique').on(table.bodyId, table.userId),
 }));
 
+// ─── Demopolis: Debate Threads (Διάλογος σε νήματα) ──────────────────────────
+// Real-time threaded discussion attached to a proposal during deliberation.
+// `parentId` is null for top-level threads and points at another row for
+// replies. Active only while the proposal is in a deliberation state — the
+// route layer enforces this so historical threads survive once voting opens.
+
+export const debateThreads = pgTable("debate_threads", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  parentId: integer("parent_id").references((): any => debateThreads.id, { onDelete: "cascade" }), // null = top-level
+  content: text("content").notNull(),
+  upvotes: integer("upvotes").default(0),
+  downvotes: integer("downvotes").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const debateVotes = pgTable("debate_votes", {
+  id: serial("id").primaryKey(),
+  threadId: integer("thread_id").notNull().references(() => debateThreads.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  direction: text("direction").notNull(), // 'up' | 'down'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  // Ένας χρήστης μία ψήφος ανά νήμα.
+  debateVoteUnique: uniqueIndex('debate_vote_unique').on(table.threadId, table.userId),
+}));
+
 // ─── Demopolis: Debate Arguments (Διάλογος) ──────────────────────────────────
 
 export const debateArguments = pgTable("debate_arguments", {
@@ -598,6 +627,7 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   }),
   amendments: many(proposalAmendments),
   debateArguments: many(debateArguments),
+  debateThreads: many(debateThreads),
   support: many(proposalSupport),
   sortitionBodies: many(sortitionBodies),
   validationResults: many(validationResults),
@@ -660,6 +690,35 @@ export const sortitionNotificationsRelations = relations(sortitionNotifications,
   community: one(communities, {
     fields: [sortitionNotifications.communityId],
     references: [communities.id],
+  }),
+}));
+
+export const debateThreadsRelations = relations(debateThreads, ({ one, many }) => ({
+  proposal: one(proposals, {
+    fields: [debateThreads.proposalId],
+    references: [proposals.id],
+  }),
+  author: one(users, {
+    fields: [debateThreads.authorId],
+    references: [users.id],
+  }),
+  parent: one(debateThreads, {
+    fields: [debateThreads.parentId],
+    references: [debateThreads.id],
+    relationName: 'thread_parent',
+  }),
+  replies: many(debateThreads, { relationName: 'thread_parent' }),
+  votes: many(debateVotes),
+}));
+
+export const debateVotesRelations = relations(debateVotes, ({ one }) => ({
+  thread: one(debateThreads, {
+    fields: [debateVotes.threadId],
+    references: [debateThreads.id],
+  }),
+  user: one(users, {
+    fields: [debateVotes.userId],
+    references: [users.id],
   }),
 }));
 
@@ -764,6 +823,8 @@ export const insertValidationResultSchema = createInsertSchema(validationResults
 export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omit({ id: true, createdAt: true });
 export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
 export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
+export const insertDebateThreadSchema = createInsertSchema(debateThreads).omit({ id: true, createdAt: true, updatedAt: true, upvotes: true, downvotes: true });
+export const insertDebateVoteSchema = createInsertSchema(debateVotes).omit({ id: true, createdAt: true });
 export const insertProposalSupportSchema = createInsertSchema(proposalSupport).omit({ id: true, createdAt: true });
 export const insertProposalVoteSchema = createInsertSchema(proposalVotes).omit({ id: true, castAt: true });
 
@@ -932,6 +993,8 @@ export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
 export type SortitionNotification = typeof sortitionNotifications.$inferSelect;
 export type DebateArgument = typeof debateArguments.$inferSelect;
+export type DebateThread = typeof debateThreads.$inferSelect;
+export type DebateVote = typeof debateVotes.$inferSelect;
 export type ProposalSupport = typeof proposalSupport.$inferSelect;
 export type ProposalVote = typeof proposalVotes.$inferSelect;
 export type ProposalVoteChoice = z.infer<typeof proposalVoteChoiceSchema>;
@@ -946,6 +1009,8 @@ export type InsertValidationResult = z.infer<typeof insertValidationResultSchema
 export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
 export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
 export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
+export type InsertDebateThread = z.infer<typeof insertDebateThreadSchema>;
+export type InsertDebateVote = z.infer<typeof insertDebateVoteSchema>;
 export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
 export type InsertProposalVote = z.infer<typeof insertProposalVoteSchema>;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;

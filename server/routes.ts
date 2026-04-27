@@ -20,6 +20,7 @@ import {
   buildSortitionInput,
   saveFinalText,
 } from "./utils/amendment-processor";
+import * as debateService from "./utils/debate";
 import { INITIAL_PROPOSAL_STATE, isProposalState } from "@shared/proposal-lifecycle";
 import { sanitizeCommunityCreateInput, sanitizeCommunityUpdateInput } from "@shared/community-settings";
 import { buildCommunitySummary } from "@shared/community-summary";
@@ -1269,6 +1270,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error opposing argument:", error);
       res.status(500).json({ message: "Failed to oppose argument" });
+    }
+  });
+
+  // ─── Demopolis: Debate Threads (Διάλογος σε νήματα) ───────────────────────
+
+  app.get("/api/proposals/:id/debate", async (req, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (Number.isNaN(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const threads = await debateService.getThreads(proposalId);
+      res.json(threads);
+    } catch (error) {
+      console.error("Error fetching debate threads:", error);
+      res.status(500).json({ message: "Failed to fetch debate threads" });
+    }
+  });
+
+  app.get("/api/proposals/:id/debate/stats", async (req, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (Number.isNaN(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const stats = await debateService.getThreadStats(proposalId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching debate stats:", error);
+      res.status(500).json({ message: "Failed to fetch debate stats" });
+    }
+  });
+
+  app.post("/api/proposals/:id/debate", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (Number.isNaN(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) return res.status(403).json({ message: "Must be a community member" });
+
+      const { content, parentId } = req.body ?? {};
+      if (typeof content !== 'string' || content.trim() === '') {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      const thread = parentId
+        ? await debateService.replyToThread(Number(parentId), req.user.id, content)
+        : await debateService.createThread(proposalId, req.user.id, content);
+
+      res.status(201).json(thread);
+    } catch (error) {
+      if (error instanceof debateService.DebateError) {
+        const status = error.code === 'not_found' ? 404 : error.code === 'closed' ? 409 : 400;
+        return res.status(status).json({ message: error.message });
+      }
+      console.error("Error creating debate thread:", error);
+      res.status(500).json({ message: "Failed to create debate thread" });
+    }
+  });
+
+  app.post("/api/debate/:id/vote", requireAuth, async (req: any, res) => {
+    try {
+      const threadId = parseInt(req.params.id);
+      if (Number.isNaN(threadId)) {
+        return res.status(400).json({ message: "Invalid thread id" });
+      }
+      const direction = req.body?.direction;
+      if (direction !== 'up' && direction !== 'down') {
+        return res.status(400).json({ message: "direction must be 'up' or 'down'" });
+      }
+      const updated = await debateService.voteThread(threadId, req.user.id, direction);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof debateService.DebateError) {
+        const status = error.code === 'not_found' ? 404 : error.code === 'closed' ? 409 : 400;
+        return res.status(status).json({ message: error.message });
+      }
+      console.error("Error voting on debate thread:", error);
+      res.status(500).json({ message: "Failed to vote on debate thread" });
     }
   });
 
