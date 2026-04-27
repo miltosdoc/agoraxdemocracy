@@ -382,6 +382,7 @@ const en: TranslationDictionary = {
   'proposal.solution_label': 'Solution',
   'proposal.solution_placeholder': 'What is the proposed solution?',
   'proposal.solution_hint': 'Describe the proposed solution or action.',
+  'proposal.category': 'Category',
   'proposal.category_label': 'Category',
   'proposal.category_placeholder': 'Select category',
   'proposal.category_education': 'Education',
