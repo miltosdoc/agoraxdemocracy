@@ -2118,20 +2118,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/platform-settings", requireAuth, async (req: any, res) => {
+  const updatePlatformSettingHandler = async (req: any, res: any) => {
     try {
       const userId = req.user!.id;
       const { key, value } = req.body;
-      if (!key || !value) {
+      if (!key || value === undefined || value === null) {
         return res.status(400).json({ message: "key and value are required" });
       }
-      const setting = await storage.updatePlatformSetting(key, value, userId);
+      const setting = await storage.updatePlatformSetting(key, String(value), userId);
       res.json(setting);
     } catch (error) {
       console.error("Error updating platform setting:", error);
       res.status(500).json({ message: "Failed to update platform setting" });
     }
-  });
+  };
+  app.put("/api/platform-settings", requireAuth, updatePlatformSettingHandler);
+  app.patch("/api/platform-settings", requireAuth, updatePlatformSettingHandler);
 
   // ─── End Platform Settings Routes ────────────────────────────────────────
 

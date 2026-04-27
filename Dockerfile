@@ -44,14 +44,19 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/migrations ./migrations
+COPY --from=build /app/server ./server
+COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=build /app/shared ./shared
 
-# Set ownership to non-root user
+# Set ownership for static files
 RUN chown -R appuser:appgroup /app
 
-USER appuser
+# Copy entrypoint (runs as root for npx cache access)
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 3000
 
 ENV NODE_ENV=production
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

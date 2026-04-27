@@ -39,8 +39,12 @@ import BottomNav from "@/components/layout/bottom-nav";
 
 function CommunitiesPage() {
   return (
-    <div className="container mx-auto py-6 px-4 max-w-6xl">
-      <CommunityList />
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <div className="container mx-auto py-6 px-4 max-w-6xl flex-grow">
+        <CommunityList />
+      </div>
+      <Footer />
     </div>
   );
 }

@@ -1,79 +1,55 @@
-# AgoraX Phase 7 — Production Readiness
+# AgoraX Bug Fix Sprint — Critical Issues
 
 ## Context
-- Working copy: `/tmp/agoraxdemo`
-- Branch: `main`
-- Remote: `github.com/miltosdoc/agoraxdemo`
-- TS compilation: clean (ignoring node_modules/drizzle errors)
-- Docker build: passes
-- CI: fixed (lazy db import for state machine tests)
+Working copy: `/tmp/agoraxdemo`. Docker compose running with `DEMO_MODE=true`. API on port 3000, DB on 5432.
 
-## Completed (Previous Sessions)
-- Phase 1: TS burndown, storage audit, proposal_votes wiring
-- Phase 2: Amendment merging logic (TF-IDF/Cosine)
-- Phase 3: Sortition system (selection, scoring, synthesis, timeout/completion)
-- Phase 4: Proposal workspace (5-tab layout: Overview, Debate, Amendments, Sortition, Votes)
-- Phase 5: Voting panel, Next Action panel, Amendments panel, Sortition panel
-- Phase 6: Platform settings, community badges, attendance schema
-- Phase 7a: Notification center (types, hooks, components, /notifications page, header bell)
+## CRITICAL BUGS TO FIX
 
-## Remaining Tasks (Implement All)
+### 1. Migration Journal Missing Entries
+The `migrations/meta/_journal.json` only lists migration 0000. All other migrations (0001-0009) exist as SQL files but are NOT in the journal, so `drizzle-kit migrate` skips them. This causes:
+- Missing `jobs` table (migration 0001)
+- Missing `final_text` column on proposals (migration 0002)
+- Missing `admin_ids`/`is_general` on communities (migration 0008)
+- Missing `sortition_attendance` table (migration 0009)
 
-### 1. Attendance Backend & UI
-- **Backend:** Wire `sortitionAttendance` table (already in schema.ts) with storage methods in `server/storage.ts`:
-  - `getAttendance(proposalId, memberId)` → attendance record
-  - `upsertAttendance(proposalId, memberId, status, notes)` → insert/update
-  - `getAttendanceSummary(proposalId)` → counts by status
-- **UI:** In `client/src/pages/sortition-assignment.tsx`, add attendance confirmation flow:
-  - Member clicks "Confirm Attendance" or "Decline" on their sortition assignment
-  - Shows deadline countdown
-  - Stores response in `sortitionAttendance` table
-  - Triggers notification to proposal author when ≥50% confirm
+**Fix:** Update `_journal.json` to include all 10 migration entries (0000-0009). Also fix the duplicate `0003` prefix — rename `0003_sortition_notifications.sql` to `0003b_sortition_notifications.sql` and `0003_canonical_proposal_lifecycle.sql` to `0003a_canonical_proposal_lifecycle.sql`. Update journal tags accordingly.
 
-### 2. Global Search & Discovery
-- **Backend:** Add search endpoint `GET /api/search?q=&type=proposals|members|communities` in `server/routes.ts`
-  - Search proposals by question, solution, tags
-  - Search members by display name
-  - Search communities by name, description
-- **Frontend:** Create `client/src/components/SearchBar.tsx` — global search input in header
-  - Debounced input, dropdown results, keyboard navigation
-  - Route to result on click
-- **i18n:** Add keys to both `en.ts` and `el.ts`
+### 2. Seed Script Crashes
+The seed script (`server/seed-demo.ts`) crashes after creating users because the DB schema is incomplete (missing columns from unapplied migrations). Once migrations are fixed, the seed should work. But also add error handling so the container starts even if seeding fails.
 
-### 3. Mobile Responsiveness
-- Fix responsive layout issues across key pages:
-  - Header: collapse nav to hamburger on mobile
-  - Proposal detail: stack tabs vertically on narrow screens
-  - Proposal list: single column on mobile
-  - Sortition assignment: full-width cards on mobile
-  - Platform settings: stacked form fields
-- Use Tailwind breakpoints (`sm:`, `md:`, `lg:`) — no media query files
-- Test at 320px, 375px, 414px widths
+### 3. Navigation Buttons Don't Navigate
+In `client/src/components/Header.tsx`, navigation buttons use `<button>` elements instead of `<Link>` components. Clicking them doesn't navigate.
 
-### 4. LLM Validation UI
-- **Frontend:** In `client/src/pages/proposal-detail.tsx`, add validation status display:
-  - Show LLM score (0-100) with color coding (red <20, yellow 20-90, green >90)
-  - Show LLM feedback text
-  - Show validation category (return/auto/sortition)
-  - Show validation round count
-  - "Request Re-validation" button for authors (triggers new LLM validation job)
-- **Backend:** Add route `POST /api/proposals/:id/revalidate` in `server/routes.ts`
-  - Enqueues new LLM validation job
-  - Increments `llmValidationRound`
-- **i18n:** Add keys to both `en.ts` and `el.ts`
+**Fix:** Replace `<button onClick={() => navigate(...)}>` with `<Link to="...">` using React Router's Link component.
 
-## Constraints
-- Use `@/hooks/use-translation` for i18n (NOT direct react-i18next import)
-- All new i18n keys go in BOTH `en.ts` and `el.ts` simultaneously
-- Follow existing code patterns — don't introduce new dependencies
-- Use Drizzle ORM for all DB access
-- Use existing notification system for alerts
-- Keep components under ~300 LOC each
+### 4. Platform Settings Page Fails
+`/settings` shows "Failed to load settings" because the `platform_settings` table doesn't exist (migration 0008 not applied). Once migrations are fixed, this should work. But also add a fallback to create default settings if the table is empty.
 
-## After Implementation
-1. Run `npx tsc --noEmit` — must be clean
-2. Run `npm run i18n-check` — must pass (en/el parity)
-3. Run `npx vitest run` — all tests pass (except state-machine.test.ts which needs DATABASE_URL)
-4. Run `docker compose build` — must succeed
-5. Commit all changes with descriptive message
-6. Push to origin/main
+### 5. Profile Page Has Developer Notes
+`client/src/pages/profile.tsx` contains placeholder text like "TODO: Add user stats" and "FIXME: Wire up notifications". Replace with proper user-facing content.
+
+### 6. Empty States Need CTAs
+When there are no proposals, communities, or notifications, show proper empty states with call-to-action buttons instead of blank pages.
+
+### 7. Settings Page Uses Spinbuttons Instead of Toggles
+Boolean settings in `/settings` use number inputs (spinbuttons) instead of toggle switches. Convert to proper toggle UI.
+
+## IMPLEMENTATION ORDER
+
+1. **Fix migrations first** — update journal, rename duplicate 0003 files
+2. **Fix seed script** — ensure it works with complete schema
+3. **Fix navigation** — replace buttons with Links in Header
+4. **Fix settings page** — ensure platform_settings loads or creates defaults
+5. **Fix profile page** — replace dev notes with proper UI
+6. **Add empty states** — proposals, communities, notifications pages
+7. **Fix settings toggles** — boolean inputs as toggles
+
+## CONSTRAINTS
+- Use `@/hooks/use-translation` for i18n (not direct react-i18next import)
+- Keep i18n parity between en.ts and el.ts
+- Demo mode: any password works for seeded users
+- Rate limiter disabled in demo mode
+- Docker build must pass
+
+## AFTER FIXES
+Rebuild Docker containers and verify all pages load without errors.

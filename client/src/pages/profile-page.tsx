@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import AppShell from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/hooks/use-translation";
 import { useLocation } from "wouter";
-import { ArrowLeft, BadgeCheck, Fingerprint, MapPin, Shield, User, Vote } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Fingerprint, MapPin, Shield, Trash2, User } from "lucide-react";
+import { VerifyGovgrModal } from "@/components/user/verify-govgr-modal";
+import { DeleteAccount } from "@/components/user/delete-account";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
   const effectiveUser = user ?? {
     id: 0,
@@ -131,6 +135,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{t('profile.identityActionUnavailable')}</p>
+                {!effectiveUser.govgrVerified && (
+                  <Button
+                    onClick={() => setIsVerifyModalOpen(true)}
+                    data-testid="button-verify-identity"
+                    className="gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    {t('profile.verifyIdentity')}
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -142,30 +156,40 @@ export default function ProfilePage() {
                 </CardTitle>
                 <CardDescription>{t('profile.participationSettingsDescription')}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  {t('profile.locationManagedLater')}
-                </div>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('profile.locationManagedLater')}</p>
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/home")}
+                  data-testid="button-update-location"
+                  className="gap-2"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {t('profile.updateLocationButton')}
+                </Button>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Vote className="h-5 w-5 text-primary" />
+                  <Trash2 className="h-5 w-5 text-destructive" />
                   {t('profile.accountDangerZone')}
                 </CardTitle>
                 <CardDescription>{t('profile.accountDangerZoneDescription')}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  {t('profile.accountDeletionUnavailable')}
-                </div>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('profile.accountDeletionUnavailable')}</p>
+                <DeleteAccount />
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+      <VerifyGovgrModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+      />
     </AppShell>
   );
 }

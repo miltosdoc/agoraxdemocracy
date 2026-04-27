@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "@/hooks/use-translation";
 import { useAuth } from "@/hooks/use-auth";
 import AppShell from "@/components/layout/AppShell";
+import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 
 interface PlatformSetting {
@@ -13,47 +14,65 @@ interface PlatformSetting {
   lastChangedAt?: string;
 }
 
-const SETTINGS_GROUPS = [
+type SettingType = "text" | "textarea" | "number" | "select" | "boolean";
+
+interface SettingDef {
+  key: string;
+  label: string;
+  type: SettingType;
+  options?: string[];
+  default: string;
+}
+
+interface SettingGroupDef {
+  title: string;
+  settings: SettingDef[];
+}
+
+const SETTINGS_GROUPS: SettingGroupDef[] = [
   {
     title: "platformSettings.general",
     settings: [
-      { key: "platform_name", label: "platformSettings.platformName", type: "text" },
-      { key: "platform_description", label: "platformSettings.platformDescription", type: "textarea" },
-      { key: "default_community_type", label: "platformSettings.defaultCommunityType", type: "select", options: ["autonomous", "managed"] },
-      { key: "default_language", label: "platformSettings.defaultLanguage", type: "select", options: ["en", "el"] },
+      { key: "platform_name", label: "platformSettings.platformName", type: "text", default: "AgoraX" },
+      { key: "platform_description", label: "platformSettings.platformDescription", type: "textarea", default: "" },
+      { key: "default_community_type", label: "platformSettings.defaultCommunityType", type: "select", options: ["autonomous", "managed"], default: "autonomous" },
+      { key: "default_language", label: "platformSettings.defaultLanguage", type: "select", options: ["en", "el"], default: "el" },
     ],
   },
   {
     title: "platformSettings.proposals",
     settings: [
-      { key: "proposal_min_participation", label: "platformSettings.minParticipation", type: "number" },
-      { key: "proposal_debate_period_days", label: "platformSettings.debatePeriodDays", type: "number" },
-      { key: "proposal_voting_period_days", label: "platformSettings.votingPeriodDays", type: "number" },
-      { key: "proposal_sortition_size", label: "platformSettings.sortitionSize", type: "number" },
+      { key: "proposal_min_participation", label: "platformSettings.minParticipation", type: "number", default: "10" },
+      { key: "proposal_debate_period_days", label: "platformSettings.debatePeriodDays", type: "number", default: "7" },
+      { key: "proposal_voting_period_days", label: "platformSettings.votingPeriodDays", type: "number", default: "5" },
+      { key: "proposal_sortition_size", label: "platformSettings.sortitionSize", type: "number", default: "20" },
     ],
   },
   {
     title: "platformSettings.sortition",
     settings: [
-      { key: "sortition_response_deadline_hours", label: "platformSettings.responseDeadlineHours", type: "number" },
-      { key: "sortition_min_score_pass", label: "platformSettings.minScorePass", type: "number" },
-      { key: "sortition_max_members", label: "platformSettings.maxSortitionMembers", type: "number" },
+      { key: "sortition_response_deadline_hours", label: "platformSettings.responseDeadlineHours", type: "number", default: "72" },
+      { key: "sortition_min_score_pass", label: "platformSettings.minScorePass", type: "number", default: "60" },
+      { key: "sortition_max_members", label: "platformSettings.maxSortitionMembers", type: "number", default: "50" },
     ],
   },
   {
     title: "platformSettings.notifications",
     settings: [
-      { key: "notifications_email_enabled", label: "platformSettings.emailEnabled", type: "select", options: ["true", "false"] },
-      { key: "notifications_inapp_enabled", label: "platformSettings.inAppEnabled", type: "select", options: ["true", "false"] },
+      { key: "notifications_email_enabled", label: "platformSettings.emailEnabled", type: "boolean", default: "true" },
+      { key: "notifications_inapp_enabled", label: "platformSettings.inAppEnabled", type: "boolean", default: "true" },
     ],
   },
 ];
 
+const ALL_DEFAULTS: Record<string, string> = SETTINGS_GROUPS
+  .flatMap((g) => g.settings)
+  .reduce((acc, s) => ({ ...acc, [s.key]: s.default }), {} as Record<string, string>);
+
 export function PlatformSettingsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [settings, setSettings] = useState<PlatformSetting[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(ALL_DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -66,15 +85,15 @@ export function PlatformSettingsPage() {
   async function loadSettings() {
     try {
       const res = await api.get<PlatformSetting[]>("/api/platform-settings");
-      setSettings(res.data);
-      const vals: Record<string, string> = {};
-      for (const s of res.data) {
-        vals[s.key] = s.value;
+      const next: Record<string, string> = { ...ALL_DEFAULTS };
+      for (const s of res.data || []) {
+        next[s.key] = s.value;
       }
-      setValues(vals);
+      setValues(next);
     } catch (err) {
       console.error("Failed to load settings:", err);
-      setError(t("platformSettings.loadError"));
+      // Fall back to defaults so the page is still usable on a fresh DB.
+      setValues({ ...ALL_DEFAULTS });
     } finally {
       setLoading(false);
     }
@@ -134,20 +153,22 @@ export function PlatformSettingsPage() {
             <div className="divide-y divide-gray-100">
               {group.settings.map((setting) => (
                 <div key={setting.key} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="flex-1 text-sm font-medium text-gray-700">
+                  <label className="flex-1 text-sm font-medium text-gray-700" htmlFor={`setting-${setting.key}`}>
                     {t(setting.label)}
                   </label>
                   {setting.type === "textarea" ? (
                     <textarea
+                      id={`setting-${setting.key}`}
                       className="w-full sm:flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       rows={2}
-                      value={values[setting.key] || ""}
+                      value={values[setting.key] ?? ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     />
                   ) : setting.type === "select" ? (
                     <select
+                      id={`setting-${setting.key}`}
                       className="w-full sm:w-auto rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      value={values[setting.key] || ""}
+                      value={values[setting.key] ?? ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     >
                       {setting.options?.map((opt) => (
@@ -156,11 +177,19 @@ export function PlatformSettingsPage() {
                         </option>
                       ))}
                     </select>
+                  ) : setting.type === "boolean" ? (
+                    <Switch
+                      id={`setting-${setting.key}`}
+                      data-testid={`toggle-${setting.key}`}
+                      checked={values[setting.key] === "true"}
+                      onCheckedChange={(checked) => handleChange(setting.key, checked ? "true" : "false")}
+                    />
                   ) : (
                     <input
+                      id={`setting-${setting.key}`}
                       type={setting.type}
                       className="w-full sm:w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      value={values[setting.key] || ""}
+                      value={values[setting.key] ?? ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     />
                   )}

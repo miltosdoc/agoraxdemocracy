@@ -102,28 +102,30 @@ export default function Header() {
             <LanguageSwitcher />
             {/* Desktop buttons */}
             <Button
+              asChild
               variant="outline"
-              onClick={() => navigate("/auth")}
               className="hidden sm:inline-flex min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
               data-testid="button-login"
             >
-              {t('auth.login')}
+              <Link href="/auth">{t('auth.login')}</Link>
             </Button>
             <Button
-              onClick={() => navigate("/auth?tab=register")}
+              asChild
               className="hidden sm:inline-flex min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
               data-testid="button-register"
             >
-              {t('auth.register')}
+              <Link href="/auth?tab=register">{t('auth.register')}</Link>
             </Button>
             <Button
+              asChild
               variant="ghost"
-              onClick={() => navigate("/walkthrough")}
               className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted"
               data-testid="button-walkthrough"
             >
-              <MessageSquare className="h-4 w-4" />
-              <span>{t('nav.process')}</span>
+              <Link href="/walkthrough">
+                <MessageSquare className="h-4 w-4" />
+                <span>{t('nav.process')}</span>
+              </Link>
             </Button>
             {/* Mobile hamburger */}
             <DropdownMenu>
@@ -157,30 +159,36 @@ export default function Header() {
               <SearchBar />
             </div>
             <Button
+              asChild
               className="hidden lg:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
-              onClick={() => navigate("/proposals/new")}
               data-testid="button-new-proposal"
             >
-              <PlusCircle className="h-4 w-4" />
-              <span>{t('nav.newProposal')}</span>
+              <Link href="/proposals/new">
+                <PlusCircle className="h-4 w-4" />
+                <span>{t('nav.newProposal')}</span>
+              </Link>
             </Button>
             <Button
+              asChild
               variant="outline"
               className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
-              onClick={() => navigate("/proposals")}
               data-testid="button-proposals"
             >
-              <FileText className="h-4 w-4" />
-              <span>{t('nav.proposals')}</span>
+              <Link href="/proposals">
+                <FileText className="h-4 w-4" />
+                <span>{t('nav.proposals')}</span>
+              </Link>
             </Button>
             <Button
+              asChild
               variant="outline"
               className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
-              onClick={() => navigate("/communities")}
               data-testid="button-communities"
             >
-              <Users className="h-4 w-4" />
-              <span>{t('nav.communities')}</span>
+              <Link href="/communities">
+                <Users className="h-4 w-4" />
+                <span>{t('nav.communities')}</span>
+              </Link>
             </Button>
 
             {/* Notification Bell */}

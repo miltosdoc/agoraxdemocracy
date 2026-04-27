@@ -19,9 +19,23 @@ import {
   sortitionMembers,
   adminActions,
 } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
 async function seed() {
   console.log('🌱 Seeding demo data...\n');
+
+  // Idempotency: if the canonical demo admin already exists, assume the
+  // demo data has already been seeded and exit cleanly so the entrypoint
+  // can continue to start the server.
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, 'demo_admin'))
+    .limit(1);
+  if (existing.length > 0) {
+    console.log('  ℹ️  Demo data already present — skipping seed.');
+    process.exit(0);
+  }
 
   // ─── Users ────────────────────────────────────────────────────────────────
   const [user1] = await db
