@@ -123,79 +123,83 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  // Google OAuth Strategy
-  passport.use(
-    new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
-      scope: ["profile", "email"],
-      proxy: true // This helps with proxied requests
-    },
-      async (accessToken, refreshToken, profile, done) => {
-        try {
-          // First check if user exists with this Google ID
-          let user = await storage.getUserByProviderId(profile.id, 'google');
+  // Google OAuth Strategy — only register when credentials are configured
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(
+      new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
+        scope: ["profile", "email"],
+        proxy: true // This helps with proxied requests
+      },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            // First check if user exists with this Google ID
+            let user = await storage.getUserByProviderId(profile.id, 'google');
 
-          if (user) {
-            // User already exists, return it
-            return done(null, user);
-          }
-
-          // Check if user exists with this email
-          if (profile.emails && profile.emails.length > 0) {
-            const email = profile.emails[0].value;
-            const existingUser = await storage.getUserByEmail(email);
-
-            if (existingUser) {
-              // Update existing user with Google provider details
-              const [updatedUser] = await db
-                .update(users)
-                .set({
-                  providerId: profile.id,
-                  provider: 'google',
-                  profilePicture: profile.photos?.[0]?.value || null
-                })
-                .where(eq(users.id, existingUser.id))
-                .returning();
-
-              return done(null, updatedUser);
+            if (user) {
+              // User already exists, return it
+              return done(null, user);
             }
+
+            // Check if user exists with this email
+            if (profile.emails && profile.emails.length > 0) {
+              const email = profile.emails[0].value;
+              const existingUser = await storage.getUserByEmail(email);
+
+              if (existingUser) {
+                // Update existing user with Google provider details
+                const [updatedUser] = await db
+                  .update(users)
+                  .set({
+                    providerId: profile.id,
+                    provider: 'google',
+                    profilePicture: profile.photos?.[0]?.value || null
+                  })
+                  .where(eq(users.id, existingUser.id))
+                  .returning();
+
+                return done(null, updatedUser);
+              }
+            }
+
+            // Create a new user with Google profile info
+            const name = profile.displayName || 'User';
+            const email = profile.emails?.[0]?.value || `${profile.id}@gmail.com`;
+
+            // Generate a unique username
+            const baseUsername = (profile.displayName || 'user').toLowerCase().replace(/\s+/g, '');
+            let username = baseUsername;
+            let attempt = 1;
+
+            // Find a unique username
+            while (true) {
+              const existingUser = await storage.getUserByUsername(username);
+              if (!existingUser) break;
+              username = `${baseUsername}${attempt}`;
+              attempt++;
+            }
+
+            // Create the new user
+            const newUser = await storage.createUser({
+              username,
+              name,
+              email,
+              provider: 'google',
+              providerId: profile.id,
+              profilePicture: profile.photos?.[0]?.value || null
+            });
+
+            return done(null, newUser);
+          } catch (error) {
+            return done(error);
           }
-
-          // Create a new user with Google profile info
-          const name = profile.displayName || 'User';
-          const email = profile.emails?.[0]?.value || `${profile.id}@gmail.com`;
-
-          // Generate a unique username
-          const baseUsername = (profile.displayName || 'user').toLowerCase().replace(/\s+/g, '');
-          let username = baseUsername;
-          let attempt = 1;
-
-          // Find a unique username
-          while (true) {
-            const existingUser = await storage.getUserByUsername(username);
-            if (!existingUser) break;
-            username = `${baseUsername}${attempt}`;
-            attempt++;
-          }
-
-          // Create the new user
-          const newUser = await storage.createUser({
-            username,
-            name,
-            email,
-            provider: 'google',
-            providerId: profile.id,
-            profilePicture: profile.photos?.[0]?.value || null
-          });
-
-          return done(null, newUser);
-        } catch (error) {
-          return done(error);
-        }
-      })
-  );
+        })
+    );
+  } else {
+    console.log('[auth] Google OAuth skipped — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set');
+  }
 
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
