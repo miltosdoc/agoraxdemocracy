@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
+import LandingPage from "@/pages/landing-page";
 import AuthPage from "@/pages/auth-page";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
@@ -72,7 +73,7 @@ function Router() {
   return (
     <>
       <Switch>
-        <Route path="/" component={HomePage} />
+        <Route path="/" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
         <ProtectedRoute path="/home" component={HomePage} />
         <Route path="/my-polls">
