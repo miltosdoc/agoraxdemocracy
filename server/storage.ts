@@ -44,6 +44,7 @@ import {
   SortitionBody,
   InsertSortitionBody,
   SortitionMember,
+  SortitionAttendance,
   DebateArgument,
   InsertDebateArgument,
   ProposalSupport,
@@ -57,6 +58,7 @@ import {
   proposalAmendments,
   sortitionBodies,
   sortitionMembers,
+  sortitionAttendance,
   debateArguments,
   proposalSupport,
   proposalVotes,
@@ -289,6 +291,29 @@ export interface IStorage {
   // ─── Platform Settings ─────────────────────────────────────────────────────
   getPlatformSettings(): Promise<PlatformSetting[]>;
   updatePlatformSetting(key: string, value: string, userId: number): Promise<PlatformSetting>;
+
+  // ─── Sortition Attendance ─────────────────────────────────────────────────
+  getAttendance(proposalId: number, memberId: number): Promise<SortitionAttendance | undefined>;
+  upsertAttendance(
+    proposalId: number,
+    memberId: number,
+    status: 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed',
+    notes?: string,
+  ): Promise<SortitionAttendance>;
+  getAttendanceSummary(proposalId: number): Promise<{
+    invited: number;
+    accepted: number;
+    declined: number;
+    noShow: number;
+    completed: number;
+    total: number;
+    confirmedPct: number;
+  }>;
+
+  // ─── Global Search ────────────────────────────────────────────────────────
+  searchProposals(query: string, limit?: number): Promise<Proposal[]>;
+  searchMembers(query: string, limit?: number): Promise<User[]>;
+  searchCommunities(query: string, limit?: number): Promise<Community[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2919,6 +2944,164 @@ export class DatabaseStorage implements IStorage {
       .values({ key, value, lastChangedBy: userId })
       .returning();
     return created;
+  }
+
+  // ─── Sortition Attendance ─────────────────────────────────────────────────
+
+  async getAttendance(proposalId: number, memberId: number): Promise<SortitionAttendance | undefined> {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) return undefined;
+    const [row] = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(and(
+        inArray(sortitionAttendance.bodyId, bodyIds),
+        eq(sortitionAttendance.memberId, memberId),
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async upsertAttendance(
+    proposalId: number,
+    memberId: number,
+    status: 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed',
+    notes?: string,
+  ): Promise<SortitionAttendance> {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) {
+      throw new Error(`No sortition body exists for proposal ${proposalId}`);
+    }
+
+    // Resolve the sortition member row → bodyId + userId.
+    const [member] = await db
+      .select()
+      .from(sortitionMembers)
+      .where(and(
+        inArray(sortitionMembers.bodyId, bodyIds),
+        eq(sortitionMembers.id, memberId),
+      ))
+      .limit(1);
+    if (!member) {
+      throw new Error(`Sortition member ${memberId} not found for proposal ${proposalId}`);
+    }
+
+    const now = new Date();
+    const respondedAt = status === 'invited' ? null : now;
+    const completedAt = status === 'completed' ? now : null;
+
+    const existing = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(and(
+        eq(sortitionAttendance.bodyId, member.bodyId),
+        eq(sortitionAttendance.memberId, memberId),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(sortitionAttendance)
+        .set({
+          status,
+          notes: notes ?? existing[0].notes,
+          respondedAt: respondedAt ?? existing[0].respondedAt,
+          completedAt: completedAt ?? existing[0].completedAt,
+          updatedAt: now,
+        })
+        .where(eq(sortitionAttendance.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(sortitionAttendance)
+      .values({
+        bodyId: member.bodyId,
+        memberId,
+        userId: member.userId,
+        status,
+        invitedAt: now,
+        respondedAt,
+        completedAt,
+        notes: notes ?? null,
+      })
+      .returning();
+    return created;
+  }
+
+  async getAttendanceSummary(proposalId: number) {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) {
+      return { invited: 0, accepted: 0, declined: 0, noShow: 0, completed: 0, total: 0, confirmedPct: 0 };
+    }
+
+    const rows = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(inArray(sortitionAttendance.bodyId, bodyIds));
+
+    const summary = { invited: 0, accepted: 0, declined: 0, noShow: 0, completed: 0 };
+    for (const row of rows) {
+      if (row.status === 'invited') summary.invited++;
+      else if (row.status === 'accepted') summary.accepted++;
+      else if (row.status === 'declined') summary.declined++;
+      else if (row.status === 'no-show') summary.noShow++;
+      else if (row.status === 'completed') summary.completed++;
+    }
+    const total = rows.length;
+    const confirmed = summary.accepted + summary.completed;
+    const confirmedPct = total > 0 ? confirmed / total : 0;
+
+    return { ...summary, total, confirmedPct };
+  }
+
+  private async bodyIdsForProposal(proposalId: number): Promise<number[]> {
+    const rows = await db
+      .select({ id: sortitionBodies.id })
+      .from(sortitionBodies)
+      .where(eq(sortitionBodies.proposalId, proposalId));
+    return rows.map(r => r.id);
+  }
+
+  // ─── Global Search ────────────────────────────────────────────────────────
+
+  async searchProposals(query: string, limit = 10): Promise<Proposal[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(proposals)
+      .where(or(
+        sql`LOWER(${proposals.question}) LIKE ${term}`,
+        sql`LOWER(${proposals.solution}) LIKE ${term}`,
+        sql`LOWER(COALESCE(${proposals.category}, '')) LIKE ${term}`,
+      ))
+      .orderBy(desc(proposals.createdAt))
+      .limit(limit);
+  }
+
+  async searchMembers(query: string, limit = 10): Promise<User[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(users)
+      .where(or(
+        sql`LOWER(${users.name}) LIKE ${term}`,
+        sql`LOWER(${users.username}) LIKE ${term}`,
+      ))
+      .limit(limit);
+  }
+
+  async searchCommunities(query: string, limit = 10): Promise<Community[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(communities)
+      .where(or(
+        sql`LOWER(${communities.name}) LIKE ${term}`,
+        sql`LOWER(COALESCE(${communities.description}, '')) LIKE ${term}`,
+      ))
+      .limit(limit);
   }
 }
 

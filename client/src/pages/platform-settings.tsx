@@ -133,20 +133,20 @@ export function PlatformSettingsPage() {
             </div>
             <div className="divide-y divide-gray-100">
               {group.settings.map((setting) => (
-                <div key={setting.key} className="px-6 py-4 flex items-center gap-4">
+                <div key={setting.key} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <label className="flex-1 text-sm font-medium text-gray-700">
                     {t(setting.label)}
                   </label>
                   {setting.type === "textarea" ? (
                     <textarea
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full sm:flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       rows={2}
                       value={values[setting.key] || ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     />
                   ) : setting.type === "select" ? (
                     <select
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full sm:w-auto rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       value={values[setting.key] || ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     >
@@ -159,7 +159,7 @@ export function PlatformSettingsPage() {
                   ) : (
                     <input
                       type={setting.type}
-                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full sm:w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                       value={values[setting.key] || ""}
                       onChange={(e) => handleChange(setting.key, e.target.value)}
                     />

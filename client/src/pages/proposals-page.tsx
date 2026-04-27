@@ -274,10 +274,10 @@ export default function ProposalsPage() {
                 data-testid={`proposals-card-${proposal.id}`}
               >
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between gap-4">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg mb-1 line-clamp-2">{proposal.question}</h3>
+                        <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">{proposal.question}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                           {proposal.solution}
                         </p>
@@ -298,7 +298,7 @@ export default function ProposalsPage() {
                           )}
                         </div>
                       </div>
-                      <Badge className={status.color} variant="outline">
+                      <Badge className={`${status.color} self-start`} variant="outline">
                         <span className="mr-1">{status.icon}</span>
                         {getStatusLabel(proposal.status, t)}
                       </Badge>

@@ -897,6 +897,36 @@ const en: TranslationDictionary = {
   'platformSettings.saved': 'Settings saved successfully',
   'platformSettings.loadError': 'Failed to load settings',
   'platformSettings.saveError': 'Failed to save settings',
+
+  // Sortition attendance
+  'sortition.attendance.title': 'Attendance confirmation',
+  'sortition.attendance.description': 'Confirm whether you can take part in this sortition body before the deadline.',
+  'sortition.attendance.confirm': 'Confirm attendance',
+  'sortition.attendance.decline': 'Decline',
+  'sortition.attendance.changeResponse': 'Change response',
+  'sortition.attendance.confirmedRate': 'Confirmed members',
+  'sortition.attendance.status.invited': 'Invited',
+  'sortition.attendance.status.accepted': 'Confirmed',
+  'sortition.attendance.status.declined': 'Declined',
+  'sortition.attendance.status.no-show': 'No-show',
+  'sortition.attendance.status.completed': 'Completed',
+
+  // Global search
+  'search.placeholder': 'Search proposals, members, communities…',
+  'search.noResults': 'No results.',
+  'search.kind.proposal': 'Proposal',
+  'search.kind.member': 'Member',
+  'search.kind.community': 'Community',
+
+  // LLM validation UI
+  'proposal.llmNotYetValidated': 'This proposal has not been validated by the LLM yet.',
+  'proposal.requestRevalidation': 'Request re-validation',
+  'proposal.revalidating': 'Re-validating…',
+  'proposal.revalidationFailed': 'Re-validation failed.',
+  'proposal.llmRound': 'Round {round}',
+  'proposal.llmCategory.return': 'Return to author',
+  'proposal.llmCategory.sortition': 'Sortition review',
+  'proposal.llmCategory.auto_approve': 'Auto-approve',
 };
 
 export default en;

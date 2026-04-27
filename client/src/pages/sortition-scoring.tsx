@@ -5,14 +5,15 @@
  * Members see the proposal, similar proposals, and submit their score.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle, Clock } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { CheckCircle, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
 import Footer from '@/components/layout/footer';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/hooks/use-translation';
@@ -30,12 +31,31 @@ interface SortitionAssignment {
   }>;
 }
 
+interface AttendanceState {
+  summary: {
+    invited: number;
+    accepted: number;
+    declined: number;
+    noShow: number;
+    completed: number;
+    total: number;
+    confirmedPct: number;
+  };
+  userMemberId: number | null;
+  userAttendance: {
+    status: 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed';
+  } | null;
+  responseDeadline: string | null;
+}
+
 export default function SortitionScoringPage() {
   const [location] = useLocation();
   const assignmentId = location.split('/').pop();
   const { t } = useTranslation();
   
   const [assignment, setAssignment] = useState<SortitionAssignment | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceState | null>(null);
+  const [attendanceSubmitting, setAttendanceSubmitting] = useState(false);
   const [score, setScore] = useState(50);
   const [feedback, setFeedback] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -67,6 +87,37 @@ export default function SortitionScoringPage() {
         setLoading(false);
       });
   }, [assignmentId]);
+
+  const refreshAttendance = useCallback(async (proposalId: number) => {
+    try {
+      const resp = await api.get<AttendanceState>(`/api/proposals/${proposalId}/attendance`);
+      setAttendance(resp.data);
+    } catch {
+      setAttendance(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (assignment?.proposalId) {
+      void refreshAttendance(assignment.proposalId);
+    }
+  }, [assignment?.proposalId, refreshAttendance]);
+
+  const handleAttendance = async (status: 'accepted' | 'declined') => {
+    if (!assignment?.proposalId || attendanceSubmitting) return;
+    setAttendanceSubmitting(true);
+    try {
+      await api.post(`/api/proposals/${assignment.proposalId}/attendance`, {
+        status,
+        memberId: assignment.id,
+      });
+      await refreshAttendance(assignment.proposalId);
+    } catch (e) {
+      console.error('Failed to update attendance:', e);
+    } finally {
+      setAttendanceSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!assignmentId) return;
@@ -145,6 +196,70 @@ export default function SortitionScoringPage() {
               <p>{assignment.proposalSolution}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Attendance confirmation */}
+      <Card className="mb-6" data-testid="attendance-card">
+        <CardHeader>
+          <CardTitle className="text-base">{t('sortition.attendance.title')}</CardTitle>
+          <CardDescription>{t('sortition.attendance.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {attendance && attendance.summary.total > 0 && (
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>{t('sortition.attendance.confirmedRate')}</span>
+                <span>
+                  {attendance.summary.accepted + attendance.summary.completed}/{attendance.summary.total}
+                  {' '}({Math.round(attendance.summary.confirmedPct * 100)}%)
+                </span>
+              </div>
+              <Progress value={attendance.summary.confirmedPct * 100} className="h-2" />
+            </div>
+          )}
+
+          {attendance?.userAttendance ? (
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant={attendance.userAttendance.status === 'declined' ? 'destructive' : 'default'}>
+                {t(`sortition.attendance.status.${attendance.userAttendance.status}`)}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={attendanceSubmitting}
+                onClick={() =>
+                  handleAttendance(
+                    attendance.userAttendance!.status === 'accepted' ? 'declined' : 'accepted',
+                  )
+                }
+              >
+                {t('sortition.attendance.changeResponse')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={attendanceSubmitting}
+                onClick={() => handleAttendance('accepted')}
+                data-testid="attendance-confirm"
+              >
+                <ThumbsUp className="w-4 h-4 mr-1" />
+                {t('sortition.attendance.confirm')}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={attendanceSubmitting}
+                onClick={() => handleAttendance('declined')}
+                data-testid="attendance-decline"
+              >
+                <ThumbsDown className="w-4 h-4 mr-1" />
+                {t('sortition.attendance.decline')}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

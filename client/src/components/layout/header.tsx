@@ -28,6 +28,7 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useUnreadCount, useNotifications, useMarkAsRead } from "@/hooks/use-notifications";
 import type { SortitionNotification } from "@/types/notifications";
 import { notificationTypeConfig } from "@/types/notifications";
+import SearchBar from "@/components/SearchBar";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
@@ -151,9 +152,12 @@ export default function Header() {
             </DropdownMenu>
           </div>
         ) : (
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 justify-end">
+            <div className="flex-1 max-w-md min-w-0">
+              <SearchBar />
+            </div>
             <Button
-              className="hidden sm:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
+              className="hidden lg:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
               onClick={() => navigate("/proposals/new")}
               data-testid="button-new-proposal"
             >
@@ -162,7 +166,7 @@ export default function Header() {
             </Button>
             <Button
               variant="outline"
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
               onClick={() => navigate("/proposals")}
               data-testid="button-proposals"
             >
@@ -171,7 +175,7 @@ export default function Header() {
             </Button>
             <Button
               variant="outline"
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
               onClick={() => navigate("/communities")}
               data-testid="button-communities"
             >

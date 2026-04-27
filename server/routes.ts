@@ -2135,6 +2135,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── End Platform Settings Routes ────────────────────────────────────────
 
+  // ─── Sortition Attendance ────────────────────────────────────────────────
+
+  // Get current user's attendance for a proposal's sortition body
+  app.get("/api/proposals/:id/attendance", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const summary = await storage.getAttendanceSummary(proposalId);
+
+      // Find the current user's sortition member id (if any) for this proposal
+      const userId = req.user.id;
+      const bodies = await db
+        .select()
+        .from(sortitionBodies)
+        .where(eq(sortitionBodies.proposalId, proposalId));
+
+      let userMemberId: number | null = null;
+      let userAttendance: any = null;
+      for (const body of bodies) {
+        const [member] = await db
+          .select()
+          .from(sortitionMembers)
+          .where(and(eq(sortitionMembers.bodyId, body.id), eq(sortitionMembers.userId, userId)))
+          .limit(1);
+        if (member) {
+          userMemberId = member.id;
+          userAttendance = await storage.getAttendance(proposalId, member.id) ?? null;
+          break;
+        }
+      }
+
+      const responseDeadline = bodies[0]?.selectedAt
+        ? new Date(new Date(bodies[0].selectedAt).getTime() + (bodies[0].responseHours ?? 72) * 60 * 60 * 1000).toISOString()
+        : null;
+
+      res.json({ summary, userMemberId, userAttendance, responseDeadline });
+    } catch (error) {
+      console.error("Error getting attendance:", error);
+      res.status(500).json({ message: "Failed to get attendance" });
+    }
+  });
+
+  // Confirm or decline attendance
+  app.post("/api/proposals/:id/attendance", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { status, notes, memberId } = req.body ?? {};
+
+      const allowed = ['accepted', 'declined', 'completed'];
+      if (!allowed.includes(status)) {
+        return res.status(400).json({ message: `status must be one of ${allowed.join(', ')}` });
+      }
+
+      // Resolve member id from current user if not supplied
+      let resolvedMemberId = Number(memberId);
+      if (!Number.isFinite(resolvedMemberId)) {
+        const userId = req.user.id;
+        const bodies = await db
+          .select()
+          .from(sortitionBodies)
+          .where(eq(sortitionBodies.proposalId, proposalId));
+        for (const body of bodies) {
+          const [member] = await db
+            .select()
+            .from(sortitionMembers)
+            .where(and(eq(sortitionMembers.bodyId, body.id), eq(sortitionMembers.userId, userId)))
+            .limit(1);
+          if (member) {
+            resolvedMemberId = member.id;
+            break;
+          }
+        }
+      }
+      if (!Number.isFinite(resolvedMemberId)) {
+        return res.status(403).json({ message: "Not a member of this proposal's sortition body" });
+      }
+
+      // Verify this member belongs to the requesting user
+      const [memberRow] = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, resolvedMemberId))
+        .limit(1);
+      if (!memberRow || memberRow.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not your assignment" });
+      }
+
+      const attendance = await storage.upsertAttendance(proposalId, resolvedMemberId, status, notes);
+      const summary = await storage.getAttendanceSummary(proposalId);
+
+      // Notify the proposal author when ≥50% confirm
+      try {
+        if (summary.confirmedPct >= 0.5 && summary.total > 0) {
+          const proposal = await storage.getProposal(proposalId);
+          if (proposal) {
+            const { createNotification } = await import('./utils/notifications');
+            await createNotification({
+              userId: proposal.authorId,
+              type: 'sortition_assigned',
+              title: 'Sortition body confirmed',
+              message: `${Math.round(summary.confirmedPct * 100)}% of selected members have confirmed attendance.`,
+              proposalId,
+              communityId: proposal.communityId,
+              actionUrl: `/proposals/${proposalId}`,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to notify author of attendance threshold:', e);
+      }
+
+      res.json({ attendance, summary });
+    } catch (error) {
+      console.error("Error upserting attendance:", error);
+      res.status(500).json({ message: "Failed to update attendance" });
+    }
+  });
+
+  // ─── Global Search ────────────────────────────────────────────────────────
+  app.get("/api/search", async (req, res) => {
+    try {
+      const q = (req.query.q as string | undefined)?.trim() ?? '';
+      if (q.length < 2) {
+        return res.json({ proposals: [], members: [], communities: [] });
+      }
+      const type = (req.query.type as string | undefined) ?? 'all';
+      const limit = Math.min(20, Math.max(1, parseInt((req.query.limit as string) || '10') || 10));
+
+      const wantProposals = type === 'all' || type === 'proposals';
+      const wantMembers = type === 'all' || type === 'members';
+      const wantCommunities = type === 'all' || type === 'communities';
+
+      const [proposals, members, communities] = await Promise.all([
+        wantProposals ? storage.searchProposals(q, limit) : Promise.resolve([]),
+        wantMembers ? storage.searchMembers(q, limit) : Promise.resolve([]),
+        wantCommunities ? storage.searchCommunities(q, limit) : Promise.resolve([]),
+      ]);
+
+      res.json({
+        proposals: proposals.map(p => ({
+          id: p.id,
+          question: p.question,
+          status: p.status,
+          communityId: p.communityId,
+          category: p.category,
+        })),
+        members: members.map(m => ({
+          id: m.id,
+          name: m.name,
+          username: m.username,
+          profilePicture: m.profilePicture,
+        })),
+        communities: communities.map(c => ({
+          id: c.id,
+          name: c.name,
+          description: c.description,
+        })),
+      });
+    } catch (error) {
+      console.error("Error performing search:", error);
+      res.status(500).json({ message: "Search failed" });
+    }
+  });
+
+  // ─── LLM Re-validation ───────────────────────────────────────────────────
+  app.post("/api/proposals/:id/revalidate", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) {
+        return res.status(403).json({ message: "Only the author can request re-validation" });
+      }
+
+      const { validateProposal } = await import('./utils/llm-validation');
+      const { validationResults } = await import('@shared/schema');
+      const result = await validateProposal(proposal.question, proposal.solution);
+
+      await db.insert(validationResults).values({
+        proposalId,
+        score: Math.round(result.score),
+        feedback: result.feedback,
+        details: result.details,
+        category: result.category,
+      });
+
+      const updated = await storage.updateProposal(proposalId, {
+        llmScore: String(result.score),
+        llmFeedback: result.feedback,
+        llmValidatedAt: new Date(),
+        llmValidationRound: (proposal.llmValidationRound ?? 1) + 1,
+      });
+
+      res.json({
+        proposal: updated,
+        validation: {
+          score: result.score,
+          feedback: result.feedback,
+          category: result.category,
+          details: result.details,
+        },
+      });
+    } catch (error) {
+      console.error("Error re-validating proposal:", error);
+      res.status(500).json({ message: "Failed to re-validate proposal" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

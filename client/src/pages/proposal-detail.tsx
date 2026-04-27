@@ -37,8 +37,24 @@ interface Proposal {
   createdAt: string;
   llmScore?: string | null;
   llmFeedback?: string | null;
+  llmValidationRound?: number | null;
   finalText?: string | null;
   category?: string;
+}
+
+type ValidationCategory = 'return' | 'sortition' | 'auto_approve';
+
+function categoryFromScore(score: number | null): ValidationCategory | null {
+  if (score === null) return null;
+  if (score < 20) return 'return';
+  if (score > 90) return 'auto_approve';
+  return 'sortition';
+}
+
+function scoreColor(score: number): string {
+  if (score < 20) return 'text-red-700 bg-red-50 border-red-200';
+  if (score > 90) return 'text-green-700 bg-green-50 border-green-200';
+  return 'text-amber-700 bg-amber-50 border-amber-200';
 }
 
 export default function ProposalDetailPage() {
@@ -51,6 +67,8 @@ export default function ProposalDetailPage() {
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
   const [voteError, setVoteError] = useState<string | null>(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [revalidateError, setRevalidateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!proposalId) return;
@@ -90,6 +108,20 @@ export default function ProposalDetailPage() {
   const handleProposalAdvanced = (newStatus: string) => {
     if (proposal) {
       setProposal({ ...proposal, status: newStatus });
+    }
+  };
+
+  const handleRevalidate = async () => {
+    if (!proposalId || revalidating) return;
+    setRevalidating(true);
+    setRevalidateError(null);
+    try {
+      const resp = await api.post<{ proposal: Proposal }>(`/api/proposals/${proposalId}/revalidate`);
+      setProposal(resp.data.proposal);
+    } catch (error) {
+      setRevalidateError(error instanceof ApiError ? error.message : t('proposal.revalidationFailed'));
+    } finally {
+      setRevalidating(false);
     }
   };
 
@@ -141,14 +173,14 @@ export default function ProposalDetailPage() {
       {/* Proposal Content */}
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
             <div className="flex-1 min-w-0">
               <CardTitle className="text-xl mb-2">{proposal.question}</CardTitle>
               <CardDescription>
                 {t('proposal.by')} {proposal.authorName || t('proposal.userWithId', { id: proposal.authorId })} · {new Date(proposal.createdAt).toLocaleDateString()}
               </CardDescription>
             </div>
-            <Badge className={getStatusForProposal(proposal).color} variant="outline" style={{ whiteSpace: 'nowrap' }}>
+            <Badge className={`${getStatusForProposal(proposal).color} self-start`} variant="outline" style={{ whiteSpace: 'nowrap' }}>
               <span className="mr-1">{getStatusForProposal(proposal).icon}</span>
               {getStatusLabel(proposal.status, t)}
             </Badge>
@@ -166,46 +198,93 @@ export default function ProposalDetailPage() {
               </div>
             )}
 
-            {proposal.llmScore && (
-              <div className="mt-4 p-4 bg-muted rounded">
-                <h4 className="text-sm font-medium mb-2">{t('proposal.llmValidation')}</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">{t('proposal.score')}</span>
-                    <span className="ml-2 font-medium">{proposal.llmScore}/100</span>
+            {(() => {
+              const numericScore = proposal.llmScore != null ? Number(proposal.llmScore) : null;
+              const score = Number.isFinite(numericScore) ? (numericScore as number) : null;
+              const category = categoryFromScore(score);
+              if (score === null) {
+                return userIsAuthor ? (
+                  <div className="mt-4 p-4 border rounded">
+                    <h4 className="text-sm font-medium mb-2">{t('proposal.llmValidation')}</h4>
+                    <p className="text-sm text-muted-foreground mb-3">{t('proposal.llmNotYetValidated')}</p>
+                    <Button size="sm" onClick={handleRevalidate} disabled={revalidating} data-testid="proposal-revalidate-empty">
+                      {revalidating ? t('proposal.revalidating') : t('proposal.requestRevalidation')}
+                    </Button>
+                    {revalidateError && (
+                      <p className="text-xs text-red-600 mt-2">{revalidateError}</p>
+                    )}
                   </div>
+                ) : null;
+              }
+              return (
+                <div className={`mt-4 p-4 border rounded ${scoreColor(score)}`} data-testid="proposal-llm-validation">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">{t('proposal.llmValidation')}</h4>
+                      <div className="flex items-center gap-3 flex-wrap text-sm">
+                        <span data-testid="proposal-llm-score">
+                          <span className="text-muted-foreground">{t('proposal.score')}</span>
+                          <span className="ml-2 font-semibold">{Math.round(score)}/100</span>
+                        </span>
+                        {category && (
+                          <Badge variant="outline" data-testid="proposal-llm-category">
+                            {t(`proposal.llmCategory.${category}`)}
+                          </Badge>
+                        )}
+                        {proposal.llmValidationRound != null && (
+                          <span className="text-xs text-muted-foreground" data-testid="proposal-llm-round">
+                            {t('proposal.llmRound', { round: proposal.llmValidationRound })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {userIsAuthor && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRevalidate}
+                        disabled={revalidating}
+                        data-testid="proposal-revalidate"
+                      >
+                        {revalidating ? t('proposal.revalidating') : t('proposal.requestRevalidation')}
+                      </Button>
+                    )}
+                  </div>
+                  {proposal.llmFeedback && (
+                    <p className="text-sm mt-3 whitespace-pre-wrap">{proposal.llmFeedback}</p>
+                  )}
+                  {revalidateError && (
+                    <p className="text-xs text-red-600 mt-2">{revalidateError}</p>
+                  )}
                 </div>
-                {proposal.llmFeedback && (
-                  <p className="text-sm mt-2 text-muted-foreground">{proposal.llmFeedback}</p>
-                )}
-              </div>
-            )}
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
 
       {/* Tabs: Overview, Debate, Amendments, Sortition, Votes */}
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">
-            <Eye className="w-4 h-4 mr-1" />
-            {t('workspace.tabs.overview')}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-1">
+          <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 py-2">
+            <Eye className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.overview')}</span>
           </TabsTrigger>
-          <TabsTrigger value="debate">
-            <MessageSquare className="w-4 h-4 mr-1" />
-            {t('workspace.tabs.debate')}
+          <TabsTrigger value="debate" className="flex-col sm:flex-row gap-1 py-2">
+            <MessageSquare className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.debate')}</span>
           </TabsTrigger>
-          <TabsTrigger value="amendments">
-            <FileText className="w-4 h-4 mr-1" />
-            {t('workspace.tabs.amendments')}
+          <TabsTrigger value="amendments" className="flex-col sm:flex-row gap-1 py-2">
+            <FileText className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.amendments')}</span>
           </TabsTrigger>
-          <TabsTrigger value="sortition">
-            <Users className="w-4 h-4 mr-1" />
-            {t('workspace.tabs.sortition')}
+          <TabsTrigger value="sortition" className="flex-col sm:flex-row gap-1 py-2">
+            <Users className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.sortition')}</span>
           </TabsTrigger>
-          <TabsTrigger value="votes">
-            <Vote className="w-4 h-4 mr-1" />
-            {t('workspace.tabs.votes')}
+          <TabsTrigger value="votes" className="flex-col sm:flex-row gap-1 py-2">
+            <Vote className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.votes')}</span>
           </TabsTrigger>
         </TabsList>
 

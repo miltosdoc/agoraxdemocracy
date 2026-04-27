@@ -897,6 +897,36 @@ const el: TranslationDictionary = {
   'platformSettings.saved': 'Οι ρυθμίσεις αποθηκεύτηκαν',
   'platformSettings.loadError': 'Αποτυχία φόρτωσης ρυθμίσεων',
   'platformSettings.saveError': 'Αποτυχία αποθήκευσης',
+
+  // Sortition attendance
+  'sortition.attendance.title': 'Επιβεβαίωση συμμετοχής',
+  'sortition.attendance.description': 'Επιβεβαίωσε αν μπορείς να συμμετέχεις στο κληρωτό σώμα πριν τη λήξη της προθεσμίας.',
+  'sortition.attendance.confirm': 'Επιβεβαίωση',
+  'sortition.attendance.decline': 'Απόρριψη',
+  'sortition.attendance.changeResponse': 'Αλλαγή απάντησης',
+  'sortition.attendance.confirmedRate': 'Επιβεβαιωμένα μέλη',
+  'sortition.attendance.status.invited': 'Προσκλήθηκε',
+  'sortition.attendance.status.accepted': 'Επιβεβαιώθηκε',
+  'sortition.attendance.status.declined': 'Απορρίφθηκε',
+  'sortition.attendance.status.no-show': 'Δεν εμφανίστηκε',
+  'sortition.attendance.status.completed': 'Ολοκληρώθηκε',
+
+  // Global search
+  'search.placeholder': 'Αναζήτηση προτάσεων, μελών, κοινοτήτων…',
+  'search.noResults': 'Δεν βρέθηκαν αποτελέσματα.',
+  'search.kind.proposal': 'Πρόταση',
+  'search.kind.member': 'Μέλος',
+  'search.kind.community': 'Κοινότητα',
+
+  // LLM validation UI
+  'proposal.llmNotYetValidated': 'Η πρόταση δεν έχει αξιολογηθεί ακόμα από το LLM.',
+  'proposal.requestRevalidation': 'Αίτηση επανα-αξιολόγησης',
+  'proposal.revalidating': 'Επανα-αξιολόγηση…',
+  'proposal.revalidationFailed': 'Η επανα-αξιολόγηση απέτυχε.',
+  'proposal.llmRound': 'Γύρος {round}',
+  'proposal.llmCategory.return': 'Επιστροφή στον συγγραφέα',
+  'proposal.llmCategory.sortition': 'Αξιολόγηση κληρωτού σώματος',
+  'proposal.llmCategory.auto_approve': 'Αυτόματη έγκριση',
 };
 
 export default el;
