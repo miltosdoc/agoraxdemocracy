@@ -202,9 +202,9 @@ function StepAuthorReview() {
   const [reviewed, setReviewed] = useState(0);
   
   const amendments = [
-    { id: 1, author: 'Ε.Π.', type: t('walkthrough.amendment_improvement'), text: 'Να προστεθεί η δυνατότητα car-sharing εντός της LEZ για κατοίκους με ειδικές ανάγκες.', reviewed: true, decision: 'accepted' },
-    { id: 2, author: 'Γ.Ν.', type: t('walkthrough.amendment_addition'), text: 'Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.', reviewed: true, decision: 'rejected', reason: t('walkthrough.demo_rejection_reason_1') },
-    { id: 3, author: 'Μ.Κ.', type: t('walkthrough.amendment_counter'), text: 'Αντί για LEZ, να επενδύσουμε σε υπόγεια πάρκινγκ στις παρυφές του κέντρου.', reviewed: false, decision: null },
+    { id: 1, author: 'Ε.Π.', type: t('walkthrough.amendment_improvement'), text: t('walkthrough.demo_amendment_1'), reviewed: true, decision: 'accepted' },
+    { id: 2, author: 'Γ.Ν.', type: t('walkthrough.amendment_addition'), text: t('walkthrough.demo_amendment_2'), reviewed: true, decision: 'rejected', reason: t('walkthrough.demo_rejection_reason_1') },
+    { id: 3, author: 'Μ.Κ.', type: t('walkthrough.amendment_counter'), text: t('walkthrough.demo_amendment_3'), reviewed: false, decision: null },
   ];
 
   return (
@@ -292,7 +292,7 @@ function StepCommunitySignal() {
     { 
       id: 1, 
       author: 'Γ.Ν.', 
-      text: 'Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.',
+      text: t('walkthrough.demo_amendment_2'),
       authorReason: t('walkthrough.demo_rejection_reason_1'),
       upvotes: 18, 
       downvotes: 4,
@@ -301,7 +301,7 @@ function StepCommunitySignal() {
     { 
       id: 2, 
       author: 'Κ.Α.', 
-      text: 'Να εξαιρεθούν τα τουριστικά οχήματα από τη ζώνη LEZ κατά τους καλοκαιρινούς μήνες.',
+      text: t('walkthrough.demo_amendment_4'),
       authorReason: t('walkthrough.demo_rejection_reason_2'),
       upvotes: 3, 
       downvotes: 11,
@@ -482,7 +482,7 @@ function StepRatificationVote() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.final_text')}</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο Αθηνών...
+          {t('walkthrough.demo_final_text')}
         </div>
       </div>
 
