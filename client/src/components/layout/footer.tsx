@@ -1,9 +1,12 @@
-import { Link } from "wouter";
 import { useTranslation } from "@/hooks/use-translation";
 import logoImage from "../../assets/logo.png";
 
 export default function Footer() {
   const { t } = useTranslation();
+
+  const navigate = (path: string) => {
+    window.location.href = path;
+  };
 
   return (
     <footer className="bg-slate-900 text-slate-300 py-12">
@@ -11,10 +14,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo & Tagline */}
           <div>
-            <Link href="/" className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 cursor-pointer" onClick={() => navigate("/")}>
               <img src={logoImage} alt="AgoraX" className="h-8 w-auto" />
               <span className="text-white text-xl font-bold">AgoraX</span>
-            </Link>
+            </div>
             <p className="text-sm text-slate-400">
               {t('footer.tagline')}
             </p>
@@ -24,10 +27,10 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">{t('footer.usefulLinks')}</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/how-it-works" className="hover:text-white transition-colors">{t('footer.howItWorks')}</Link></li>
-              <li><Link href="/faq" className="hover:text-white transition-colors">{t('footer.faq')}</Link></li>
-              <li><Link href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</Link></li>
-              <li><Link href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</Link></li>
+              <li><button className="hover:text-white transition-colors text-left text-sm" onClick={() => navigate("/how-it-works")}>{t('footer.howItWorks')}</button></li>
+              <li><button className="hover:text-white transition-colors text-left text-sm" onClick={() => navigate("/faq")}>{t('footer.faq')}</button></li>
+              <li><button className="hover:text-white transition-colors text-left text-sm" onClick={() => navigate("/terms")}>{t('footer.terms')}</button></li>
+              <li><button className="hover:text-white transition-colors text-left text-sm" onClick={() => navigate("/privacy")}>{t('footer.privacy')}</button></li>
             </ul>
           </div>
 

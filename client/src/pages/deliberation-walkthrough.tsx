@@ -77,13 +77,13 @@ function StepProposal() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('proposal.question_label')} *</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Πώς μπορούμε να μειώσουμε την κυκλοφοριακή συμφόρηση στο κέντρο της Αθήνας;
+          {t('walkthrough.demo_question')}
         </div>
       </div>
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('proposal.solution_label')} *</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης και παροίνωση ηλεκτρικών οχημάτων.
+          {t('walkthrough.demo_solution')}
         </div>
       </div>
       <div className="p-4 border rounded-lg bg-muted/30">
@@ -97,7 +97,7 @@ function StepProposal() {
         <Card className="bg-muted/30">
           <CardContent className="p-3 text-center">
             <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">Δήμος Αθηναίων</div>
+            <div className="text-sm font-medium">{t('walkthrough.demo_community')}</div>
             <div className="text-xs text-muted-foreground">5 {t('community.members')} · 72.5 {t('community.score')}</div>
           </CardContent>
         </Card>
@@ -423,9 +423,9 @@ function StepSortitionSynthesis() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.author_proposal_accepted')}</label>
         <div className="p-3 bg-background rounded border text-sm space-y-2">
-          <p>Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης και παροίνωση ηλεκτρικών οχημάτων.</p>
+          <p>{t('walkthrough.demo_solution')}</p>
           <div className="border-l-2 border-green-500 pl-3 text-green-700 text-xs">
-            [{t('walkthrough.accepted')}] Να προστεθεί η δυνατότητα car-sharing εντός της LEZ για κατοίκους με ειδικές ανάγκες.
+            [{t('walkthrough.accepted')}] {t('walkthrough.demo_amendment_accepted')}
           </div>
         </div>
       </div>
@@ -434,7 +434,7 @@ function StepSortitionSynthesis() {
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.flagged_amendments_community')}</label>
         <div className="p-3 bg-white rounded border text-sm">
           <p className="text-muted-foreground">
-            «Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.»
+            {t('walkthrough.demo_amendment_flagged')}
           </p>
           <div className="mt-1 text-xs text-green-600">
             ✓ {t('walkthrough.community_overrode')} (Net: +14, 78%)
@@ -444,9 +444,9 @@ function StepSortitionSynthesis() {
       
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.final_text_compose')}</label>
-        <Textarea 
+      <Textarea 
           className="min-h-[100px] text-sm"
-          defaultValue="Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο Αθηνών, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης, προώθηση ηλεκτρικών οχημάτων, car-sharing για κατοίκους με ειδικές ανάγκες, και πρόγραμμα επιδότησης ηλεκτρικών scooters για επαγγελματίες μετακίνησης."
+          defaultValue={t('walkthrough.demo_final_text')}
         />
       </div>
       

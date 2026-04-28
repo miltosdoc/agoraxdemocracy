@@ -432,27 +432,9 @@ async function seed() {
 
   console.log(`  ✅ 1 sortition body with 3 members created`);
 
-  // ─── Admin Actions ────────────────────────────────────────────────────────
-  await db.insert(adminActions).values([
-    {
-      userId: user1.id,
-      communityId: community1.id,
-      actionType: 'manage_membership',
-      targetId: community1.id,
-      details: JSON.stringify({ name: 'Δήμος Αθηναίων' }),
-      timestamp: new Date(),
-    },
-    {
-      userId: user1.id,
-      communityId: community2.id,
-      actionType: 'moderate_proposal',
-      targetId: proposal3.id,
-      details: JSON.stringify({ reason: 'Υψηλή ποιότητα πρότασης' }),
-      timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-    },
-  ]);
-
-  console.log(`  ✅ 2 admin actions logged`);
+  // ─── Admin Actions (skipped — table not in migrations yet) ────────────────
+  // await db.insert(adminActions).values([...]);
+  // console.log(`  ✅ 2 admin actions logged`);
 
   console.log('\n✅ Demo data seeded successfully!\n');
   console.log('Demo credentials:');

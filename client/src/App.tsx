@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, Router } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -73,17 +73,20 @@ function CommunityFormPage() {
   );
 }
 
-function Router() {
+function AppRouter() {
   const { user } = useAuth();
 
   return (
-    <>
+    <Router>
       <Switch>
         <Route path="/" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
         <ProtectedRoute path="/home" component={HomePage} />
         <Route path="/my-polls">
           <Redirect to="/home" />
+        </Route>
+        <Route path="/submit">
+          <Redirect to="/proposals/new" />
         </Route>
         <Route path="/polls/create">
           <Redirect to="/proposals/new" />
@@ -133,7 +136,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       {user && <BottomNav user={user} />}
-    </>
+    </Router>
   );
 }
 
@@ -142,7 +145,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <AuthProvider>
-          <Router />
+          <AppRouter />
           <Toaster />
         </AuthProvider>
       </I18nProvider>

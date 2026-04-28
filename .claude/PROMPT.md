@@ -1,55 +1,74 @@
-# AgoraX Bug Fix Sprint — Critical Issues
+# AgoraX Bug Fix Sprint — Complete Navigation & UI Audit
 
 ## Context
-Working copy: `/tmp/agoraxdemo`. Docker compose running with `DEMO_MODE=true`. API on port 3000, DB on 5432.
+AgoraX is a deliberation democracy platform. Working copy: `/tmp/agoraxdemo`.
+Tech stack: Express.js backend, React + Vite frontend, Drizzle ORM + PostgreSQL.
+i18n: Use `useTranslation()` hook from `@/hooks/use-translation`, NOT `react-i18next` direct import.
+All translation keys go in both `frontend/src/i18n/locales/en.ts` AND `frontend/src/i18n/locales/el.ts` — keep them in parity.
 
-## CRITICAL BUGS TO FIX
+## Critical Bugs to Fix
 
-### 1. Migration Journal Missing Entries
-The `migrations/meta/_journal.json` only lists migration 0000. All other migrations (0001-0009) exist as SQL files but are NOT in the journal, so `drizzle-kit migrate` skips them. This causes:
-- Missing `jobs` table (migration 0001)
-- Missing `final_text` column on proposals (migration 0002)
-- Missing `admin_ids`/`is_general` on communities (migration 0008)
-- Missing `sortition_attendance` table (migration 0009)
+### 1. BROKEN NAVIGATION (Highest Priority)
+The dashboard page (`frontend/src/pages/dashboard.tsx`) uses `<button>` elements for navigation instead of `<Link>` components. Clicking "Submit Proposal", "Browse all proposals", and header nav links ("Proposals", "Communities") does nothing — no page transition.
 
-**Fix:** Update `_journal.json` to include all 10 migration entries (0000-0009). Also fix the duplicate `0003` prefix — rename `0003_sortition_notifications.sql` to `0003b_sortition_notifications.sql` and `0003_canonical_proposal_lifecycle.sql` to `0003a_canonical_proposal_lifecycle.sql`. Update journal tags accordingly.
+**Fix:** Convert ALL navigation buttons across the app to use `<Link>` from `react-router-dom` or wire with `useNavigate()`. Check:
+- `dashboard.tsx` — action buttons
+- Header component — nav links
+- Any other page with navigation buttons
+- Footer links ("How it works", "FAQ", "Terms", "Privacy") — either wire to real pages or remove
 
-### 2. Seed Script Crashes
-The seed script (`server/seed-demo.ts`) crashes after creating users because the DB schema is incomplete (missing columns from unapplied migrations). Once migrations are fixed, the seed should work. But also add error handling so the container starts even if seeding fails.
+### 2. BROKEN ROUTE: `/submit` Returns 404
+The actual proposal creation route is `/proposals/new`. The `/submit` route doesn't exist. Either:
+- Add a redirect from `/submit` → `/proposals/new`, OR
+- Update all links pointing to `/submit` to use `/proposals/new`
 
-### 3. Navigation Buttons Don't Navigate
-In `client/src/components/Header.tsx`, navigation buttons use `<button>` elements instead of `<Link>` components. Clicking them doesn't navigate.
+### 3. PROFILE PAGE — Developer Placeholder Text
+The profile page shows raw developer notes/placeholder text instead of a proper UI. Replace with a functional profile view showing user info, settings, etc.
 
-**Fix:** Replace `<button onClick={() => navigate(...)}>` with `<Link to="...">` using React Router's Link component.
+### 4. SEARCH BAR — Non-functional Placeholder
+The search bar in the header is a visual placeholder with no functionality. Either:
+- Wire it to actually search proposals/communities, OR
+- Hide it until search is implemented (cleaner for demo)
 
-### 4. Platform Settings Page Fails
-`/settings` shows "Failed to load settings" because the `platform_settings` table doesn't exist (migration 0008 not applied). Once migrations are fixed, this should work. But also add a fallback to create default settings if the table is empty.
+### 5. PLATFORM SETTINGS — "Failed to load" Error
+After login, navigating to `/settings` shows "Failed to load platform settings." Check:
+- Does the API endpoint `GET /api/platform-settings` exist in `server/routes.ts`?
+- Does `DatabaseStorage` have `getPlatformSettings()` method?
+- If missing, implement them.
 
-### 5. Profile Page Has Developer Notes
-`client/src/pages/profile.tsx` contains placeholder text like "TODO: Add user stats" and "FIXME: Wire up notifications". Replace with proper user-facing content.
+### 6. SEED-DEMO.TS COLUMN MISMATCHES
+The `server/seed-demo.ts` file has column name mismatches with the Drizzle schema:
+- `password` → check actual column name in users table
+- `description` → check communities table
+- `role` → check users table
+- `status` → check users table
+Fix seed-demo.ts to match the actual schema in `server/db/schema.ts`.
 
-### 6. Empty States Need CTAs
-When there are no proposals, communities, or notifications, show proper empty states with call-to-action buttons instead of blank pages.
+### 7. FOOTER LINKS
+Footer has links: "How it works", "FAQ", "Terms", "Privacy". These go nowhere. Options:
+- Create simple static pages for them, OR
+- Remove them from the footer, OR
+- Make them no-ops with `href="#"` and `onClick={(e) => e.preventDefault()}`
 
-### 7. Settings Page Uses Spinbuttons Instead of Toggles
-Boolean settings in `/settings` use number inputs (spinbuttons) instead of toggle switches. Convert to proper toggle UI.
+## Quality Checklist
+After fixing each item:
+1. Run `npx tsc --noEmit` to verify TS compilation (ignore drizzle-orm node_modules errors)
+2. Check i18n parity: all new keys in BOTH `en.ts` and `el.ts`
+3. Verify the fix visually using browser screenshots if possible
+4. Commit each fix with a descriptive message
 
-## IMPLEMENTATION ORDER
+## Conventions
+- Use `@/hooks/use-translation` for i18n (NOT `react-i18next` direct import)
+- Use `@/components/` for shared UI components
+- Use `<Link>` from react-router-dom for all navigation
+- Keep CSS consistent with existing Tailwind classes
+- All new translation keys in both en.ts and el.ts
+- Demo mode: `DEMO_MODE=true` — demo users work with any password
 
-1. **Fix migrations first** — update journal, rename duplicate 0003 files
-2. **Fix seed script** — ensure it works with complete schema
-3. **Fix navigation** — replace buttons with Links in Header
-4. **Fix settings page** — ensure platform_settings loads or creates defaults
-5. **Fix profile page** — replace dev notes with proper UI
-6. **Add empty states** — proposals, communities, notifications pages
-7. **Fix settings toggles** — boolean inputs as toggles
-
-## CONSTRAINTS
-- Use `@/hooks/use-translation` for i18n (not direct react-i18next import)
-- Keep i18n parity between en.ts and el.ts
-- Demo mode: any password works for seeded users
-- Rate limiter disabled in demo mode
-- Docker build must pass
-
-## AFTER FIXES
-Rebuild Docker containers and verify all pages load without errors.
+## Build Verification
+After all fixes, verify with:
+```
+cd /tmp/agoraxdemo
+npx tsc --noEmit 2>&1 | grep -v "node_modules" | head -20
+```
+TS should be clean (excluding drizzle-orm external errors).

@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -101,32 +102,31 @@ export default function Header() {
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
             {/* Desktop buttons */}
-            <Button
-              asChild
-              variant="outline"
-              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
+            <button
+              type="button"
+              onClick={() => navigate("/auth")}
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap h-11 px-4 text-sm font-medium transition-smooth border border-border hover:bg-muted hover:border-primary rounded-md cursor-pointer"
               data-testid="button-login"
             >
-              <Link href="/auth">{t('auth.login')}</Link>
-            </Button>
-            <Button
-              asChild
-              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
+              {t('auth.login')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/auth?tab=register")}
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap h-11 px-4 text-sm font-medium transition-smooth shadow-sm hover:shadow-md bg-primary hover:bg-primary/90 text-white rounded-md cursor-pointer"
               data-testid="button-register"
             >
-              <Link href="/auth?tab=register">{t('auth.register')}</Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted"
+              {t('auth.register')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/walkthrough")}
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted rounded-md px-3 py-2 cursor-pointer"
               data-testid="button-walkthrough"
             >
-              <Link href="/walkthrough">
-                <MessageSquare className="h-4 w-4" />
-                <span>{t('nav.process')}</span>
-              </Link>
-            </Button>
+              <MessageSquare className="h-4 w-4" />
+              <span>{t('nav.process')}</span>
+            </button>
             {/* Mobile hamburger */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -158,38 +158,33 @@ export default function Header() {
             <div className="flex-1 max-w-md min-w-0">
               <SearchBar />
             </div>
-            <Button
-              asChild
-              className="hidden lg:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
+            <button
+              type="button"
+              onClick={() => navigate("/proposals/new")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md rounded-md px-3 py-2 cursor-pointer"
               data-testid="button-new-proposal"
             >
-              <Link href="/proposals/new">
-                <PlusCircle className="h-4 w-4" />
-                <span>{t('nav.newProposal')}</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              <PlusCircle className="h-4 w-4" />
+              <span>{t('nav.newProposal')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/proposals")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary rounded-md border border-border px-3 py-2 cursor-pointer"
               data-testid="button-proposals"
             >
-              <Link href="/proposals">
-                <FileText className="h-4 w-4" />
-                <span>{t('nav.proposals')}</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              <FileText className="h-4 w-4" />
+              <span>{t('nav.proposals')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/communities")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary rounded-md border border-border px-3 py-2 cursor-pointer"
               data-testid="button-communities"
             >
-              <Link href="/communities">
-                <Users className="h-4 w-4" />
-                <span>{t('nav.communities')}</span>
-              </Link>
-            </Button>
+              <Users className="h-4 w-4" />
+              <span>{t('nav.communities')}</span>
+            </button>
 
             {/* Notification Bell */}
             <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
