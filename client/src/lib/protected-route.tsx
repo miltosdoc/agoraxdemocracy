@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
@@ -10,13 +11,13 @@ export function ProtectedRoute({
   component: Component,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  component: ComponentType;
 }) {
   const { user, isLoading } = useAuth();
 
   if (DEMO_MODE) {
     // Bypass auth in demo mode
-    return <Route path={path} component={Component} />;
+    return <Route path={path} component={Component as ComponentType<any>} />;
   }
 
   if (isLoading) {
@@ -37,5 +38,5 @@ export function ProtectedRoute({
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return <Route path={path} component={Component as ComponentType<any>} />;
 }

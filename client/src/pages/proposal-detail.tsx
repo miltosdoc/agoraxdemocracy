@@ -1,8 +1,9 @@
 /**
- * Proposal Detail Page
+ * Proposal Detail Page — Full workspace with tabs:
+ * Overview, Debate, Amendments, Sortition, Votes
  * 
- * Displays full proposal details including structured content,
- * debate arguments, sortition status, and voting results.
+ * Integrates: NextActionPanel, DebatePanel, AmendmentsPanel,
+ * SortitionPanel, VotePanel
  */
 
 import { useState, useEffect } from 'react';
@@ -11,10 +12,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, FileText, MessageSquare, Vote, Users, ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
-import { api } from '@/lib/api';
-import Footer from '@/components/layout/footer';
-import { DebateArguments } from '@/components/debate/debate-arguments';
+import { ArrowLeft, MessageSquare, Vote, Users, FileText, Eye } from 'lucide-react';
+import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
+import AppShell from '@/components/layout/AppShell';
+import LifecycleStepper from '@/components/ui/LifecycleStepper';
+import NextActionPanel from '@/components/proposal/NextActionPanel';
+import { DebatePanel } from '@/components/debate/DebatePanel';
+import { AmendmentsPanel } from '@/components/proposal/AmendmentsPanel';
+import { SortitionPanel } from '@/components/proposal/SortitionPanel';
+import VotePanel from '@/components/voting/VotePanel';
+import { getStatusForProposal } from '@/lib/proposal-status';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
 
 interface Proposal {
@@ -29,107 +37,151 @@ interface Proposal {
   createdAt: string;
   llmScore?: string | null;
   llmFeedback?: string | null;
+  llmValidationRound?: number | null;
   finalText?: string | null;
   category?: string;
 }
 
-interface SupportCounts {
-  support: number;
-  oppose: number;
-  userVote?: string | null;
+type ValidationCategory = 'return' | 'sortition' | 'auto_approve';
+
+function categoryFromScore(score: number | null): ValidationCategory | null {
+  if (score === null) return null;
+  if (score < 20) return 'return';
+  if (score > 90) return 'auto_approve';
+  return 'sortition';
+}
+
+function scoreColor(score: number): string {
+  if (score < 20) return 'text-red-700 bg-red-50 border-red-200';
+  if (score > 90) return 'text-green-700 bg-green-50 border-green-200';
+  return 'text-amber-700 bg-amber-50 border-amber-200';
 }
 
 export default function ProposalDetailPage() {
   const [location] = useLocation();
   const proposalId = location.split('/').pop();
   const { t } = useTranslation();
-  
+  const { user } = useAuth();
+
   const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [support, setSupport] = useState<SupportCounts>({ support: 0, oppose: 0 });
   const [loading, setLoading] = useState(true);
-  const [voting, setVoting] = useState(false);
-  const [voted, setVoted] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [revalidateError, setRevalidateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!proposalId) return;
 
-    Promise.all([
-      api.get(`/api/proposals/${proposalId}`),
-      api.get(`/api/proposals/${proposalId}/support`).catch(() => ({ data: { support: 0, oppose: 0 } })),
-    ]).then(([proposalResp, supportResp]) => {
-      setProposal(proposalResp.data);
-      setSupport(supportResp.data);
-      if (supportResp.data.userVote) {
-        setVoted(true);
-      }
-      setLoading(false);
-    }).catch(() => {
-      // Fallback to demo data
-      setProposal({
-        id: 1,
-        question: 'Πώς μπορούμε να βελτιώσουμε τη δημόσια συγκοινωνία στην περιοχή μας;',
-        solution: 'Εισαγωγή ηλεκτρικών λεωφορείων και επέκταση του δικτύου ποδηλατοδρόμων με στόχο μείωση των εκπομπών CO2 κατά 30% έως το 2030.',
-        status: 'voting',
-        authorId: 1,
-        authorName: 'Δημοκράτης Παπαδόπουλος',
-        communityId: 1,
-        communityName: 'Πολίτες Αθήνας',
-        createdAt: new Date().toISOString(),
-      });
-      setSupport({ support: 65, oppose: 35 });
-      setLoading(false);
-    });
+    api.get<Proposal>(`/api/proposals/${proposalId}`)
+      .then(resp => setProposal(resp.data))
+      .catch(() => {
+        // Fallback to demo data
+        setProposal({
+          id: parseInt(proposalId) || 1,
+          question: 'Πώς μπορούμε να βελτιώσουμε τη δημόσια συγκοινωνία;',
+          solution: 'Εισαγωγή ηλεκτρικών λεωφορείων και επέκταση ποδηλατοδρόμων.',
+          status: 'voting',
+          authorId: 1,
+          authorName: 'Δημοκράτης Παπαδόπουλος',
+          communityId: 1,
+          communityName: 'Πολίτες Αθήνας',
+          createdAt: new Date().toISOString(),
+        });
+      })
+      .finally(() => setLoading(false));
   }, [proposalId]);
 
-  const handleVote = async (type: 'support' | 'oppose') => {
-    if (!proposalId || voting) return;
-    setVoting(true);
+  const handleFinalize = async () => {
+    if (!proposalId || finalizing) return;
+    setFinalizing(true);
     try {
-      const resp = await api.post(`/api/proposals/${proposalId}/support`, { type });
-      setSupport(resp.data);
-      setVoted(true);
+      const resp = await api.post<{ proposal: Proposal }>(`/api/proposals/${proposalId}/finalize`);
+      setProposal(resp.data.proposal);
     } catch (error) {
-      console.error('Failed to vote:', error);
+      setVoteError(error instanceof ApiError ? error.message : t('proposal.finalizeFailed'));
+    } finally {
+      setFinalizing(false);
     }
-    setVoting(false);
+  };
+
+  const handleProposalAdvanced = (newStatus: string) => {
+    if (proposal) {
+      setProposal({ ...proposal, status: newStatus });
+    }
+  };
+
+  const handleRevalidate = async () => {
+    if (!proposalId || revalidating) return;
+    setRevalidating(true);
+    setRevalidateError(null);
+    try {
+      const resp = await api.post<{ proposal: Proposal }>(`/api/proposals/${proposalId}/revalidate`);
+      setProposal(resp.data.proposal);
+    } catch (error) {
+      setRevalidateError(error instanceof ApiError ? error.message : t('proposal.revalidationFailed'));
+    } finally {
+      setRevalidating(false);
+    }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[50vh]">{t('general.loading')}</div>;
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('general.loading')}</div>
+      </AppShell>
+    );
   }
 
   if (!proposal) {
-    return <div className="flex items-center justify-center min-h-[50vh]">{t('proposal.notFound')}</div>;
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('proposal.notFound')}</div>
+      </AppShell>
+    );
   }
 
-  const totalVotes = support.support + support.oppose;
-  const supportPercent = totalVotes > 0 ? Math.round((support.support / totalVotes) * 100) : 0;
-  const opposePercent = totalVotes > 0 ? Math.round((support.oppose / totalVotes) * 100) : 0;
+  const userIsAuthor = !!user && user.id === proposal.authorId;
   const isVoting = proposal.status === 'voting';
-  const isDecided = proposal.status === 'decided';
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
+    <AppShell breadcrumb={[
+      { label: t('home.proposals'), href: '/proposals' },
+      { label: proposal.question.length > 60 ? proposal.question.slice(0, 60) + '…' : proposal.question },
+    ]}>
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         {t('general.back')}
       </Button>
 
+      {/* Next Action Panel */}
+      <div className="mb-4">
+        <NextActionPanel
+          status={proposal.status}
+          proposalId={proposal.id}
+          userIsAuthor={userIsAuthor}
+        />
+      </div>
+
+      {/* Lifecycle Stepper */}
+      <Card className="mb-4">
+        <CardContent className="py-4">
+          <LifecycleStepper status={proposal.status} />
+        </CardContent>
+      </Card>
+
+      {/* Proposal Content */}
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="flex-1 min-w-0">
               <CardTitle className="text-xl mb-2">{proposal.question}</CardTitle>
               <CardDescription>
                 {t('proposal.by')} {proposal.authorName || t('proposal.userWithId', { id: proposal.authorId })} · {new Date(proposal.createdAt).toLocaleDateString()}
               </CardDescription>
             </div>
-            <Badge variant={
-              proposal.status === 'voting' ? 'default' :
-              proposal.status === 'decided' ? 'outline' :
-              proposal.status === 'sortition_synthesis' ? 'secondary' :
-              'outline'
-            }>
+            <Badge className={`${getStatusForProposal(proposal).color} self-start`} variant="outline" style={{ whiteSpace: 'nowrap' }}>
+              <span className="mr-1">{getStatusForProposal(proposal).icon}</span>
               {getStatusLabel(proposal.status, t)}
             </Badge>
           </div>
@@ -138,7 +190,7 @@ export default function ProposalDetailPage() {
           <div className="prose max-w-none">
             <h4 className="text-sm font-medium text-muted-foreground">{t('proposal.proposedSolution')}</h4>
             <p className="whitespace-pre-wrap">{proposal.solution}</p>
-            
+
             {proposal.finalText && (
               <div className="mt-4 p-4 bg-muted rounded">
                 <h4 className="text-sm font-medium mb-2">{t('proposal.finalTextSortition')}</h4>
@@ -146,176 +198,169 @@ export default function ProposalDetailPage() {
               </div>
             )}
 
-            {proposal.llmScore && (
-              <div className="mt-4 p-4 bg-muted rounded">
-                <h4 className="text-sm font-medium mb-2">{t('proposal.llmValidation')}</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">{t('proposal.score')}</span>
-                    <span className="ml-2 font-medium">{proposal.llmScore}/100</span>
+            {(() => {
+              const numericScore = proposal.llmScore != null ? Number(proposal.llmScore) : null;
+              const score = Number.isFinite(numericScore) ? (numericScore as number) : null;
+              const category = categoryFromScore(score);
+              if (score === null) {
+                return userIsAuthor ? (
+                  <div className="mt-4 p-4 border rounded">
+                    <h4 className="text-sm font-medium mb-2">{t('proposal.llmValidation')}</h4>
+                    <p className="text-sm text-muted-foreground mb-3">{t('proposal.llmNotYetValidated')}</p>
+                    <Button size="sm" onClick={handleRevalidate} disabled={revalidating} data-testid="proposal-revalidate-empty">
+                      {revalidating ? t('proposal.revalidating') : t('proposal.requestRevalidation')}
+                    </Button>
+                    {revalidateError && (
+                      <p className="text-xs text-red-600 mt-2">{revalidateError}</p>
+                    )}
                   </div>
+                ) : null;
+              }
+              return (
+                <div className={`mt-4 p-4 border rounded ${scoreColor(score)}`} data-testid="proposal-llm-validation">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">{t('proposal.llmValidation')}</h4>
+                      <div className="flex items-center gap-3 flex-wrap text-sm">
+                        <span data-testid="proposal-llm-score">
+                          <span className="text-muted-foreground">{t('proposal.score')}</span>
+                          <span className="ml-2 font-semibold">{Math.round(score)}/100</span>
+                        </span>
+                        {category && (
+                          <Badge variant="outline" data-testid="proposal-llm-category">
+                            {t(`proposal.llmCategory.${category}`)}
+                          </Badge>
+                        )}
+                        {proposal.llmValidationRound != null && (
+                          <span className="text-xs text-muted-foreground" data-testid="proposal-llm-round">
+                            {t('proposal.llmRound', { round: proposal.llmValidationRound })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {userIsAuthor && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRevalidate}
+                        disabled={revalidating}
+                        data-testid="proposal-revalidate"
+                      >
+                        {revalidating ? t('proposal.revalidating') : t('proposal.requestRevalidation')}
+                      </Button>
+                    )}
+                  </div>
+                  {proposal.llmFeedback && (
+                    <p className="text-sm mt-3 whitespace-pre-wrap">{proposal.llmFeedback}</p>
+                  )}
+                  {revalidateError && (
+                    <p className="text-xs text-red-600 mt-2">{revalidateError}</p>
+                  )}
                 </div>
-                {proposal.llmFeedback && (
-                  <p className="text-sm mt-2 text-muted-foreground">{proposal.llmFeedback}</p>
-                )}
-              </div>
-            )}
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="vote">
-        <TabsList>
-          <TabsTrigger value="debate">
-            <MessageSquare className="w-4 h-4 mr-1" />
-            {t('proposal.debate')}
+      {/* Tabs: Overview, Debate, Amendments, Sortition, Votes */}
+      <Tabs defaultValue="overview">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-1">
+          <TabsTrigger value="overview" className="flex-col sm:flex-row gap-1 py-2">
+            <Eye className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.overview')}</span>
           </TabsTrigger>
-          <TabsTrigger value="sortition">
-            <Users className="w-4 h-4 mr-1" />
-            {t('proposal.sortition')}
+          <TabsTrigger value="debate" className="flex-col sm:flex-row gap-1 py-2">
+            <MessageSquare className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.debate')}</span>
           </TabsTrigger>
-          <TabsTrigger value="vote">
-            <Vote className="w-4 h-4 mr-1" />
-            {t('general.vote')}
+          <TabsTrigger value="amendments" className="flex-col sm:flex-row gap-1 py-2">
+            <FileText className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.amendments')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="sortition" className="flex-col sm:flex-row gap-1 py-2">
+            <Users className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.sortition')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="votes" className="flex-col sm:flex-row gap-1 py-2">
+            <Vote className="w-4 h-4 sm:mr-1" />
+            <span className="text-xs sm:text-sm">{t('workspace.tabs.votes')}</span>
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="debate">
-          <DebateArguments proposalId={proposal.id} />
-        </TabsContent>
-        
-        <TabsContent value="sortition">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('proposal.sortitionReview')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                {proposal.status === 'sortition_synthesis' 
-                  ? t('proposal.sortitionInProgress')
-                  : proposal.status === 'voting'
-                  ? t('proposal.sortitionCompleted')
-                  : t('proposal.sortitionNotStarted')}
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="vote">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('proposal.voting')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isVoting ? (
-                <div className="space-y-6">
-                  <p className="text-muted-foreground">{t('proposal.votingOpen')}</p>
-                  
-                  {!voted ? (
-                    <div className="flex gap-4 justify-center">
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="gap-2 border-green-500 text-green-600 hover:bg-green-50"
-                        onClick={() => handleVote('support')}
-                        disabled={voting}
-                      >
-                        <ThumbsUp className="w-5 h-5" />
-                        {t('proposal.support')}
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
-                        onClick={() => handleVote('oppose')}
-                        disabled={voting}
-                      >
-                        <ThumbsDown className="w-5 h-5" />
-                        {t('proposal.oppose')}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2 text-green-600">
-                      <CheckCircle className="w-5 h-5" />
-                      <span>{t('proposal.voteRecorded')}</span>
-                    </div>
-                  )}
 
-                  <div className="p-4 bg-muted rounded">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="flex items-center gap-1">
-                        <ThumbsUp className="w-4 h-4 text-green-600" />
-                        {t('proposal.supportCount', { count: support.support })}
-                      </span>
-                      <span className="font-medium">{supportPercent}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3 mb-3">
-                      <div 
-                        className="bg-green-500 h-3 rounded-full transition-all" 
-                        style={{ width: `${supportPercent}%` }} 
-                      />
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="flex items-center gap-1">
-                        <ThumbsDown className="w-4 h-4 text-red-600" />
-                        {t('proposal.opposeCount', { count: support.oppose })}
-                      </span>
-                      <span className="font-medium">{opposePercent}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3 mt-1">
-                      <div 
-                        className="bg-red-500 h-3 rounded-full transition-all" 
-                        style={{ width: `${opposePercent}%` }} 
-                      />
-                    </div>
-                    <div className="text-center text-xs text-muted-foreground mt-2">
-                      {t('proposal.totalVotes', { count: totalVotes })}
-                    </div>
-                  </div>
-                </div>
-              ) : isDecided ? (
+        <TabsContent value="overview">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('workspace.tabs.overview')}</CardTitle>
+              <CardDescription>
+                {t('proposal.proposedSolution')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
                 <div>
-                  <p className="mb-4 text-muted-foreground">{t('proposal.proposalDecided')}</p>
-                  <div className="p-4 bg-muted rounded">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="flex items-center gap-1">
-                        <ThumbsUp className="w-4 h-4 text-green-600" />
-                        {t('proposal.supportCount', { count: support.support })}
-                      </span>
-                      <span className="font-medium">{supportPercent}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3 mb-3">
-                      <div 
-                        className="bg-green-500 h-3 rounded-full" 
-                        style={{ width: `${supportPercent}%` }} 
-                      />
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="flex items-center gap-1">
-                        <ThumbsDown className="w-4 h-4 text-red-600" />
-                        {t('proposal.opposeCount', { count: support.oppose })}
-                      </span>
-                      <span className="font-medium">{opposePercent}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3 mt-1">
-                      <div 
-                        className="bg-red-500 h-3 rounded-full" 
-                        style={{ width: `${opposePercent}%` }} 
-                      />
-                    </div>
-                    <div className="text-center text-xs text-muted-foreground mt-2">
-                      {t('proposal.totalVotes', { count: totalVotes })}
-                    </div>
-                  </div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">{t('proposal.questionLabel') || 'Ερώτημα'}</h4>
+                  <p className="whitespace-pre-wrap">{proposal.question}</p>
                 </div>
-              ) : (
-                <p className="text-muted-foreground">{t('proposal.votingNotOpen', { status: getStatusLabel(proposal.status, t) })}</p>
-              )}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">{t('proposal.proposedSolution')}</h4>
+                  <p className="whitespace-pre-wrap">{proposal.solution}</p>
+                </div>
+                {proposal.finalText && (
+                  <div className="p-4 bg-muted rounded">
+                    <h4 className="text-sm font-medium mb-2">{t('proposal.finalTextSortition')}</h4>
+                    <p className="whitespace-pre-wrap">{proposal.finalText}</p>
+                  </div>
+                )}
+                {proposal.category && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">{t('proposal.category') || 'Κατηγορία'}</h4>
+                    <Badge variant="secondary">{proposal.category}</Badge>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="debate">
+          <DebatePanel proposalId={proposal.id} />
+        </TabsContent>
+
+        <TabsContent value="amendments">
+          <AmendmentsPanel
+            proposalId={proposal.id}
+            proposalStatus={proposal.status}
+            userIsAuthor={userIsAuthor}
+          />
+        </TabsContent>
+
+        <TabsContent value="sortition">
+          <SortitionPanel
+            proposalId={proposal.id}
+            proposalStatus={proposal.status}
+          />
+        </TabsContent>
+
+        <TabsContent value="votes">
+          <VotePanel
+            proposalId={proposal.id}
+            proposalStatus={proposal.status}
+            proposalAuthorId={proposal.authorId}
+            onProposalAdvanced={handleProposalAdvanced}
+          />
+          {voteError && (
+            <div className="mt-2 text-red-600 text-sm text-center">{voteError}</div>
+          )}
+          {userIsAuthor && isVoting && (
+            <div className="mt-4 flex justify-center">
+              <Button onClick={handleFinalize} disabled={finalizing}>
+                {finalizing ? t('general.loading') : t('proposal.finalize')}
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

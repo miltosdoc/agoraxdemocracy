@@ -16,7 +16,6 @@
  * - Transparent selection process (seed is recorded for verification)
  */
 
-import type { CommunityMember, SortitionBody, SortitionMember } from '@shared/schema';
 import type { IStorage } from '../storage';
 import { db } from '../db';
 import { sortitionBodies, sortitionMembers } from '@shared/schema';
@@ -34,7 +33,7 @@ export interface SortitionResult {
 
 export interface EligibleMember {
   userId: number;
-  role: string;
+  role: string | null;
   joinedAt: Date;
 }
 
@@ -197,7 +196,6 @@ export async function createSortitionBody(
     responseHours: 72,
     status: 'active',
     selectedAt: new Date(),
-    createdAt: new Date(),
   });
   
   // Add selected members to the body
@@ -310,6 +308,6 @@ export async function synthesizeSortitionScores(
     averageScore,
     scoreDistribution,
     proposalId: body.proposalId,
-    status: responseRate >= 0.6 ? 'completed' : body.status,
+    status: responseRate >= 0.6 ? 'completed' : (body.status ?? 'active'),
   };
 }

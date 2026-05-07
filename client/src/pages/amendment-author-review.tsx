@@ -45,7 +45,7 @@ export default function AmendmentAuthorReview() {
 
   async function loadAmendments() {
     try {
-      const res = await api.get(`/api/proposals/${proposalId}/amendments`);
+      const res = await api.get<Amendment[]>(`/api/proposals/${proposalId}/amendments`);
       setAmendments(res.data);
     } catch (e) {
       setError(t('amendment.error.loadFailed'));

@@ -24,7 +24,8 @@ export type JobType =
   | 'send_notification'     // Notification delivery
   | 'create_sortition'      // Sortition body creation
   | 'recalculate_score'     // Democracy score recalculation
-  | 'cleanup_expired';      // Cleanup expired sessions/votes
+  | 'cleanup_expired'       // Cleanup expired sessions/votes
+  | 'sortition_timeout';    // Sortition deadline sweep & completion
 
 export interface JobPayload {
   type: JobType;
@@ -120,17 +121,13 @@ export async function failJob(jobId: string, error: string, retry: boolean = tru
   if (!job) return;
   
   if (retry && job.retryCount < job.maxRetries) {
-    // Schedule retry with exponential backoff
-    const backoffMs = Math.pow(2, job.retryCount) * 1000; // 1s, 2s, 4s, ...
-    
+    // The next poll picks the job back up; exponential backoff is not yet
+    // wired into the queue (no scheduled-job mechanism in place).
     await db.execute(sql`
-      UPDATE jobs 
+      UPDATE jobs
       SET status = 'pending', error = ${error}, retry_count = ${job.retryCount + 1}, started_at = NULL
       WHERE id = ${jobId}
     `);
-    
-    // In production, you'd use a delayed job or cron to retry after backoff
-    // For now, the next poll will pick it up
   } else {
     // Max retries exceeded — mark as permanently failed
     await db.execute(sql`
@@ -312,10 +309,12 @@ export async function enqueueNotification(
 export async function enqueueCreateSortition(
   communityId: number,
   size: number,
+  proposalId?: number,
+  purpose: string = 'text_synthesis',
 ): Promise<string> {
   return enqueueJob({
     type: 'create_sortition',
-    data: { communityId, size },
+    data: { communityId, size, proposalId, purpose },
     priority: 'high',
   });
 }
@@ -330,5 +329,18 @@ export async function enqueueRecalculateScore(
     type: 'recalculate_score',
     data: { communityId },
     priority: 'low',
+  });
+}
+
+/**
+ * Enqueue a sortition timeout sweep job.
+ * Sweeps all active sortition bodies, checks deadlines, replaces
+ * non-responders, and completes bodies that have timed out.
+ */
+export async function enqueueSortitionTimeout(): Promise<string> {
+  return enqueueJob({
+    type: 'sortition_timeout',
+    data: {},
+    priority: 'normal',
   });
 }

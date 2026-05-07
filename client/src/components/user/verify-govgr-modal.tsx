@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import {
     FileUp,
     CheckCircle2,
@@ -44,7 +43,6 @@ export function VerifyGovgrModal({ isOpen, onClose }: VerifyGovgrModalProps) {
     const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
     const { toast } = useToast();
-    const { user } = useAuth();
 
     const getRejectionLabel = (reason: string) => {
         const reasons: Record<string, string> = {

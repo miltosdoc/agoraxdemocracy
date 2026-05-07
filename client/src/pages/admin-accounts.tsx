@@ -40,7 +40,7 @@ interface UserWithActivity extends User {
 }
 
 export default function AdminAccountsPage() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");

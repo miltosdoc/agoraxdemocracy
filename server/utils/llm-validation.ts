@@ -6,10 +6,9 @@
  * - 20-90%: Trigger sortition body review
  * - >90%: Auto-approve
  *
- * Configurable via environment variables:
- * - LLM_API_KEY: API key for the LLM provider
- * - LLM_API_URL: Base URL (e.g., https://api.openai.com/v1 or http://localhost:11434/v1)
- * - LLM_MODEL: Model name (e.g., gpt-4o-mini, llama3.1:8b)
+ * Defaults to OpenRouter's NVIDIA Nemotron free tier — set LLM_API_KEY to a
+ * valid OpenRouter token to enable real validation. Without a key the service
+ * returns a deterministic mock so local dev does not require network access.
  */
 
 import fetch from 'node-fetch';
@@ -22,11 +21,14 @@ interface LLMConfig {
   model: string;
 }
 
+const DEFAULT_LLM_API_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_LLM_MODEL = 'nvidia/nemotron-3-nano-30b-a3b:free';
+
 function getConfig(): LLMConfig {
   return {
-    apiKey: process.env.LLM_API_KEY || '',
-    apiUrl: process.env.LLM_API_URL || 'https://api.openai.com/v1',
-    model: process.env.LLM_MODEL || 'gpt-4o-mini',
+    apiKey: process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || '',
+    apiUrl: process.env.LLM_API_URL || DEFAULT_LLM_API_URL,
+    model: process.env.LLM_MODEL || DEFAULT_LLM_MODEL,
   };
 }
 
@@ -124,17 +126,23 @@ async function callLLM(prompt: string): Promise<string> {
       throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { message?: { content?: string } };
     return data.message?.content || JSON.stringify({ score: 50, feedback: 'Error parsing response', details: { structure: 5, specificity: 5, feasibility: 5, completeness: 5, clarity: 5 } });
   }
 
-  // OpenAI-compatible API format
+  // OpenAI-compatible API format (OpenRouter, OpenAI, etc.)
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.apiKey}`,
+  };
+  if (config.apiUrl.includes('openrouter.ai')) {
+    headers['HTTP-Referer'] = process.env.OPENROUTER_REFERER || 'https://agorax.local';
+    headers['X-Title'] = 'AgoraX Proposal Validation';
+  }
+
   const response = await fetch(`${config.apiUrl}/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: config.model,
       messages: [
@@ -151,7 +159,7 @@ async function callLLM(prompt: string): Promise<string> {
     throw new Error(`LLM API error: ${response.status} ${response.statusText} — ${errorBody}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as { choices?: { message?: { content?: string } }[] };
   const content = data.choices?.[0]?.message?.content;
 
   if (!content) {

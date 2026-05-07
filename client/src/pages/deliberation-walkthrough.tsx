@@ -24,11 +24,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { 
-  FileText, CheckCircle, Users, MessageSquare, Vote, 
-  ArrowRight, Clock, ThumbsUp, ThumbsDown,
-  Edit3, Shield, PenTool, TrendingUp, 
-  Zap, Globe, Lock, BarChart3, ChevronRight, ExternalLink
+import {
+  FileText, CheckCircle, Users, MessageSquare, Vote,
+  ArrowRight, ThumbsUp, ThumbsDown,
+  Edit3, Shield, PenTool, TrendingUp,
+  Zap, Lock, BarChart3, ExternalLink
 } from 'lucide-react';
 import { useTranslation } from '@/hooks/use-translation';
 import { Link } from 'wouter';
@@ -77,13 +77,13 @@ function StepProposal() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('proposal.question_label')} *</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Πώς μπορούμε να μειώσουμε την κυκλοφοριακή συμφόρηση στο κέντρο της Αθήνας;
+          {t('walkthrough.demo_question')}
         </div>
       </div>
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('proposal.solution_label')} *</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης και παροίνωση ηλεκτρικών οχημάτων.
+          {t('walkthrough.demo_solution')}
         </div>
       </div>
       <div className="p-4 border rounded-lg bg-muted/30">
@@ -97,7 +97,7 @@ function StepProposal() {
         <Card className="bg-muted/30">
           <CardContent className="p-3 text-center">
             <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">Δήμος Αθηναίων</div>
+            <div className="text-sm font-medium">{t('walkthrough.demo_community')}</div>
             <div className="text-xs text-muted-foreground">5 {t('community.members')} · 72.5 {t('community.score')}</div>
           </CardContent>
         </Card>
@@ -202,9 +202,9 @@ function StepAuthorReview() {
   const [reviewed, setReviewed] = useState(0);
   
   const amendments = [
-    { id: 1, author: 'Ε.Π.', type: t('walkthrough.amendment_improvement'), text: 'Να προστεθεί η δυνατότητα car-sharing εντός της LEZ για κατοίκους με ειδικές ανάγκες.', reviewed: true, decision: 'accepted' },
-    { id: 2, author: 'Γ.Ν.', type: t('walkthrough.amendment_addition'), text: 'Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.', reviewed: true, decision: 'rejected', reason: t('walkthrough.demo_rejection_reason_1') },
-    { id: 3, author: 'Μ.Κ.', type: t('walkthrough.amendment_counter'), text: 'Αντί για LEZ, να επενδύσουμε σε υπόγεια πάρκινγκ στις παρυφές του κέντρου.', reviewed: false, decision: null },
+    { id: 1, author: 'Ε.Π.', type: t('walkthrough.amendment_improvement'), text: t('walkthrough.demo_amendment_1'), reviewed: true, decision: 'accepted' },
+    { id: 2, author: 'Γ.Ν.', type: t('walkthrough.amendment_addition'), text: t('walkthrough.demo_amendment_2'), reviewed: true, decision: 'rejected', reason: t('walkthrough.demo_rejection_reason_1') },
+    { id: 3, author: 'Μ.Κ.', type: t('walkthrough.amendment_counter'), text: t('walkthrough.demo_amendment_3'), reviewed: false, decision: null },
   ];
 
   return (
@@ -292,7 +292,7 @@ function StepCommunitySignal() {
     { 
       id: 1, 
       author: 'Γ.Ν.', 
-      text: 'Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.',
+      text: t('walkthrough.demo_amendment_2'),
       authorReason: t('walkthrough.demo_rejection_reason_1'),
       upvotes: 18, 
       downvotes: 4,
@@ -301,7 +301,7 @@ function StepCommunitySignal() {
     { 
       id: 2, 
       author: 'Κ.Α.', 
-      text: 'Να εξαιρεθούν τα τουριστικά οχήματα από τη ζώνη LEZ κατά τους καλοκαιρινούς μήνες.',
+      text: t('walkthrough.demo_amendment_4'),
       authorReason: t('walkthrough.demo_rejection_reason_2'),
       upvotes: 3, 
       downvotes: 11,
@@ -423,9 +423,9 @@ function StepSortitionSynthesis() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.author_proposal_accepted')}</label>
         <div className="p-3 bg-background rounded border text-sm space-y-2">
-          <p>Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης και παροίνωση ηλεκτρικών οχημάτων.</p>
+          <p>{t('walkthrough.demo_solution')}</p>
           <div className="border-l-2 border-green-500 pl-3 text-green-700 text-xs">
-            [{t('walkthrough.accepted')}] Να προστεθεί η δυνατότητα car-sharing εντός της LEZ για κατοίκους με ειδικές ανάγκες.
+            [{t('walkthrough.accepted')}] {t('walkthrough.demo_amendment_accepted')}
           </div>
         </div>
       </div>
@@ -434,7 +434,7 @@ function StepSortitionSynthesis() {
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.flagged_amendments_community')}</label>
         <div className="p-3 bg-white rounded border text-sm">
           <p className="text-muted-foreground">
-            «Προσθήκη προγράμματος επιδότησης ηλεκτρικών scooters για επαγγελματίες.»
+            {t('walkthrough.demo_amendment_flagged')}
           </p>
           <div className="mt-1 text-xs text-green-600">
             ✓ {t('walkthrough.community_overrode')} (Net: +14, 78%)
@@ -444,9 +444,9 @@ function StepSortitionSynthesis() {
       
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.final_text_compose')}</label>
-        <Textarea 
+      <Textarea 
           className="min-h-[100px] text-sm"
-          defaultValue="Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο Αθηνών, με δωρεάν δημόσια συγκοινωνία εντός της ζώνης, προώθηση ηλεκτρικών οχημάτων, car-sharing για κατοίκους με ειδικές ανάγκες, και πρόγραμμα επιδότησης ηλεκτρικών scooters για επαγγελματίες μετακίνησης."
+          defaultValue={t('walkthrough.demo_final_text')}
         />
       </div>
       
@@ -482,7 +482,7 @@ function StepRatificationVote() {
       <div className="p-4 border rounded-lg bg-muted/30">
         <label className="text-sm font-medium mb-2 block">{t('walkthrough.final_text')}</label>
         <div className="p-3 bg-background rounded border text-sm">
-          Να δημιουργηθεί ζώνη χαμηλών εκπομπών (LEZ) στο ιστορικό κέντρο Αθηνών...
+          {t('walkthrough.demo_final_text')}
         </div>
       </div>
 

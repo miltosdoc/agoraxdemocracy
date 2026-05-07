@@ -125,14 +125,18 @@ async function upsertCommunity(seed: CommunitySeed): Promise<number> {
     return existing[0].id;
   }
 
+  // NOTE: communities table has no osmId/osmType columns yet (OPEN_QUESTIONS D1
+  // decided OSM pre-population but the schema migration hasn't landed). The
+  // OSM ids are stashed in the description for now until columns are added.
+  // Also: communities.creatorId is required; pre-populated communities use
+  // the founder/admin user id 1 by convention.
   const [inserted] = await db
     .insert(communities)
     .values({
       name: seed.name,
-      description: seed.description,
-      governanceModel: 'default',
-      osmId: seed.osmId.toString(),
-      osmType: seed.osmType,
+      description: `${seed.description ?? ''}\n[osm:${seed.osmType}/${seed.osmId}]`.trim(),
+      governanceModel: 'no_admin',
+      creatorId: 1,
     })
     .returning();
 

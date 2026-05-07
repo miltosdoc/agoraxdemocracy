@@ -6,13 +6,26 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  transitionState,
-  isValidTransition,
-  getValidNextStates,
+  canTransition,
+  getNextStates,
+  transitionProposal,
   triggerSideEffects,
   ProposalState,
 } from '../../server/utils/proposal-state-machine';
 import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from '../../server/utils/job-queue';
+
+function createMockStorage() {
+  return {
+    updateProposal: vi.fn(async (id: number, updates: Record<string, unknown>) => ({
+      id,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: updates.status,
+    })),
+  };
+}
 
 // Mock the job queue functions
 vi.mock('../../server/utils/job-queue', () => ({
@@ -26,43 +39,48 @@ vi.mock('../../server/utils/job-queue', () => ({
 
 describe('State Machine - Transition Validation', () => {
   it('should allow draft → review', () => {
-    expect(isValidTransition('draft', 'review')).toBe(true);
+    expect(canTransition('draft', 'review')).toBe(true);
   });
 
-  it('should allow review → deliberation', () => {
-    expect(isValidTransition('review', 'deliberation')).toBe(true);
+  it('should allow review → author_review', () => {
+    expect(canTransition('review', 'author_review')).toBe(true);
   });
 
   it('should allow review → draft (return for revision)', () => {
-    expect(isValidTransition('review', 'draft')).toBe(true);
+    expect(canTransition('review', 'draft')).toBe(true);
   });
 
-  it('should allow deliberation → voting', () => {
-    expect(isValidTransition('deliberation', 'voting')).toBe(true);
+  it('should allow author_review → community_signal', () => {
+    expect(canTransition('author_review', 'community_signal')).toBe(true);
+  });
+
+  it('should allow community_signal → sortition_synthesis', () => {
+    expect(canTransition('community_signal', 'sortition_synthesis')).toBe(true);
+  });
+
+  it('should allow sortition_synthesis → voting', () => {
+    expect(canTransition('sortition_synthesis', 'voting')).toBe(true);
   });
 
   it('should allow voting → decided', () => {
-    expect(isValidTransition('voting', 'decided')).toBe(true);
-  });
-
-  it('should allow voting → deliberation (extend deliberation)', () => {
-    expect(isValidTransition('voting', 'deliberation')).toBe(true);
+    expect(canTransition('voting', 'decided')).toBe(true);
   });
 
   it('should allow any state → archived', () => {
-    expect(isValidTransition('draft', 'archived')).toBe(true);
-    expect(isValidTransition('review', 'archived')).toBe(true);
-    expect(isValidTransition('deliberation', 'archived')).toBe(true);
-    expect(isValidTransition('voting', 'archived')).toBe(true);
-    expect(isValidTransition('decided', 'archived')).toBe(true);
+    expect(canTransition('draft', 'archived')).toBe(true);
+    expect(canTransition('review', 'archived')).toBe(true);
+    expect(canTransition('author_review', 'archived')).toBe(true);
+    expect(canTransition('community_signal', 'archived')).toBe(true);
+    expect(canTransition('sortition_synthesis', 'archived')).toBe(true);
+    expect(canTransition('voting', 'archived')).toBe(true);
   });
 
   it('should reject invalid transitions', () => {
-    expect(isValidTransition('draft', 'voting')).toBe(false);
-    expect(isValidTransition('draft', 'decided')).toBe(false);
-    expect(isValidTransition('voting', 'review')).toBe(false);
-    expect(isValidTransition('decided', 'voting')).toBe(false);
-    expect(isValidTransition('archived', 'draft')).toBe(false);
+    expect(canTransition('draft', 'voting')).toBe(false);
+    expect(canTransition('draft', 'decided')).toBe(false);
+    expect(canTransition('voting', 'review')).toBe(false);
+    expect(canTransition('decided', 'voting')).toBe(false);
+    expect(canTransition('archived', 'draft')).toBe(false);
   });
 });
 
@@ -70,48 +88,71 @@ describe('State Machine - Transition Validation', () => {
 
 describe('State Machine - Valid Next States', () => {
   it('should return correct next states for draft', () => {
-    expect(getValidNextStates('draft')).toEqual(['review', 'archived']);
+    expect(getNextStates('draft')).toEqual(['review', 'archived']);
   });
 
   it('should return correct next states for review', () => {
-    expect(getValidNextStates('review')).toEqual(['deliberation', 'draft', 'archived']);
+    expect(getNextStates('review')).toEqual(['author_review', 'draft', 'voting', 'archived']);
   });
 
-  it('should return correct next states for deliberation', () => {
-    expect(getValidNextStates('deliberation')).toEqual(['voting', 'archived']);
+  it('should allow review → voting (auto-approve fast path)', () => {
+    expect(canTransition('review', 'voting')).toBe(true);
+  });
+
+  it('should return correct next states for author_review', () => {
+    expect(getNextStates('author_review')).toEqual(['community_signal', 'archived']);
   });
 
   it('should return correct next states for voting', () => {
-    expect(getValidNextStates('voting')).toEqual(['decided', 'deliberation', 'archived']);
+    expect(getNextStates('voting')).toEqual(['decided', 'archived']);
   });
 
   it('should return correct next states for decided', () => {
-    expect(getValidNextStates('decided')).toEqual(['archived']);
+    expect(getNextStates('decided')).toEqual([]);
   });
 
   it('should return no next states for archived', () => {
-    expect(getValidNextStates('archived')).toEqual([]);
+    expect(getNextStates('archived')).toEqual([]);
   });
 });
 
 // ─── Transition Function Tests ───────────────────────────────────────────────
 
-describe('State Machine - transitionState()', () => {
-  it('should transition from draft to review', () => {
-    const result = transitionState('draft', 'review');
-    expect(result).toBe('review');
+describe('State Machine - Transition Execution', () => {
+  it('updates proposal state through storage', async () => {
+    const storage = createMockStorage();
+    const proposal = {
+      id: 1,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: 'draft' as ProposalState,
+    };
+
+    const updated = await transitionProposal(proposal as any, 'review', storage as any);
+
+    expect(storage.updateProposal).toHaveBeenCalledWith(1, { status: 'review' });
+    expect(updated.status).toBe('review');
   });
 
-  it('should throw on invalid transition', () => {
-    expect(() => transitionState('draft', 'voting')).toThrow('Invalid state transition');
-  });
+  it('rejects invalid transition execution', async () => {
+    const storage = createMockStorage();
+    const proposal = {
+      id: 1,
+      communityId: 1,
+      authorId: 42,
+      question: 'Test question',
+      solution: 'Test solution',
+      status: 'draft' as ProposalState,
+    };
 
-  it('should throw on transition from archived', () => {
-    expect(() => transitionState('archived', 'draft')).toThrow('Invalid state transition');
+    await expect(transitionProposal(proposal as any, 'voting', storage as any)).rejects.toThrow(
+      'Invalid transition: draft → voting',
+    );
+    expect(storage.updateProposal).not.toHaveBeenCalled();
   });
 });
-
-// ─── Side Effects Tests ──────────────────────────────────────────────────────
 
 describe('State Machine - Side Effects', () => {
   const mockProposal = {
@@ -120,7 +161,7 @@ describe('State Machine - Side Effects', () => {
     authorId: 42,
     question: 'Test question',
     solution: 'Test solution',
-    state: 'draft' as ProposalState,
+    status: 'draft' as ProposalState,
   };
 
   beforeEach(() => {
@@ -137,12 +178,14 @@ describe('State Machine - Side Effects', () => {
     );
   });
 
-  it('should create sortition body on review → deliberation', async () => {
-    await triggerSideEffects('review', 'deliberation', mockProposal);
+  it('should create sortition body on community_signal → sortition_synthesis', async () => {
+    await triggerSideEffects('community_signal', 'sortition_synthesis', mockProposal);
 
     expect(enqueueCreateSortition).toHaveBeenCalledWith(
       mockProposal.communityId,
-      20,
+      12,
+      mockProposal.id,
+      'text_synthesis',
     );
   });
 
@@ -156,8 +199,8 @@ describe('State Machine - Side Effects', () => {
     );
   });
 
-  it('should recalculate democracy score on deliberation → voting', async () => {
-    await triggerSideEffects('deliberation', 'voting', mockProposal);
+  it('should recalculate democracy score on sortition_synthesis → voting', async () => {
+    await triggerSideEffects('sortition_synthesis', 'voting', mockProposal);
 
     expect(enqueueRecalculateScore).toHaveBeenCalledWith(mockProposal.communityId);
   });

@@ -11,7 +11,8 @@
  */
 
 import { db } from '../db';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import { sortitionNotifications } from '@shared/schema';
 
 // ─── Notification Types ─────────────────────────────────────────────────────
 
@@ -43,12 +44,16 @@ export async function createNotification(params: CreateNotificationParams): Prom
     return; // User opted out of this notification type
   }
 
-  await db.execute(sql`
-    INSERT INTO sortition_notifications (user_id, type, title, message, sortition_body_id, proposal_id, community_id, action_url)
-    VALUES (${params.userId}, ${params.type}, ${params.title}, ${params.message || null}, 
-            ${params.sortitionBodyId || null}, ${params.proposalId || null}, 
-            ${params.communityId || null}, ${params.actionUrl || null})
-  `);
+  await db.insert(sortitionNotifications).values({
+    userId: params.userId,
+    type: params.type,
+    title: params.title,
+    message: params.message ?? null,
+    sortitionBodyId: params.sortitionBodyId ?? null,
+    proposalId: params.proposalId ?? null,
+    communityId: params.communityId ?? null,
+    actionUrl: params.actionUrl ?? null,
+  });
 }
 
 // ─── Batch: Notify Sortition Members ────────────────────────────────────────

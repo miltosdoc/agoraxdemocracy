@@ -1,4 +1,10 @@
 import {
+  assertProposalState,
+  canTransitionProposal,
+  getNextProposalStates,
+  isProposalState,
+} from "@shared/proposal-lifecycle";
+import {
   User,
   InsertUser,
   Poll,
@@ -7,12 +13,10 @@ import {
   InsertVote,
   RankingVote,
   InsertComment,
-  PollOption,
   Vote,
   Comment,
   PollWithOptions,
   PollNotification,
-  InsertPollNotification,
   users,
   polls,
   pollOptions,
@@ -23,11 +27,8 @@ import {
   pollAnswers,
   pollUserResponses,
   accountActivity,
-  InsertPollQuestion,
-  InsertPollAnswer,
   InsertPollUserResponse,
   InsertAccountActivity,
-  PollQuestion,
   PollAnswer,
   PollUserResponse,
   SelectAccountActivity,
@@ -36,7 +37,6 @@ import {
   Community,
   InsertCommunity,
   CommunityMember,
-  InsertCommunityMember,
   Proposal,
   InsertProposal,
   ProposalAmendment,
@@ -44,26 +44,65 @@ import {
   SortitionBody,
   InsertSortitionBody,
   SortitionMember,
-  InsertSortitionMember,
+  SortitionAttendance,
   DebateArgument,
   InsertDebateArgument,
   ProposalSupport,
-  InsertProposalSupport,
+  ProposalVote,
+  ProposalVoteChoice,
+  PlatformSetting,
+  InsertPlatformSetting,
   communities,
   communityMembers,
   proposals,
   proposalAmendments,
   sortitionBodies,
   sortitionMembers,
+  sortitionAttendance,
   debateArguments,
-  proposalSupport
+  proposalSupport,
+  proposalVotes,
+  platformSettings
 } from "@shared/schema";
+
+// Frontend submits survey questions with temporary numeric ids so the server
+// can wire up parent/child relationships before the real DB ids exist.
+export interface SurveyQuestionInput {
+  id?: number;
+  text: string;
+  questionType: string;
+  required?: boolean;
+  order: number;
+  parentId?: number | null;
+  parentAnswerId?: number | null;
+}
+
+export interface SurveyAnswerGroup {
+  questionId?: number; // matches SurveyQuestionInput.id (the temp id)
+  answers: {
+    id?: number;       // temp id for React keys / parent wiring
+    text: string;
+    order: number;
+  }[];
+}
+
+export interface ProposalVoteResults {
+  yes: number;
+  no: number;
+  abstain: number;
+  total: number;       // yes + no + abstain
+  participants: number; // distinct voters (== total since one vote per user)
+  participationPct: number; // participants / community member count, in [0,1]
+  passes: boolean;
+  meetsQuorum: boolean;
+  minParticipationPct: number; // community threshold in [0,1]
+}
 import { deriveGeoRegion, normalizeRegionName } from "./utils/geo-region-detector";
 import { reverseGeocode } from "./utils/reverse-geocoding";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
-import { eq, and, or, desc, asc, inArray, sql, isNull, not, count, gt, gte } from "drizzle-orm";
+import { eq, and, or, desc, asc, inArray, sql, isNull, count } from "drizzle-orm";
 import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
@@ -110,23 +149,10 @@ export interface IStorage {
   getUserByVoterHash(voterHash: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserLocation(userId: number, locationData: {
-    // Display names
-    city?: string,
-    region?: string,
-    country?: string,
-    // Standardized IDs
-    city_id?: string,
-    region_id?: string,
-    country_id?: string,
-    // Duplicate fields for clarity in API
-    city_display?: string,
-    region_display?: string,
-    country_display?: string,
-    // Coordinates
-    latitude?: string,
-    longitude?: string,
-    locationConfirmed?: boolean,
-    locationVerified?: boolean
+    latitude?: string;
+    longitude?: string;
+    locationConfirmed?: boolean;
+    locationVerified?: boolean;
   }): Promise<User>;
 
   verifyUserLocation(userId: number, verified: boolean): Promise<User>;
@@ -146,9 +172,9 @@ export interface IStorage {
   deletePoll(id: number): Promise<boolean>;
 
   // Survey Poll methods
-  createSurveyPoll(poll: InsertPoll, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll>;
+  createSurveyPoll(poll: InsertPoll, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll>;
   getSurveyPoll(id: number, userId?: number): Promise<PollWithQuestions | undefined>;
-  updateSurveyStructure(id: number, updates: Partial<Poll>, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll>;
+  updateSurveyStructure(id: number, updates: Partial<Poll>, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll>;
   updateSurveyMetadata(id: number, updates: Partial<Poll>): Promise<Poll>;
 
   // Survey Response methods
@@ -170,12 +196,11 @@ export interface IStorage {
 
 
   // Notification methods
-  createPollNotification(notification: InsertPollNotification): Promise<PollNotification>;
   getUserNotifications(userId: number): Promise<(PollNotification & { poll: Poll & { community?: { id: number; name: string } | null } })[]>;
   markNotificationAsRead(notificationId: number): Promise<PollNotification>;
 
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   // Analytics methods
   getAnalyticsOverview(): Promise<{
@@ -244,8 +269,8 @@ export interface IStorage {
 
   // ─── Demopolis: Amendment methods ──────────────────────────────────────────
   createAmendment(amendment: InsertProposalAmendment): Promise<ProposalAmendment>;
+  getAmendment(id: number): Promise<ProposalAmendment | undefined>;
   getAmendments(proposalId: number): Promise<ProposalAmendment[]>;
-  updateAmendment(id: number, updates: Partial<ProposalAmendment>): Promise<ProposalAmendment>;
   countAmendmentsForProposal(proposalId: number): Promise<number>;
 
   // ─── Demopolis: Sortition methods ──────────────────────────────────────────
@@ -253,7 +278,6 @@ export interface IStorage {
   getSortitionBody(id: number): Promise<SortitionBody | undefined>;
   getSortitionMembers(bodyId: number): Promise<SortitionMember[]>;
   addSortitionMember(bodyId: number, userId: number): Promise<SortitionMember>;
-  removeSortitionMember(bodyId: number, userId: number): Promise<boolean>;
   updateSortitionMember(bodyId: number, userId: number, updates: Partial<SortitionMember>): Promise<SortitionMember>;
   completeSortitionBody(id: number): Promise<SortitionBody>;
 
@@ -265,13 +289,44 @@ export interface IStorage {
 
   // ─── Demopolis: Proposal Support methods ───────────────────────────────────
   createProposalSupport(proposalId: number, userId: number, type: string): Promise<ProposalSupport>;
-  removeProposalSupport(proposalId: number, userId: number, type: string): Promise<boolean>;
-  getProposalSupport(proposalId: number): Promise<{ support: number; oppose: number }>;
+  getProposalSupport(proposalId: number, userId?: number): Promise<{ support: number; oppose: number; userVote?: string | null }>;
   getAllProposals(limit?: number): Promise<Proposal[]>;
+
+  // ─── Demopolis: Proposal Final Vote methods ────────────────────────────────
+  castProposalVote(proposalId: number, userId: number, choice: ProposalVoteChoice): Promise<ProposalVote>;
+  getUserProposalVote(proposalId: number, userId: number): Promise<ProposalVote | undefined>;
+  getProposalVoteResults(proposalId: number): Promise<ProposalVoteResults>;
+
+  // ─── Platform Settings ─────────────────────────────────────────────────────
+  getPlatformSettings(): Promise<PlatformSetting[]>;
+  updatePlatformSetting(key: string, value: string, userId: number): Promise<PlatformSetting>;
+
+  // ─── Sortition Attendance ─────────────────────────────────────────────────
+  getAttendance(proposalId: number, memberId: number): Promise<SortitionAttendance | undefined>;
+  upsertAttendance(
+    proposalId: number,
+    memberId: number,
+    status: 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed',
+    notes?: string,
+  ): Promise<SortitionAttendance>;
+  getAttendanceSummary(proposalId: number): Promise<{
+    invited: number;
+    accepted: number;
+    declined: number;
+    noShow: number;
+    completed: number;
+    total: number;
+    confirmedPct: number;
+  }>;
+
+  // ─── Global Search ────────────────────────────────────────────────────────
+  searchProposals(query: string, limit?: number): Promise<Proposal[]>;
+  searchMembers(query: string, limit?: number): Promise<User[]>;
+  searchCommunities(query: string, limit?: number): Promise<Community[]>;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
@@ -330,62 +385,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserLocation(userId: number, locationData: {
-    city?: string,
-    region?: string,
-    country?: string,
-    city_id?: string,
-    region_id?: string,
-    country_id?: string,
-    city_display?: string,
-    region_display?: string,
-    country_display?: string,
-    latitude?: string,
-    longitude?: string,
-    locationConfirmed?: boolean,
-    locationVerified?: boolean
+    latitude?: string;
+    longitude?: string;
+    locationConfirmed?: boolean;
+    locationVerified?: boolean;
   }): Promise<User> {
-    console.log(`[Storage] Updating user location with data:`, JSON.stringify(locationData, null, 2));
-
-    // Extract standardized location data
-    const updateData: any = {
-      // Standard location ID fields 
-      city_id: locationData.city_id,
-      region_id: locationData.region_id,
-      country_id: locationData.country_id,
-
-      // Legacy location display fields (should still be set for backward compatibility)
-      city: locationData.city_display || locationData.city,
-      region: locationData.region_display || locationData.region,
-      country: locationData.country_display || locationData.country,
-
-      // Coordinates
+    const updateData: Partial<typeof users.$inferInsert> = {
       latitude: locationData.latitude,
-      longitude: locationData.longitude
+      longitude: locationData.longitude,
+      locationConfirmed: locationData.locationConfirmed,
+      locationVerified: locationData.locationVerified,
     };
 
-    // Handle location confirmation
-    updateData.locationConfirmed = locationData.locationConfirmed !== undefined
-      ? locationData.locationConfirmed
-      : (updateData.city_id && updateData.region_id && updateData.country_id ? true :
-        (updateData.city && updateData.region && updateData.country ? true : undefined));
-
-    // If coordinates are being updated, reset verification status
-    if (locationData.latitude !== undefined || locationData.longitude !== undefined) {
-      // GPS location detection is considered verified by default
-      // Manual entries need explicit verification
-      updateData.locationVerified = locationData.locationVerified !== undefined
-        ? locationData.locationVerified
-        : false;
+    // If coordinates are being updated without an explicit verification flag,
+    // treat them as unverified until the user confirms manually.
+    if (
+      (locationData.latitude !== undefined || locationData.longitude !== undefined) &&
+      locationData.locationVerified === undefined
+    ) {
+      updateData.locationVerified = false;
     }
 
-    // Remove undefined values
-    Object.keys(updateData).forEach(key => {
+    for (const key of Object.keys(updateData) as (keyof typeof updateData)[]) {
       if (updateData[key] === undefined) {
         delete updateData[key];
       }
-    });
-
-    console.log(`[Storage] Final update data:`, JSON.stringify(updateData, null, 2));
+    }
 
     const [user] = await db
       .update(users)
@@ -480,36 +505,22 @@ export class DatabaseStorage implements IStorage {
           poll.region
         );
 
-        // Prepare poll data with location information if available
-        const pollData: any = {
+        const pollData: typeof polls.$inferInsert = {
           ...poll,
           isActive: true,
-          geoRegion
+          geoRegion,
         };
 
-        // Add location data from reverse geocoding if available
         if (locationData) {
-          // Set both standardized ID fields and display names
           pollData.locationCity = locationData.city;
           pollData.locationRegion = locationData.region;
           pollData.locationCountry = locationData.country;
-
-          // Set standardized location IDs
           pollData.locationCityId = locationData.cityId;
           pollData.locationRegionId = locationData.regionId;
           pollData.locationCountryId = locationData.countryId;
-
-          // Set legacy fields for backward compatibility
           pollData.city = locationData.city;
           pollData.region = locationData.region;
           pollData.country = locationData.country;
-
-          console.log("Adding location data to poll:", JSON.stringify({
-            locationCity: pollData.locationCity,
-            locationRegion: pollData.locationRegion,
-            locationCountry: pollData.locationCountry,
-            geoRegion: pollData.geoRegion
-          }, null, 2));
         }
 
         // Create poll with all data
@@ -558,7 +569,10 @@ export class DatabaseStorage implements IStorage {
       } = filters;
 
       // Build query
-      let query = db.select().from(polls);
+      // Drizzle's chained query types narrow at every step, which makes
+      // reassigning `query` after .where/.orderBy/.limit not type-check. We
+      // build the query imperatively and cast to `any` for the chain.
+      let query: any = db.select().from(polls);
       const conditions = [];
 
       // Apply filters
@@ -742,7 +756,7 @@ export class DatabaseStorage implements IStorage {
         countConditions.push(isNull(polls.communityId));
       }
 
-      let countQuery = baseQuery;
+      let countQuery: any = baseQuery;
       if (countConditions.length > 0) {
         countQuery = countQuery.where(and(...countConditions));
       }
@@ -771,7 +785,7 @@ export class DatabaseStorage implements IStorage {
 
       // Enrich polls with options and creator info
       const enrichedPolls = await Promise.all(
-        resultsPolls.map(poll => this.enrichPoll(poll, userId))
+        resultsPolls.map((poll: Poll) => this.enrichPoll(poll, userId))
       );
 
       return {
@@ -829,7 +843,7 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.communityId, userId);
+      const isMember = await this.isCommunityMember(poll.communityId, userId);
       if (!isMember) {
         // User is not a member of this community
         return undefined;
@@ -992,9 +1006,7 @@ export class DatabaseStorage implements IStorage {
           .where(eq(pollQuestions.pollId, id));
 
         // Finally delete the poll
-        const result = await tx
-          .delete(polls)
-          .where(eq(polls.id, id));
+        await tx.delete(polls).where(eq(polls.id, id));
 
         return true;
       });
@@ -1005,7 +1017,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Survey Poll methods
-  async createSurveyPoll(poll: InsertPoll, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll> {
+  async createSurveyPoll(poll: InsertPoll, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll> {
     console.log("Creating survey poll with:", JSON.stringify(poll, null, 2));
 
     // Convert date strings to Date objects if they are strings
@@ -1092,7 +1104,7 @@ export class DatabaseStorage implements IStorage {
 
         // Update parent references for questions
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentId = createdQuestions[question.parentId];
 
@@ -1114,6 +1126,7 @@ export class DatabaseStorage implements IStorage {
         const createdAnswers: Record<number, number> = {}; // Map temporary answer IDs to real IDs
 
         for (const { questionId, answers: questionAnswers } of answers) {
+          if (questionId === undefined) continue;
           const realQuestionId = createdQuestions[questionId];
 
           if (!realQuestionId) {
@@ -1123,6 +1136,7 @@ export class DatabaseStorage implements IStorage {
 
           for (const answer of questionAnswers) {
             const tempAnswerId = answer.id; // Temporary ID for reference
+            if (tempAnswerId === undefined) continue;
 
             const [insertedAnswer] = await tx
               .insert(pollAnswers)
@@ -1141,7 +1155,7 @@ export class DatabaseStorage implements IStorage {
 
         // Now update parent answer IDs for questions that have them
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentAnswerId = createdAnswers[question.parentAnswerId];
 
@@ -1181,7 +1195,7 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      const isMember = await this.isGroupMember(poll.communityId, userId);
+      const isMember = await this.isCommunityMember(poll.communityId, userId);
       if (!isMember) {
         // User is not a member of this community
         return undefined;
@@ -1247,7 +1261,7 @@ export class DatabaseStorage implements IStorage {
     for (const question of questions) {
       if (question.parentId && questionMap[question.parentId]) {
         // Add this question as a child of its parent
-        questionMap[question.parentId].childQuestions.push(questionMap[question.id]);
+        questionMap[question.parentId].childQuestions!.push(questionMap[question.id]);
       }
     }
 
@@ -1303,7 +1317,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: InsertPollQuestion[], answers: { questionId: number; answers: InsertPollAnswer[] }[]): Promise<Poll> {
+  async updateSurveyStructure(id: number, updates: Partial<Poll>, questions: SurveyQuestionInput[], answers: SurveyAnswerGroup[]): Promise<Poll> {
     try {
       // Check if there are any responses
       const hasResponses = await this.hasAnyResponses(id);
@@ -1369,12 +1383,14 @@ export class DatabaseStorage implements IStorage {
         const createdAnswers: Record<number, number> = {};
 
         for (const { questionId, answers: questionAnswers } of answers) {
+          if (questionId === undefined) continue;
           const realQuestionId = createdQuestions[questionId];
 
           if (!realQuestionId) continue;
 
           for (const answer of questionAnswers) {
             const tempAnswerId = answer.id;
+            if (tempAnswerId === undefined) continue;
 
             const [insertedAnswer] = await tx
               .insert(pollAnswers)
@@ -1391,7 +1407,7 @@ export class DatabaseStorage implements IStorage {
 
         // Finally update parent relationships
         for (const question of questions) {
-          if (question.parentId && question.parentAnswerId) {
+          if (question.id !== undefined && question.parentId && question.parentAnswerId) {
             const realQuestionId = createdQuestions[question.id];
             const realParentId = createdQuestions[question.parentId];
             const realParentAnswerId = createdAnswers[question.parentAnswerId];
@@ -1924,7 +1940,8 @@ export class DatabaseStorage implements IStorage {
         p_locationCityId: polls.locationCityId,
         p_locationRegionId: polls.locationRegionId,
         p_locationCountryId: polls.locationCountryId,
-        p_geoRegion: polls.geoRegion
+        p_geoRegion: polls.geoRegion,
+        p_communityId: polls.communityId,
       })
       .from(pollNotifications)
       .innerJoin(polls, eq(pollNotifications.pollId, polls.id))
@@ -1970,7 +1987,8 @@ export class DatabaseStorage implements IStorage {
         locationCityId: n.p_locationCityId,
         locationRegionId: n.p_locationRegionId,
         locationCountryId: n.p_locationCountryId,
-        geoRegion: n.p_geoRegion
+        geoRegion: n.p_geoRegion,
+        communityId: n.p_communityId,
       }
     }));
   }
@@ -1999,17 +2017,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(pollOptions.order));
 
     // Handle community mode or get creator
-    let safeCreator;
+    let safeCreator: User;
 
     if (poll.communityMode) {
       // For community mode, use a generic "Community" creator
-      safeCreator = {
-        id: 0, // Using 0 as a special ID for community
-        username: "community",
-        password: "",
-        name: "Κοινότητα",
-        email: ""
-      };
+      safeCreator = { id: 0, username: "community", password: "", name: "Κοινότητα", email: "" } as User;
     } else {
       // Get the actual creator
       const [creator] = await db
@@ -2018,13 +2030,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, poll.creatorId));
 
       // If no creator is found (should not happen), provide a default
-      safeCreator = creator || {
-        id: poll.creatorId,
-        username: "unknown",
-        password: "",
-        name: "Άγνωστος",
-        email: ""
-      };
+      safeCreator = creator ?? ({ id: poll.creatorId, username: "unknown", password: "", name: "Άγνωστος", email: "" } as User);
     }
 
     // Get vote count based on poll type
@@ -2374,7 +2380,13 @@ export class DatabaseStorage implements IStorage {
         LIMIT 30
       `);
 
-      return trends.rows.map((row: any) => ({
+      const trendRows = trends.rows as Array<{
+        date: Date | string;
+        polls: string;
+        votes: string;
+        comments: string;
+      }>;
+      return trendRows.map((row) => ({
         date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
         polls: parseInt(row.polls),
         votes: parseInt(row.votes),
@@ -2418,12 +2430,14 @@ export class DatabaseStorage implements IStorage {
         ORDER BY EXTRACT(DOW FROM created_at)
       `);
 
+      const hourlyRows = hourlyActivity.rows as Array<{ hour: string; activity: string }>;
+      const dailyRows = dailyActivity.rows as Array<{ day: string; activity: string }>;
       return {
-        hourlyActivity: hourlyActivity.rows.map((row: any) => ({
+        hourlyActivity: hourlyRows.map((row) => ({
           hour: parseInt(row.hour),
           activity: parseInt(row.activity)
         })),
-        dailyActivity: dailyActivity.rows.map((row: any) => ({
+        dailyActivity: dailyRows.map((row) => ({
           day: row.day.trim(),
           activity: parseInt(row.activity)
         }))
@@ -2559,7 +2573,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCommunity(id: number): Promise<boolean> {
-    const result = await db.delete(communities).where(eq(communities.id, id));
+    await db.delete(communities).where(eq(communities.id, id));
     return true;
   }
 
@@ -2608,7 +2622,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(communityMembers)
       .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
-    return member?.role;
+    return member?.role ?? undefined;
   }
 
   async mergeCommunities(sourceId: number, targetId: number): Promise<{
@@ -2666,6 +2680,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async transitionProposalState(id: number, newState: string): Promise<Proposal> {
+    if (!isProposalState(newState)) {
+      throw new Error(`Invalid proposal state: ${newState}`);
+    }
+
+    const proposal = await this.getProposal(id);
+    if (!proposal) throw new Error("Proposal not found");
+
+    const fromState = assertProposalState(proposal.status);
+    if (!canTransitionProposal(fromState, newState)) {
+      throw new Error(
+        `Invalid proposal transition: ${fromState} → ${newState}. ` +
+        `Valid transitions from ${fromState}: ${getNextProposalStates(fromState).join(', ') || '(terminal)'}`,
+      );
+    }
+
     return this.updateProposal(id, { status: newState });
   }
 
@@ -2676,6 +2705,11 @@ export class DatabaseStorage implements IStorage {
       .insert(proposalAmendments)
       .values(insertAmendment)
       .returning();
+    return amendment;
+  }
+
+  async getAmendment(id: number): Promise<ProposalAmendment | undefined> {
+    const [amendment] = await db.select().from(proposalAmendments).where(eq(proposalAmendments.id, id));
     return amendment;
   }
 
@@ -2830,18 +2864,270 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(proposalSupport)
       .where(eq(proposalSupport.proposalId, proposalId));
-    
+
     const result: { support: number; oppose: number; userVote?: string | null } = {
       support: supports.filter(s => s.type === 'support').length,
       oppose: supports.filter(s => s.type === 'oppose').length,
     };
-    
+
     if (userId) {
       const userVote = supports.find(s => s.userId === userId);
       result.userVote = userVote?.type ?? null;
     }
-    
+
     return result;
+  }
+
+  // ─── Demopolis: Proposal Final Vote methods ──────────────────────────────
+
+  async castProposalVote(
+    proposalId: number,
+    userId: number,
+    choice: ProposalVoteChoice,
+  ): Promise<ProposalVote> {
+    const [vote] = await db
+      .insert(proposalVotes)
+      .values({ proposalId, userId, choice })
+      .onConflictDoUpdate({
+        target: [proposalVotes.proposalId, proposalVotes.userId],
+        set: { choice, castAt: sql`now()` },
+      })
+      .returning();
+    return vote;
+  }
+
+  async getUserProposalVote(proposalId: number, userId: number): Promise<ProposalVote | undefined> {
+    const [vote] = await db
+      .select()
+      .from(proposalVotes)
+      .where(and(eq(proposalVotes.proposalId, proposalId), eq(proposalVotes.userId, userId)))
+      .limit(1);
+    return vote;
+  }
+
+  async getProposalVoteResults(proposalId: number): Promise<ProposalVoteResults> {
+    const proposal = await this.getProposal(proposalId);
+    if (!proposal) {
+      throw new Error(`Proposal ${proposalId} not found`);
+    }
+
+    const votes = await db
+      .select()
+      .from(proposalVotes)
+      .where(eq(proposalVotes.proposalId, proposalId));
+
+    const yes = votes.filter(v => v.choice === 'yes').length;
+    const no = votes.filter(v => v.choice === 'no').length;
+    const abstain = votes.filter(v => v.choice === 'abstain').length;
+    const total = yes + no + abstain;
+
+    const [{ memberCount }] = await db
+      .select({ memberCount: count() })
+      .from(communityMembers)
+      .where(eq(communityMembers.communityId, proposal.communityId));
+
+    const community = await this.getCommunity(proposal.communityId);
+    const minParticipationPct = parseFloat(community?.minParticipationPct ?? '0') || 0;
+    const participationPct = memberCount > 0 ? total / memberCount : 0;
+    const meetsQuorum = participationPct >= minParticipationPct;
+    const passes = meetsQuorum && yes > no;
+
+    return {
+      yes,
+      no,
+      abstain,
+      total,
+      participants: total,
+      participationPct,
+      passes,
+      meetsQuorum,
+      minParticipationPct,
+    };
+  }
+
+  // ─── Platform Settings ─────────────────────────────────────────────────────
+  async getPlatformSettings(): Promise<PlatformSetting[]> {
+    return await db.select().from(platformSettings);
+  }
+
+  async updatePlatformSetting(key: string, value: string, userId: number): Promise<PlatformSetting> {
+    const [existing] = await db
+      .select()
+      .from(platformSettings)
+      .where(eq(platformSettings.key, key));
+
+    if (existing) {
+      const [updated] = await db
+        .update(platformSettings)
+        .set({ value, lastChangedBy: userId, lastChangedAt: new Date() })
+        .where(eq(platformSettings.key, key))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(platformSettings)
+      .values({ key, value, lastChangedBy: userId })
+      .returning();
+    return created;
+  }
+
+  // ─── Sortition Attendance ─────────────────────────────────────────────────
+
+  async getAttendance(proposalId: number, memberId: number): Promise<SortitionAttendance | undefined> {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) return undefined;
+    const [row] = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(and(
+        inArray(sortitionAttendance.bodyId, bodyIds),
+        eq(sortitionAttendance.memberId, memberId),
+      ))
+      .limit(1);
+    return row;
+  }
+
+  async upsertAttendance(
+    proposalId: number,
+    memberId: number,
+    status: 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed',
+    notes?: string,
+  ): Promise<SortitionAttendance> {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) {
+      throw new Error(`No sortition body exists for proposal ${proposalId}`);
+    }
+
+    // Resolve the sortition member row → bodyId + userId.
+    const [member] = await db
+      .select()
+      .from(sortitionMembers)
+      .where(and(
+        inArray(sortitionMembers.bodyId, bodyIds),
+        eq(sortitionMembers.id, memberId),
+      ))
+      .limit(1);
+    if (!member) {
+      throw new Error(`Sortition member ${memberId} not found for proposal ${proposalId}`);
+    }
+
+    const now = new Date();
+    const respondedAt = status === 'invited' ? null : now;
+    const completedAt = status === 'completed' ? now : null;
+
+    const existing = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(and(
+        eq(sortitionAttendance.bodyId, member.bodyId),
+        eq(sortitionAttendance.memberId, memberId),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(sortitionAttendance)
+        .set({
+          status,
+          notes: notes ?? existing[0].notes,
+          respondedAt: respondedAt ?? existing[0].respondedAt,
+          completedAt: completedAt ?? existing[0].completedAt,
+          updatedAt: now,
+        })
+        .where(eq(sortitionAttendance.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(sortitionAttendance)
+      .values({
+        bodyId: member.bodyId,
+        memberId,
+        userId: member.userId,
+        status,
+        invitedAt: now,
+        respondedAt,
+        completedAt,
+        notes: notes ?? null,
+      })
+      .returning();
+    return created;
+  }
+
+  async getAttendanceSummary(proposalId: number) {
+    const bodyIds = await this.bodyIdsForProposal(proposalId);
+    if (bodyIds.length === 0) {
+      return { invited: 0, accepted: 0, declined: 0, noShow: 0, completed: 0, total: 0, confirmedPct: 0 };
+    }
+
+    const rows = await db
+      .select()
+      .from(sortitionAttendance)
+      .where(inArray(sortitionAttendance.bodyId, bodyIds));
+
+    const summary = { invited: 0, accepted: 0, declined: 0, noShow: 0, completed: 0 };
+    for (const row of rows) {
+      if (row.status === 'invited') summary.invited++;
+      else if (row.status === 'accepted') summary.accepted++;
+      else if (row.status === 'declined') summary.declined++;
+      else if (row.status === 'no-show') summary.noShow++;
+      else if (row.status === 'completed') summary.completed++;
+    }
+    const total = rows.length;
+    const confirmed = summary.accepted + summary.completed;
+    const confirmedPct = total > 0 ? confirmed / total : 0;
+
+    return { ...summary, total, confirmedPct };
+  }
+
+  private async bodyIdsForProposal(proposalId: number): Promise<number[]> {
+    const rows = await db
+      .select({ id: sortitionBodies.id })
+      .from(sortitionBodies)
+      .where(eq(sortitionBodies.proposalId, proposalId));
+    return rows.map(r => r.id);
+  }
+
+  // ─── Global Search ────────────────────────────────────────────────────────
+
+  async searchProposals(query: string, limit = 10): Promise<Proposal[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(proposals)
+      .where(or(
+        sql`LOWER(${proposals.question}) LIKE ${term}`,
+        sql`LOWER(${proposals.solution}) LIKE ${term}`,
+        sql`LOWER(COALESCE(${proposals.category}, '')) LIKE ${term}`,
+      ))
+      .orderBy(desc(proposals.createdAt))
+      .limit(limit);
+  }
+
+  async searchMembers(query: string, limit = 10): Promise<User[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(users)
+      .where(or(
+        sql`LOWER(${users.name}) LIKE ${term}`,
+        sql`LOWER(${users.username}) LIKE ${term}`,
+      ))
+      .limit(limit);
+  }
+
+  async searchCommunities(query: string, limit = 10): Promise<Community[]> {
+    const term = `%${query.toLowerCase()}%`;
+    return await db
+      .select()
+      .from(communities)
+      .where(or(
+        sql`LOWER(${communities.name}) LIKE ${term}`,
+        sql`LOWER(COALESCE(${communities.description}, '')) LIKE ${term}`,
+      ))
+      .limit(limit);
   }
 }
 

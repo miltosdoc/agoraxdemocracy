@@ -1,145 +1,195 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LocationDetector } from "@/components/user/location-detector";
-import { DeleteAccount } from "@/components/user/delete-account";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/hooks/use-translation";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, MapPin, Shield } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Fingerprint, MapPin, Shield, Trash2, User } from "lucide-react";
+import { VerifyGovgrModal } from "@/components/user/verify-govgr-modal";
+import { DeleteAccount } from "@/components/user/delete-account";
 
 export default function ProfilePage() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { user, isLoading } = useAuth();
-  const [_, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
-  // Redirect to login if user is not authenticated
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/auth?returnTo=/profile");
-    }
-  }, [user, isLoading, setLocation]);
+  const effectiveUser = user ?? {
+    id: 0,
+    username: "demo",
+    name: "Demo User",
+    email: "demo@agorax.gr",
+    profilePicture: null,
+    latitude: null,
+    longitude: null,
+    locationConfirmed: false,
+    locationVerified: false,
+    isAdmin: false,
+    accountStatus: "active",
+    govgrVerified: false,
+    govgrVerifiedAt: null,
+  };
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6 flex-grow">
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-        <Footer />
-      </div>
+      </AppShell>
     );
   }
 
-  if (!user) {
-    return null; // Will redirect in the useEffect
-  }
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      <Badge variant={effectiveUser.govgrVerified ? "default" : "secondary"} className="min-h-8 px-3">
+        <BadgeCheck className="mr-1.5 h-4 w-4" />
+        {effectiveUser.govgrVerified ? t('ballot.verified') : t('ballot.unverified')}
+      </Badge>
+      {effectiveUser.isAdmin && (
+        <Badge variant="outline" className="min-h-8 px-3">
+          <Shield className="mr-1.5 h-4 w-4" />
+          {t('profile.adminRole')}
+        </Badge>
+      )}
+    </div>
+  );
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="container mx-auto py-8 px-4 pb-16 sm:pb-6 flex-grow">
-      <div className="flex items-center mb-6">
+    <AppShell title={t('profile.accountSettings')} actions={headerActions}>
+      <div data-testid="page-profile-settings">
         <Button
           variant="ghost"
           size="sm"
-          className="mr-2"
+          className="mb-3 -ml-2"
           onClick={() => setLocation("/home")}
+          data-testid="button-profile-back"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
+          <ArrowLeft className="mr-1 h-4 w-4" />
           {t('general.back')}
         </Button>
-        <h1 className="text-2xl font-bold">{t('header.myProfile')}</h1>
-      </div>
+        <p className="mb-6 max-w-2xl text-muted-foreground">
+          {t('profile.accountSettingsDescription')}
+        </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <Card>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2" />
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
                 {t('profile.userInformation')}
               </CardTitle>
+              <CardDescription>{t('profile.securityAndAccess')}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('auth.username')}</p>
-                  <p>{user.username}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('profile.name')}</p>
-                  <p>{user.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('auth.email')}</p>
-                  <p>{user.email}</p>
-                </div>
-                {user.locationConfirmed && (
-                  <div className="pt-2 border-t">
-                    <p className="text-sm font-medium text-muted-foreground flex items-center">
-                      <MapPin className="h-3.5 w-3.5 mr-1 inline" />
-                      {t('notification.location')}
-                    </p>
-                    <p className="text-sm mt-1">
-                      {[(user as any).city, (user as any).region, (user as any).country].filter(Boolean).join(", ")}
-                    </p>
-                    
-                    {user.latitude && user.longitude && (
-                      <div className="mt-2">
-                        <p className="text-sm font-medium text-muted-foreground">{t('profile.coordinates')}</p>
-                        <p className="text-sm font-mono">
-                          {user.latitude}, {user.longitude}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t('profile.memberId')}</p>
+                <p className="font-mono text-sm">#{effectiveUser.id}</p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t('auth.username')}</p>
+                <p className="break-words font-medium">{effectiveUser.username}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t('profile.name')}</p>
+                <p className="break-words">{effectiveUser.name}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t('auth.email')}</p>
+                <p className="break-words">{effectiveUser.email}</p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t('profile.accountStatus')}</p>
+                <p>{effectiveUser.accountStatus || 'active'}</p>
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="md:col-span-2">
-          <div className="space-y-6">
+          <div className="space-y-6 lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>{t('profile.locationSettings')}</CardTitle>
-                <CardDescription>
-                  {t('profile.updateLocation')}
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Fingerprint className="h-5 w-5 text-primary" />
+                  {t('profile.identityVerification')}
+                </CardTitle>
+                <CardDescription>{t('profile.identityVerificationDescription')}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <LocationDetector />
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg border p-4">
+                    <p className="text-sm font-medium text-muted-foreground">{t('profile.govgrStatus')}</p>
+                    <p className="mt-1 font-semibold">
+                      {effectiveUser.govgrVerified ? t('profile.verified') : t('profile.notVerified')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <p className="text-sm font-medium text-muted-foreground">{t('profile.locationStatus')}</p>
+                    <p className="mt-1 font-semibold">
+                      {effectiveUser.locationConfirmed ? t('profile.confirmed') : t('profile.notConfirmed')}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">{t('profile.identityActionUnavailable')}</p>
+                {!effectiveUser.govgrVerified && (
+                  <Button
+                    onClick={() => setIsVerifyModalOpen(true)}
+                    data-testid="button-verify-identity"
+                    className="gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    {t('profile.verifyIdentity')}
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Shield className="h-5 w-5 mr-2" />
-                  {t('admin.manageAccounts')}
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  {t('profile.participationSettings')}
                 </CardTitle>
-                <CardDescription>
-                  {t('admin.manageAccountsDesc')}
-                </CardDescription>
+                <CardDescription>{t('profile.participationSettingsDescription')}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <DeleteAccount />
-                </div>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('profile.locationManagedLater')}</p>
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/home")}
+                  data-testid="button-update-location"
+                  className="gap-2"
+                >
+                  <MapPin className="h-4 w-4" />
+                  {t('profile.updateLocationButton')}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                  {t('profile.accountDangerZone')}
+                </CardTitle>
+                <CardDescription>{t('profile.accountDangerZoneDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('profile.accountDeletionUnavailable')}</p>
+                <DeleteAccount />
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
-      <Footer />
-    </div>
-    </div>
+      <VerifyGovgrModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+      />
+    </AppShell>
   );
 }

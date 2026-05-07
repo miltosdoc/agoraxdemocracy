@@ -58,7 +58,7 @@ export default function SortitionSynthesis() {
 
   async function loadSortitionInput() {
     try {
-      const res = await api.get(`/api/proposals/${proposalId}/sortition-input`);
+      const res = await api.get<SortitionInput>(`/api/proposals/${proposalId}/sortition-input`);
       setInput(res.data);
       setFinalText(res.data.authorDraft); // Pre-fill with author draft
     } catch (e) {

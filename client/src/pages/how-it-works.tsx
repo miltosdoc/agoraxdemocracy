@@ -25,57 +25,57 @@ export default function HowItWorksPage() {
       step: 1,
       icon: FileText,
       color: "blue",
-      title: t('walkthrough.step1_name') || "Υποβολή Πρότασης",
-      description: "Οποιοσδήποτε μέλος της κοινότητας μπορεί να υποβάλλει μια πρόταση, διατυπώνοντας ένα συγκεκριμένο ερώτημα και μια προτεινόμενη λύση. Οι προτάσεις ανήκουν σε θεματικές κατηγορίες και υποβάλλονται σε κοινότητες πολιτών.",
-      features: ["Καθαρή δομή: Ερώτημα + Λύση", "Κατηγοριοποίηση ανά θεματική", "Σύνδεση με κοινότητα πολιτών"]
+      title: t('walkthrough.step1_name') || "Submission",
+      description: t('walkthrough.step1_desc'),
+      features: [t('walkthrough.hiw_feature1_1'), t('walkthrough.hiw_feature1_2'), t('walkthrough.hiw_feature1_3')]
     },
     {
       step: 2,
       icon: CheckCircle,
       color: "green",
-      title: t('walkthrough.step2_name') || "Επικύρωση LLM",
-      description: "Πριν μπει σε διαβούλευση, η πρόταση αξιολογείται αυτόματα από ένα LLM σε πέντε άξονες: δομή, συγκεκριμενοποίηση, εφικτότητα, πληρότητα, διαφάνεια. Αυτό εξασφαλίζει ποιότητα και μειώνει τον θόρυβο.",
-      features: ["Σκορ 0-100 με διαφάνεια", "Τρεις ζώνες: Επιστροφής (<20), Κλήρωσης (20-90), Αυτόματη (>90)", "Διασφάλιση ποιότητας από την αρχή"]
+      title: t('walkthrough.step2_name') || "Validation",
+      description: t('walkthrough.step2_desc'),
+      features: [t('walkthrough.hiw_feature2_1'), t('walkthrough.hiw_feature2_2'), t('walkthrough.hiw_feature2_3')]
     },
     {
       step: 3,
       icon: Edit3,
       color: "indigo",
-      title: t('walkthrough.step3_name') || "Ανασκόπηση Συγγραφέα",
-      description: "Η κοινότητα υποβάλλει τροπολογίες στη βελτίωση της πρότασης. Ο αρχικός συγγραφέας διατηρεί το δικαίωμα να τις αποδεχτεί ή να τις απορρίψει, αιτιολογώντας την απόφασή του. Αυτό διασφαλίζει τη συνοχή του κειμένου.",
-      features: ["Τροπολογίες από την κοινότητα", "Βέτο του συγγραφέα με αιτιολόγηση", "Διατήρηση της συνοχής της πρότασης"]
+      title: t('walkthrough.step3_name') || "Author",
+      description: t('walkthrough.step3_desc'),
+      features: [t('walkthrough.hiw_feature3_1'), t('walkthrough.hiw_feature3_2'), t('walkthrough.hiw_feature3_3')]
     },
     {
       step: 4,
       icon: TrendingUp,
       color: "amber",
-      title: t('walkthrough.step4_name') || "Συμβουλή Κοινότητας",
-      description: "Οι τροπολογίες που απορρίφθηκαν από τον συγγραφέα περνούν σε δημόσια κρίση. Αν η κοινότητα διαφωνεί με την απόρριψη κατά πλειοψηφία, η τροπολογία σημαίνεται για το κληρωτό σώμα — μηχανισμός εξισορρόπησης της εξουσίας του συγγραφέα.",
-      features: ["Up/down voting σε απορριφθείσες τροπολογίες", "Κατώφλι 50% για σήμανση", "Εξισορρόπηση εξουσίας συγγραφέα"]
+      title: t('walkthrough.step4_name') || "Community",
+      description: t('walkthrough.step4_desc'),
+      features: [t('walkthrough.hiw_feature4_1'), t('walkthrough.hiw_feature4_2'), t('walkthrough.hiw_feature4_3')]
     },
     {
       step: 5,
       icon: Users,
       color: "purple",
-      title: t('walkthrough.step5_name') || "Σύνθεση Κλήρωσης",
-      description: "Ένα τυχαία επιλεγμένο σώμα πολιτών (κλήρωση) αναλαμβάνει να συνθέσει το τελικό κείμενο, ενσωματώνοντας τις αποδεκτές και τις σημασμένες τροπολογίες. Η κλήρωση εξασφαλίζει αντιπροσωπευτικότητα χωρίς κομματικό έλεγχο.",
-      features: ["Τυχαία επιλογή πολιτών", "Σύνθεση τελικού κειμένου", "Αντιπροσωπευτικότητα χωρίς κομματικά φίλτρα"]
+      title: t('walkthrough.step5_name') || "Sortition",
+      description: t('walkthrough.step5_desc'),
+      features: [t('walkthrough.hiw_feature5_1'), t('walkthrough.hiw_feature5_2'), t('walkthrough.hiw_feature5_3')]
     },
     {
       step: 6,
       icon: Vote,
       color: "emerald",
-      title: t('walkthrough.step6_name') || "Ψηφοφορία Επικύρωσης",
-      description: "Το τελικό κείμενο τίθεται σε ψηφοφορία σε ολόκληρη την κοινότητα. Ναι ή Όχι — απλό και άμεσο. Απαιτείται υψηλό ποσοστό συμμετοχής για την ισχύ της απόφασης.",
-      features: ["Δυαδική ψηφοφορία Ναι/Όχι", "Διαφανή αποτελέσματα σε πραγματικό χρόνο", "Ποσοστό συμμετοχής ως μέτρο νομιμοποίησης"]
+      title: t('walkthrough.step6_name') || "Vote",
+      description: t('walkthrough.step6_desc'),
+      features: [t('walkthrough.hiw_feature6_1'), t('walkthrough.hiw_feature6_2'), t('walkthrough.hiw_feature6_3')]
     },
     {
       step: 7,
       icon: Shield,
       color: "red",
-      title: t('walkthrough.step7_name') || "Επαληθευμένη Ψήφος",
-      description: "Η ταυτότητα του ψηφοφόρου επαληθεύεται μέσω Gov.gr και κρυπτογραφικών υπογραφών, εξασφαλίζοντας ότι κάθε ψήφος προέρχεται από αυθεντικό πολίτη, χωρίς να συμβιβάζεται το απόρρητο.",
-      features: ["Επαλήθευση μέσω Gov.gr", "Κρυπτογραφική υπογραφή", "Ένας πολίτης = Μία ψήφος"]
+      title: t('walkthrough.step7_name') || "Verified Vote",
+      description: t('walkthrough.step7_desc'),
+      features: [t('walkthrough.hiw_feature7_1'), t('walkthrough.hiw_feature7_2'), t('walkthrough.hiw_feature7_3')]
     }
   ];
 
@@ -89,12 +89,10 @@ export default function HowItWorksPage() {
           <div className="text-center mb-16">
             <Badge variant="outline" className="mb-4 text-sm">{t('footer.howItWorks')}</Badge>
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              Η Διαδικασία Διαβούλευσης
+              {t('walkthrough.hiw_hero_title')}
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Η AgoraX δεν είναι απλά μια πλατφόρμα ψηφοφοριών. Είναι ένα πλήρες σύστημα 
-              διαβουλευτικής δημοκρατίας, σχεδιασμένο για να μετατρέπει την αυθόρμητη συμμετοχή 
-              σε θεσμοθετημένες αποφάσεις — με διαφάνεια, ποιότητα και νομιμοποίηση.
+              {t('walkthrough.hiw_hero_subtitle')}
             </p>
           </div>
 
@@ -127,7 +125,7 @@ export default function HowItWorksPage() {
                         <phase.icon className={`w-6 h-6 text-${phase.color}-600`} />
                       </div>
                       <div className={`text-sm font-bold text-${phase.color}-600 mb-2`}>
-                        ΦΑΣΗ {phase.step}
+                        {t('walkthrough.hiw_phase_label')} {phase.step}
                       </div>
                       <h2 className="text-2xl font-bold mb-4">{phase.title}</h2>
                       <div className="space-y-2">
@@ -149,10 +147,10 @@ export default function HowItWorksPage() {
                       {/* Specific content per phase */}
                       {phase.step === 1 && (
                         <div className="mt-6 p-4 bg-muted/30 rounded-lg border">
-                          <div className="text-sm font-medium mb-2">Ενδεικτικό παράδειγμα:</div>
+                          <div className="text-sm font-medium mb-2">{t('walkthrough.hiw_example_label')}</div>
                           <div className="space-y-2 text-sm text-muted-foreground">
-                            <p><strong className="text-foreground">Ερώτημα:</strong> Πώς μπορούμε να μειώσουμε την κυκλοφοριακή συμφόρηση στο κέντρο της Αθήνας;</p>
-                            <p><strong className="text-foreground">Λύση:</strong> Δημιουργία ζώνης χαμηλών εκπομπών (LEZ) με δωρεάν δημόσια συγκοινωνία και παροχώρηση ηλεκτρικών οχημάτων.</p>
+                            <p><strong className="text-foreground">{t('walkthrough.hiw_example_question')}</strong> {t('walkthrough.hiw_example_question_text')}</p>
+                            <p><strong className="text-foreground">{t('walkthrough.hiw_example_solution')}</strong> {t('walkthrough.hiw_example_solution_text')}</p>
                           </div>
                         </div>
                       )}
@@ -160,11 +158,11 @@ export default function HowItWorksPage() {
                       {phase.step === 2 && (
                         <div className="mt-6 grid grid-cols-5 gap-2">
                           {[
-                            { label: "Δομή", score: "8/10" },
-                            { label: "Συγκεκριμ.", score: "9/10" },
-                            { label: "Εφικτότητα", score: "7/10" },
-                            { label: "Πληρότητα", score: "8/10" },
-                            { label: "Διαφάνεια", score: "9/10" },
+                            { label: t('walkthrough.hiw_score_structure'), score: "8/10" },
+                            { label: t('walkthrough.hiw_score_specificity'), score: "9/10" },
+                            { label: t('walkthrough.hiw_score_feasibility'), score: "7/10" },
+                            { label: t('walkthrough.hiw_score_completeness'), score: "8/10" },
+                            { label: t('walkthrough.hiw_score_transparency'), score: "9/10" },
                           ].map((item, i) => (
                             <div key={i} className="text-center p-2 bg-muted/30 rounded border">
                               <div className="text-xs text-muted-foreground mb-1">{item.label}</div>
@@ -179,17 +177,17 @@ export default function HowItWorksPage() {
                           <div className="flex-1 p-4 bg-muted/30 rounded-lg border text-center">
                             <Users className="w-6 h-6 mx-auto mb-2 text-purple-600" />
                             <div className="text-lg font-bold">5</div>
-                            <div className="text-xs text-muted-foreground">Επιλεγμένοι Πολίτες</div>
+                            <div className="text-xs text-muted-foreground">{t('walkthrough.hiw_step5_citizens')}</div>
                           </div>
                           <div className="flex-1 p-4 bg-muted/30 rounded-lg border text-center">
                             <Globe className="w-6 h-6 mx-auto mb-2 text-purple-600" />
                             <div className="text-lg font-bold">48h</div>
-                            <div className="text-xs text-muted-foreground">Προθεσμία Απόκρισης</div>
+                            <div className="text-xs text-muted-foreground">{t('walkthrough.hiw_step5_deadline')}</div>
                           </div>
                           <div className="flex-1 p-4 bg-muted/30 rounded-lg border text-center">
                             <Lock className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                            <div className="text-lg font-bold">Ανώνυμα</div>
-                            <div className="text-xs text-muted-foreground">Χωρίς Πολιτική Ταυτότητα</div>
+                            <div className="text-lg font-bold">{t('walkthrough.hiw_step5_anonymous')}</div>
+                            <div className="text-xs text-muted-foreground">{t('walkthrough.hiw_step5_no_identity')}</div>
                           </div>
                         </div>
                       )}
@@ -202,38 +200,32 @@ export default function HowItWorksPage() {
 
           {/* Key Innovations */}
           <div className="mt-16 mb-16">
-            <h2 className="text-2xl font-bold text-center mb-8">Τι Κάνει την AgoraX Διαφορετική</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">{t('walkthrough.hiw_different_title')}</h2>
             <div className="grid md:grid-cols-3 gap-6">
               <Card>
                 <CardContent className="p-6">
                   <Zap className="w-8 h-8 text-amber-500 mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">Διαβούλευση, Όχι Μόνο Ψηφοφορία</h3>
+                  <h3 className="font-semibold text-lg mb-2">{t('walkthrough.hiw_innovation1_title')}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Οι προτάσεις δεν τίθενται απευθείας σε ψηφοφορία. Περνούν από φάσεις 
-                    τροπολογίας, αιτιολόγησης και σύνθεσης — ώστε το τελικό κείμενο να είναι 
-                    καλύτερο από την αρχική ιδέα.
+                    {t('walkthrough.hiw_innovation1_desc')}
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-6">
                   <Users className="w-8 h-8 text-purple-500 mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">Κληρωτά Σώματα, Όχι Ελίτ</h3>
+                  <h3 className="font-semibold text-lg mb-2">{t('walkthrough.hiw_innovation2_title')}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Η σύνθεση του τελικού κειμένου ανατίθεται σε τυχαία επιλεγμένους πολίτες, 
-                    όχι σε ειδικούς ή πολιτικούς. Αυτό εξασφαλίζει αντιπροσωπευτικότητα 
-                    χωρίς διορισμό.
+                    {t('walkthrough.hiw_innovation2_desc')}
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-6">
                   <Shield className="w-8 h-8 text-red-500 mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">Επαληθευμένη Ταυτότητα</h3>
+                  <h3 className="font-semibold text-lg mb-2">{t('walkthrough.hiw_innovation3_title')}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Χάρη στην ενσωμάτωση με Gov.gr, κάθε ψήφος επαληθεύεται ως 
-                    προερχόμενη από πραγματικό πολίτη — αντιμετωπίζοντας το πρόβλημα 
-                    των bots και των πολλαπλών λογαριασμών.
+                    {t('walkthrough.hiw_innovation3_desc')}
                   </p>
                 </CardContent>
               </Card>
@@ -243,18 +235,17 @@ export default function HowItWorksPage() {
           {/* CTA */}
           <div className="text-center">
             <Separator className="mb-8" />
-            <h2 className="text-2xl font-bold mb-4">Ξεκινήστε Τώρα</h2>
+            <h2 className="text-2xl font-bold mb-4">{t('walkthrough.hiw_cta_title')}</h2>
             <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-              Είτε θέλετε να υποβάλλετε μια πρόταση, να συμμετάσχετε σε μια κοινότητα, 
-              είτε απλά να μάθετε περισσότερα — η πλατφόρμα είναι ανοιχτή.
+              {t('walkthrough.hiw_cta_desc')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="bg-primary hover:bg-primary/90" onClick={() => navigate("/walkthrough")}>
                 <ArrowRight className="mr-2 h-4 w-4" />
-                Δείτε το Διαδραστικό Walkthrough
+                {t('walkthrough.hiw_cta_walkthrough')}
               </Button>
               <Button size="lg" variant="outline" onClick={() => navigate("/auth?tab=register")}>
-                Δημιουργία Λογαριασμού
+                {t('walkthrough.hiw_cta_register')}
               </Button>
             </div>
           </div>

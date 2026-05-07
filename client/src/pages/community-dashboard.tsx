@@ -2,68 +2,58 @@
  * Community Dashboard Page
  * 
  * Displays community overview, active proposals, sortition bodies,
- * and democracy score.
+ * democracy score, and merge controls.
  */
 
 import { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'wouter';
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
+import AppShell from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Users, FileText, Vote, Shield, Merge } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Vote, Shield, Settings, CheckCircle2, Merge } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useTranslation } from '@/hooks/use-translation';
+import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
+import {
+  getCommunityDashboardMetrics,
+  getGovernanceTranslationKey,
+  hasDemocracyScore,
+  type CommunitySummary,
+} from '@shared/community-summary';
 
-interface Community {
+interface CommunityForMerge {
   id: number;
   name: string;
-  description: string;
-  governanceModel: string;
-  memberCount: number;
-  democracyScore: number;
   mergedInto: number | null;
-}
-
-interface Proposal {
-  id: number;
-  title: string;
-  state: string;
-  authorName: string;
-  createdAt: string;
 }
 
 export default function CommunityDashboardPage() {
   const params = useParams();
   const communityId = params.id;
+  const [, setLocation] = useLocation();
   const { t } = useTranslation();
   
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [summary, setSummary] = useState<CommunitySummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [allCommunities, setAllCommunities] = useState<CommunityForMerge[]>([]);
   const [targetCommunityId, setTargetCommunityId] = useState<number | null>(null);
-  const [allCommunities, setAllCommunities] = useState<Community[]>([]);
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergeSuccess, setMergeSuccess] = useState(false);
 
- useEffect(() => {
+  useEffect(() => {
     if (!communityId) return;
-
+    
     Promise.all([
-      api.get(`/api/communities/${communityId}`),
-      api.get(`/api/communities/${communityId}/proposals`),
-      api.get(`/api/communities`),
-    ]).then(([commResp, propResp, allResp]) => {
-      setCommunity(commResp.data as Community);
-      setProposals(propResp.data as Proposal[]);
-      setAllCommunities(allResp.data as Community[]);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      api.get<CommunitySummary>(`/api/communities/${communityId}/summary`),
+      api.get<CommunityForMerge[]>('/api/communities'),
+    ]).then(([summaryResp, commResp]) => {
+      setSummary(summaryResp.data);
+      setAllCommunities(commResp.data);
+    }).catch(() => setSummary(null))
+      .finally(() => setLoading(false));
   }, [communityId]);
 
   const handleMerge = async () => {
@@ -71,12 +61,11 @@ export default function CommunityDashboardPage() {
     setMerging(true);
     setMergeError(null);
     try {
-      const resp = await api.post(`/api/communities/${communityId}/merge`, {
+      await api.post(`/api/communities/${communityId}/merge`, {
         targetCommunityId,
       });
       setMergeSuccess(true);
       setTimeout(() => {
-        setShowMergeDialog(false);
         setMergeSuccess(false);
         window.location.href = `/communities/${targetCommunityId}`;
       }, 2000);
@@ -88,67 +77,95 @@ export default function CommunityDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('common.loading')}</div>
-        <Footer />
-      </div>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('common.loading')}</div>
+      </AppShell>
     );
   }
 
-  if (!community) {
+  if (!summary) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex items-center justify-center flex-grow min-h-[50vh]">{t('community.not_found')}</div>
-        <Footer />
-      </div>
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[40vh]">{t('community.not_found')}</div>
+      </AppShell>
     );
   }
+
+  const { community, proposals, memberCount, canManageSettings } = summary;
+  const metrics = getCommunityDashboardMetrics({ memberCount, proposals });
+  const democracyScoreAvailable = hasDemocracyScore(community.democracyScore);
+  const democracyScore = democracyScoreAvailable ? Number(community.democracyScore) : null;
+  const governanceLabel = t(getGovernanceTranslationKey(community.governanceModel));
+  const description = community.description?.trim();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="container mx-auto py-6 px-4 max-w-4xl flex-grow">
+    <AppShell breadcrumb={[{ label: t('nav.communities'), href: '/communities' }, { label: community.name }]}>
       <Button variant="ghost" className="mb-4" onClick={() => window.history.back()}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         {t('common.back')}
       </Button>
 
-      <Card className="mb-6">
+      <Card className="mb-6 border-primary/10 bg-gradient-to-br from-background to-muted/30">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {community.name}
-            <Badge variant="secondary">{community.governanceModel}</Badge>
-          </CardTitle>
-          <CardDescription>{community.description}</CardDescription>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-2xl">{community.name}</CardTitle>
+                <Badge variant="secondary">{governanceLabel}</Badge>
+              </div>
+              <CardDescription>
+                {description || t('community.no_description')}
+              </CardDescription>
+            </div>
+            {canManageSettings && (
+              <Button variant="outline" size="sm" onClick={() => setLocation(`/communities/${communityId}/settings`)}>
+                <Settings className="w-4 h-4 mr-2" />
+                {t('community.settings_title')}
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span>{community.memberCount} {t('community.members')}</span>
+        <CardContent className="space-y-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="w-4 h-4" />
+                {t('community.members')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.memberCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <span>{proposals.length} {t('community.proposals')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="w-4 h-4" />
+                {t('community.proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.proposalCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <Vote className="w-4 h-4 text-muted-foreground" />
-              <span>{t('community.active_votes')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Vote className="w-4 h-4" />
+                {t('community.active_proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.activeProposalCount}</div>
             </div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-muted-foreground" />
-              <span>{t('community.democracy_score')}</span>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4" />
+                {t('community.decided_proposals')}
+              </div>
+              <div className="mt-1 text-2xl font-semibold">{metrics.decidedProposalCount}</div>
             </div>
           </div>
-          
-          <div className="mt-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span>{t('community.democracy_score')}</span>
-              <span>{community.democracyScore}/100</span>
+
+          <div className="rounded-lg border bg-background/70 p-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center gap-2 font-medium">
+                <Shield className="w-4 h-4 text-muted-foreground" />
+                {t('community.democracy_score')}
+              </div>
+              <span>{democracyScoreAvailable ? `${democracyScore}/100` : t('community.score_not_available')}</span>
             </div>
-            <Progress value={community.democracyScore} />
+            <Progress value={democracyScore ?? 0} />
           </div>
         </CardContent>
       </Card>
@@ -172,19 +189,19 @@ export default function CommunityDashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {proposals.map((proposal) => (
-                    <div key={proposal.id} className="flex items-center justify-between p-3 border rounded">
+                    <div key={proposal.id} className="flex items-center justify-between gap-3 p-3 border rounded">
                       <div>
-                        <div className="font-medium">{proposal.title}</div>
+                        <div className="font-medium">{proposal.question}</div>
                         <div className="text-sm text-muted-foreground">
-                          {t('common.by')} {proposal.authorName} · {new Date(proposal.createdAt).toLocaleDateString()}
+                          {t('common.by')} {proposal.authorLabel} · {new Date(proposal.createdAt).toLocaleDateString()}
                         </div>
                       </div>
                       <Badge variant={
-                        proposal.state === 'voting' ? 'default' :
-                        proposal.state === 'deliberation' ? 'secondary' :
+                        proposal.status === 'voting' ? 'default' :
+                        proposal.status === 'community_signal' || proposal.status === 'sortition_synthesis' ? 'secondary' :
                         'outline'
                       }>
-                        {proposal.state}
+                        {getStatusLabel(proposal.status, t)}
                       </Badge>
                     </div>
                   ))}
@@ -226,7 +243,7 @@ export default function CommunityDashboardPage() {
               <CardDescription>{t('community.merge_description')}</CardDescription>
             </CardHeader>
             <CardContent>
-              {community?.mergedInto ? (
+              {community.mergedInto ? (
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm">{t('community.already_merged')}</p>
                 </div>
@@ -241,7 +258,7 @@ export default function CommunityDashboardPage() {
                     >
                       <option value="">{t('community.choose_community')}</option>
                       {allCommunities
-                        .filter(c => c.id !== community?.id && !c.mergedInto)
+                        .filter(c => c.id !== community.id && !c.mergedInto)
                         .map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
@@ -271,8 +288,6 @@ export default function CommunityDashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-      <Footer />
-    </div>
+    </AppShell>
   );
 }

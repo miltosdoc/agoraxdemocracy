@@ -25,6 +25,7 @@ interface LocationData {
 export function LocationDetector({ onComplete }: { onComplete?: () => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [locationData, setLocationData] = useState<LocationData>({
     // Display information from reverse geocoding
@@ -40,7 +41,7 @@ export function LocationDetector({ onComplete }: { onComplete?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   
   const [showManualSelection, setShowManualSelection] = useState(false);
-  const [isGpsLocation, setIsGpsLocation] = useState<boolean>(
+  const [, setIsGpsLocation] = useState<boolean>(
     !!(user?.latitude && user?.longitude)
   );
 

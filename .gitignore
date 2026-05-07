@@ -21,6 +21,9 @@ declaration*.png
 .env.*
 !.env.example
 
+# Local agent/workspace artifacts
+.hermes/
+
 # OS
 .DS_Store
 Thumbs.db

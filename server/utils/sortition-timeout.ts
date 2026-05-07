@@ -1,158 +1,135 @@
 /**
  * Sortition Timeout & Completion
- * 
- * Handles timeout checking, member replacement, and completion logic
- * for sortition bodies.
+ *
+ * Handles deadline checks, replacement of non-responders, and completion of
+ * sortition bodies. Deadlines are derived from `selectedAt + responseHours`
+ * (no separate `responseDeadline` column).
+ *
+ * Wired up by the recurring `sortition_timeout` job in the queue worker.
  */
 
 import { db } from '../db';
-import { sortitionBodies, sortitionMembers } from '@shared/schema';
-import { eq, and, isNull, lte, gte, avg } from 'drizzle-orm';
-import { logAdminAction } from './admin-action-logger';
+import { storage } from '../storage';
+import { sortitionBodies, sortitionMembers, proposals } from '@shared/schema';
+import { and, eq, sql } from 'drizzle-orm';
+import { getEligibleMembers } from './sortition';
+import { logOverrideSortitionTimeout } from './admin-action-logger';
 
-// ─── Timeout Checking ───────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
-/**
- * Check if a sortition body has passed its response deadline.
- */
+function deriveDeadline(selectedAt: Date | null, responseHours: number | null): Date | null {
+  if (!selectedAt) return null;
+  const hours = responseHours ?? 72;
+  return new Date(new Date(selectedAt).getTime() + hours * 60 * 60 * 1000);
+}
+
+// ─── Public API ────────────────────────────────────────────────────────────
+
+/** Returns true if the body's deadline has passed (and the body is still active). */
 export async function checkSortitionTimeout(bodyId: number): Promise<boolean> {
-  const [body] = await db
-    .select()
-    .from(sortitionBodies)
-    .where(eq(sortitionBodies.id, bodyId))
-    .limit(1);
-
+  const body = await storage.getSortitionBody(bodyId);
   if (!body) return false;
-  
-  return new Date() > body.responseDeadline;
+  if (body.status !== 'active' && body.status !== 'selecting') return false;
+
+  const deadline = deriveDeadline(body.selectedAt, body.responseHours);
+  if (!deadline) return false;
+
+  return Date.now() >= deadline.getTime();
 }
 
-/**
- * Get the number of members who have not yet responded.
- */
+/** Counts members of the body who have not yet responded. */
 export async function getNonRespondingCount(bodyId: number): Promise<number> {
-  const members = await db
-    .select()
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(sortitionMembers)
-    .where(and(
-      eq(sortitionMembers.bodyId, bodyId),
-      isNull(sortitionMembers.score)
-    ));
-  
-  return members.length;
+    .where(and(eq(sortitionMembers.bodyId, bodyId), eq(sortitionMembers.responded, false)));
+  return row?.count ?? 0;
 }
 
-// ─── Member Replacement ─────────────────────────────────────────────────────
-
 /**
- * Replace non-responding members with backups from the community.
- * 
- * @param bodyId - The sortition body ID
- * @param communityId - The community ID (for finding backup members)
- * @param maxReplacements - Maximum number of replacements (default: 5)
- * @returns Number of replacements made
+ * Replace non-responding members with fresh random picks from the eligible
+ * pool. Returns the number of replacements actually made.
  */
 export async function replaceNonRespondingMembers(
   bodyId: number,
   communityId: number,
   maxReplacements: number = 5,
 ): Promise<number> {
-  // Get non-responding members
-  const nonResponding = await db
-    .select()
-    .from(sortitionMembers)
-    .where(and(
-      eq(sortitionMembers.bodyId, bodyId),
-      isNull(sortitionMembers.score)
-    ));
+  const members = await storage.getSortitionMembers(bodyId);
+  const nonResponders = members.filter(m => !m.responded);
+  if (nonResponders.length === 0) return 0;
 
-  if (nonResponding.length === 0) return 0;
+  const currentMemberIds = new Set(members.map(m => m.userId));
 
-  const toReplace = Math.min(nonResponding.length, maxReplacements);
+  const eligible = await getEligibleMembers(communityId, storage);
+  const candidates = eligible.filter(m => !currentMemberIds.has(m.userId));
+
+  if (candidates.length === 0) return 0;
+
+  // Cryptographically secure shuffle for fairness, mirroring sortition.ts
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const limit = 256 - (256 % (i + 1));
+    let j: number;
+    do {
+      const bytes = new Uint8Array(1);
+      crypto.getRandomValues(bytes);
+      j = bytes[0];
+    } while (j >= limit);
+    j = j % (i + 1);
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  const replaceCount = Math.min(maxReplacements, nonResponders.length, candidates.length);
   let replaced = 0;
+  for (let i = 0; i < replaceCount; i++) {
+    const drop = nonResponders[i];
+    const pick = candidates[i];
 
-  for (let i = 0; i < toReplace; i++) {
-    // Remove the non-responding member
+    // Remove the non-responder, add the replacement.
     await db
       .delete(sortitionMembers)
-      .where(eq(sortitionMembers.id, nonResponding[i].id));
-
-    // Find a backup member (community member not already in this body)
-    const backup = await findBackupMember(communityId, bodyId);
-    
-    if (backup) {
-      await db.insert(sortitionMembers).values({
-        bodyId,
-        userId: backup.userId,
-        score: null,
-        assignedAt: new Date(),
-      });
-      replaced++;
-    }
+      .where(and(eq(sortitionMembers.bodyId, bodyId), eq(sortitionMembers.userId, drop.userId)));
+    await storage.addSortitionMember(bodyId, pick.userId);
+    replaced++;
   }
 
   return replaced;
 }
 
 /**
- * Find a backup member from the community who is not already in this sortition body.
- */
-async function findBackupMember(communityId: number, bodyId: number): Promise<{ userId: number } | null> {
-  // This would query community_members table to find eligible backups
-  // For now, return null — implement when community_members table exists
-  return null;
-}
-
-// ─── Completion ─────────────────────────────────────────────────────────────
-
-/**
- * Complete a sortition body by calculating the average score.
- * 
- * @param bodyId - The sortition body ID
- * @returns The calculated average score, or null if no scores exist
+ * Mark the body as completed. Computes the average score from members who
+ * responded and stores it on the linked proposal (if any). Returns the
+ * computed average, or null when no scores were submitted.
  */
 export async function completeSortitionBody(bodyId: number): Promise<number | null> {
-  const members = await db
-    .select({ score: sortitionMembers.score })
-    .from(sortitionMembers)
-    .where(and(
-      eq(sortitionMembers.bodyId, bodyId),
-      sortitionMembers.score.isNotNull()
-    ));
+  const body = await storage.getSortitionBody(bodyId);
+  if (!body) return null;
 
-  if (members.length === 0 || !members[0]?.score) {
-    return null;
-  }
-
+  const members = await storage.getSortitionMembers(bodyId);
   const scores = members
-    .map(m => m.score!)
-    .filter(s => s !== null);
+    .filter(m => m.responded && m.score !== null && m.score !== undefined)
+    .map(m => parseFloat(m.score as unknown as string))
+    .filter(n => Number.isFinite(n));
 
-  if (scores.length === 0) return null;
+  const average = scores.length > 0
+    ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+    : null;
 
-  const average = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+  await storage.completeSortitionBody(bodyId);
 
-  // Update the sortition body with the result
-  await db
-    .update(sortitionBodies)
-    .set({
-      averageScore: average,
-      completedAt: new Date(),
-    })
-    .where(eq(sortitionBodies.id, bodyId));
+  if (body.proposalId && average !== null) {
+    await db
+      .update(proposals)
+      .set({ sortitionAvgScore: String(average), updatedAt: new Date() })
+      .where(eq(proposals.id, body.proposalId));
+  }
 
   return average;
 }
 
-// ─── Admin Override ─────────────────────────────────────────────────────────
-
 /**
- * Admin override: extend the response deadline for a sortition body.
- * 
- * @param bodyId - The sortition body ID
- * @param newDeadline - The new deadline
- * @param adminUserId - The admin who made the override
- * @param reason - Reason for the override
+ * Override the deadline by adjusting `selectedAt` (deadline = selectedAt +
+ * responseHours). Logs the action to the admin audit trail.
  */
 export async function overrideSortitionDeadline(
   bodyId: number,
@@ -160,16 +137,22 @@ export async function overrideSortitionDeadline(
   adminUserId: number,
   reason: string,
 ): Promise<void> {
+  const body = await storage.getSortitionBody(bodyId);
+  if (!body) throw new Error('Sortition body not found');
+
+  const responseHours = body.responseHours ?? 72;
+  const newSelectedAt = new Date(newDeadline.getTime() - responseHours * 60 * 60 * 1000);
+
   await db
     .update(sortitionBodies)
-    .set({ responseDeadline: newDeadline })
+    .set({ selectedAt: newSelectedAt })
     .where(eq(sortitionBodies.id, bodyId));
 
-  await logAdminAction(
+  await logOverrideSortitionTimeout(
     adminUserId,
-    null,
-    'override_sortition_timeout',
+    body.communityId,
     bodyId,
-    { newDeadline: newDeadline.toISOString(), reason },
+    newDeadline,
+    reason,
   );
 }

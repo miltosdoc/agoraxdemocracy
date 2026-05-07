@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-agorax}
       POSTGRES_USER: ${POSTGRES_USER:-agorax}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -32,20 +32,21 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-agorax}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-agorax}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       LLM_API_KEY: ${LLM_API_KEY}
       LLM_API_URL: ${LLM_API_URL:-https://api.openai.com/v1}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-      DEMO_MODE: ${DEMO_MODE:-true}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      APP_ENV: ${APP_ENV:-local}
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
       BALLOT_SERVICE_URL: http://ballot-service:8000
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "0.0.0.0:3000:3000"
     volumes:
       - uploads_data:/app/uploads
     healthcheck:
@@ -65,8 +66,8 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-agorax}
-      SALT_KEY: ${SALT_KEY:-changeme_ballot_salt}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agorax}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-agorax}
+      SALT_KEY: ${SALT_KEY:?SALT_KEY is required}
       DEBUG: ${DEBUG:-False}
       HOST: "0.0.0.0"
       PORT: 8000

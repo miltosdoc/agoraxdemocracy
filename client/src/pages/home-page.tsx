@@ -1,386 +1,221 @@
-import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
-import Header from "@/components/layout/header";
-import Footer from "@/components/layout/footer";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+/**
+ * Authenticated Dashboard (/home)
+ *
+ * Personal landing surface for signed-in users. Splits the work into
+ * three sections: My Proposals (authored by the user), Active Sortitions
+ * (bodies the user is eligible for), and Recent Activity (all-community
+ * proposal stream). Public marketing content lives on the / landing page.
+ */
+
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'wouter';
+import AppShell from '@/components/layout/AppShell';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Users, FileText, Vote, Shield, ArrowRight, Plus, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
+import { ArrowRight, FileText, Plus, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation, getStatusLabel } from '@/hooks/use-translation';
-
-interface Community {
-  id: number;
-  name: string;
-  description: string;
-  type: string;
-  governanceModel: string;
-  memberCount: number;
-  democracyScore: number;
-}
+import { getStatusForProposal } from '@/lib/proposal-status';
 
 interface Proposal {
   id: number;
-  title: string;
+  question: string;
   status: string;
+  authorId: number;
+  authorName?: string;
   communityId: number;
   communityName?: string;
   createdAt: string;
 }
 
-function HeroSection() {
-  const { user } = useAuth();
-  const { t } = useTranslation();
-  const [, navigate] = useLocation();
-
-  return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTTEwIDBoMTB2MTBIMHoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-50" />
-      <div className="relative container mx-auto px-4 py-16 md:py-24">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
-            {t('home.heroTitle')}
-          </h1>
-          <p className="text-xl md:text-2xl text-blue-100 mb-8 leading-relaxed">
-            {t('home.heroSubtitle')}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {user ? (
-              <>
-                <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/proposals/new')}>
-                  <Plus className="w-5 h-5 mr-2" />
-                  {t('home.submitProposal')}
-                </Button>
-                <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/communities/new')}>
-                  <Users className="w-5 h-5 mr-2" />
-                  {t('home.createCommunity')}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="lg" className="bg-white text-blue-900 hover:bg-blue-50 shadow-lg" onClick={() => navigate('/auth?tab=register')}>
-                  {t('auth.register')}
-                </Button>
-                <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
-                  <Lightbulb className="w-5 h-5 mr-2" />
-                  {t('home.howItWorks')}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+interface SortitionBody {
+  id: number;
+  communityId: number;
+  proposalId: number | null;
+  status: string;
+  community?: { id: number; name: string } | null;
+  proposal?: { id: number; question: string } | null;
+  memberCount?: number;
+  responded?: number;
 }
 
-function StatsBar({ communities, proposals }: { communities: Community[]; proposals: Proposal[] }) {
+function ProposalCard({ proposal }: { proposal: Proposal }) {
   const { t } = useTranslation();
-  const activeDeliberations = proposals.filter(p => p.status !== 'decided' && p.status !== 'draft').length;
-
+  const status = getStatusForProposal(proposal);
   return (
-    <div className="container mx-auto px-4 -mt-8 relative z-10">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-lg border-0">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-100 text-blue-600">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{communities.length}</p>
-              <p className="text-sm text-muted-foreground">{t('home.communities')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg border-0">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-indigo-100 text-indigo-600">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{proposals.length}</p>
-              <p className="text-sm text-muted-foreground">{t('home.proposals')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg border-0">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600">
-              <MessageSquare className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{activeDeliberations}</p>
-              <p className="text-sm text-muted-foreground">{t('home.activeDeliberations')}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function CommunitiesSection({ communities }: { communities: Community[] }) {
-  const { t } = useTranslation();
-  const [, navigate] = useLocation();
-
-  if (communities.length === 0) {
-    return (
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">{t('home.communities')}</h2>
-          </div>
-          <Card className="text-center py-12">
-            <CardContent>
-              <p className="text-muted-foreground mb-4">{t('home.noCommunities')}</p>
-              <Button onClick={() => navigate('/communities/new')}>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('home.createCommunity')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="py-12">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">{t('home.communities')}</h2>
-          <Button variant="ghost" onClick={() => navigate('/communities')}>
-            {t('home.allCommunities')} <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {communities.slice(0, 6).map((community) => (
-            <Card key={community.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/communities/${community.id}`)}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{community.name}</CardTitle>
-                  <Badge variant="secondary">{community.governanceModel}</Badge>
-                </div>
-                <CardDescription className="line-clamp-2">{community.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    {community.memberCount} {t('community.members')}
-                  </span>
-                  <Badge variant="outline">{community.type}</Badge>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span>{t('community.democracyScore')}</span>
-                    <span className="font-medium">{community.democracyScore}%</span>
-                  </div>
-                  <Progress value={community.democracyScore} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProposalsSection({ proposals }: { proposals: Proposal[] }) {
-  const { t } = useTranslation();
-  const [, navigate] = useLocation();
-
-  if (proposals.length === 0) {
-    return (
-      <section className="py-12 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">{t('home.proposals')}</h2>
-          </div>
-          <Card className="text-center py-12">
-            <CardContent>
-              <p className="text-muted-foreground mb-4">{t('home.noProposals')}</p>
-              <Button onClick={() => navigate('/proposals/new')}>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('home.submitProposal')}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    );
-  }
-
-  const STATUS_COLOR: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
-    review: 'bg-blue-100 text-blue-700',
-    author_review: 'bg-yellow-100 text-yellow-700',
-    community_signal: 'bg-green-100 text-green-700',
-    sortition_synthesis: 'bg-purple-100 text-purple-700',
-    voting: 'bg-orange-100 text-orange-700',
-    decided: 'bg-emerald-100 text-emerald-700',
-  };
-
-  return (
-    <section className="py-12 bg-slate-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">{t('home.proposals')}</h2>
-          <Button variant="ghost" onClick={() => navigate('/proposals/new')}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('home.submitProposal')}
-          </Button>
-        </div>
-        <div className="space-y-4">
-          {proposals.slice(0, 6).map((proposal) => {
-            const color = STATUS_COLOR[proposal.status] || STATUS_COLOR.draft;
-            return (
-              <Card key={proposal.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/proposals/${proposal.id}`)}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-1">{proposal.title}</h3>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" />
-                          {proposal.communityName || `#${proposal.communityId}`}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge className={color}>{getStatusLabel(proposal.status, t)}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorksSection() {
-  const { t } = useTranslation();
-  const steps = [
-    {
-      icon: FileText,
-      title: t('home.step1Title'),
-      description: t('home.step1Desc'),
-      stepNum: t('home.step1'),
-    },
-    {
-      icon: MessageSquare,
-      title: t('home.step2Title'),
-      description: t('home.step2Desc'),
-      stepNum: t('home.step2'),
-    },
-    {
-      icon: CheckCircle,
-      title: t('home.step3Title'),
-      description: t('home.step3Desc'),
-      stepNum: t('home.step3'),
-    },
-  ];
-
-  return (
-    <section className="py-12">
-      <div className="container mx-auto px-4">
-        <h2 className="text-2xl font-bold text-center mb-2">{t('home.howItWorks')}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 mb-4">
-                  <Icon className="w-8 h-8" />
-                </div>
-                <div className="text-sm font-medium text-blue-600 mb-1">{step.stepNum}</div>
-                <h3 className="font-semibold text-lg mb-2">{step.title}</h3>
-                <p className="text-muted-foreground text-sm">{step.description}</p>
+    <Link href={`/proposals/${proposal.id}`} className="block">
+      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-base line-clamp-2 mb-1">{proposal.question}</h3>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" />
+                  {proposal.communityName ?? `#${proposal.communityId}`}
+                </span>
+                <span>{new Date(proposal.createdAt).toLocaleDateString()}</span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CTASection() {
-  const { user } = useAuth();
-  const { t } = useTranslation();
-  const [, navigate] = useLocation();
-
-  return (
-    <section className="py-16 bg-gradient-to-r from-blue-600 to-blue-500 text-white">
-      <div className="container mx-auto px-4 text-center">
-        <h2 className="text-3xl font-bold mb-4">{t('home.readyTitle')}</h2>
-        <p className="text-xl text-blue-100 mb-8">{t('home.readyDesc')}</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {user ? (
-            <Button variant="solid" size="lg" onClick={() => navigate('/proposals/new')}>
-              <Plus className="w-5 h-5 mr-2" />
-              {t('home.submitProposal')}
-            </Button>
-          ) : (
-            <>
-              <Button variant="solid" size="lg" onClick={() => navigate('/auth?tab=register')}>
-                {t('auth.register')}
-              </Button>
-              <Button size="lg" className="border-2 border-white text-white hover:bg-white/10 bg-transparent" onClick={() => navigate('/walkthrough')}>
-                {t('home.learnMore')}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </section>
+            </div>
+            <Badge className={status.color} variant="outline">
+              <span className="mr-1">{status.icon}</span>
+              {getStatusLabel(proposal.status, t)}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
 export default function HomePage() {
-  const [communities, setCommunities] = useState<Community[]>([]);
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [sortitionBodies, setSortitionBodies] = useState<SortitionBody[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/communities').catch(() => ({ data: [] as Community[] })),
-      api.get('/api/proposals?limit=10').catch(() => ({ data: [] as Proposal[] })),
-    ]).then(([commResp, propResp]) => {
-      setCommunities(commResp.data || []);
-      setProposals(propResp.data || []);
+      api.get<Proposal[]>('/api/proposals?limit=10').catch(() => ({ data: [] as Proposal[] })),
+      api.get<SortitionBody[]>('/api/sortition/my-bodies').catch(() => ({ data: [] as SortitionBody[] })),
+    ]).then(([propResp, bodiesResp]) => {
+      setProposals(propResp.data ?? []);
+      setSortitionBodies(bodiesResp.data ?? []);
       setLoading(false);
     });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex items-center justify-center flex-grow">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  const myProposals = user ? proposals.filter((p) => p.authorId === user.id) : [];
+  const activeBodies = sortitionBodies.filter((b) => b.status !== 'completed' && b.status !== 'archived');
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <HeroSection />
-      <StatsBar communities={communities} proposals={proposals} />
-      <main className="flex-grow">
-        <CommunitiesSection communities={communities} />
-        <ProposalsSection proposals={proposals} />
-        <HowItWorksSection />
-        <CTASection />
-      </main>
-      <Footer />
-    </div>
+    <AppShell
+      title={t('dashboard.title')}
+      actions={
+        <>
+          <Button onClick={() => navigate('/proposals/new')} data-testid="dashboard-new-proposal">
+            <Plus className="w-4 h-4 mr-2" />
+            {t('home.submitProposal')}
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/proposals')} data-testid="dashboard-all-proposals">
+            <FileText className="w-4 h-4 mr-2" />
+            {t('dashboard.viewAllProposals')}
+          </Button>
+        </>
+      }
+    >
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          {t('general.loading')}
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {/* My Proposals */}
+          <section data-testid="dashboard-my-proposals">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">{t('dashboard.myProposals')}</h2>
+              {myProposals.length > 0 && (
+                <Link href="/proposals" className="text-sm text-primary hover:underline">
+                  {t('dashboard.viewAllProposals')} →
+                </Link>
+              )}
+            </div>
+            {myProposals.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground mb-4">{t('home.noProposals')}</p>
+                  <Button onClick={() => navigate('/proposals/new')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t('home.submitProposal')}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {myProposals.slice(0, 6).map((p) => (
+                  <ProposalCard key={p.id} proposal={p} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Active Sortitions */}
+          <section data-testid="dashboard-active-sortitions">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">{t('dashboard.activeSortitions')}</h2>
+              <Link href="/sortition" className="text-sm text-primary hover:underline">
+                {t('home.allCommunities')} →
+              </Link>
+            </div>
+            {activeBodies.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  {t('home.noProposals')}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {activeBodies.slice(0, 4).map((body) => (
+                  <Link key={body.id} href={`/sortition/body/${body.id}`} className="block">
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-base mb-1 line-clamp-2">
+                              {body.proposal?.question ?? `Sortition #${body.id}`}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5" />
+                                {body.community?.name ?? `#${body.communityId}`}
+                              </span>
+                              {typeof body.memberCount === 'number' && (
+                                <span>
+                                  {body.responded ?? 0} / {body.memberCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline">{body.status}</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Recent Activity */}
+          <section data-testid="dashboard-recent-activity">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold">{t('dashboard.recentActivity')}</h2>
+              <Link href="/proposals" className="text-sm text-primary hover:underline flex items-center gap-1">
+                {t('dashboard.viewAllProposals')}
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            {proposals.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  {t('home.noProposals')}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {proposals.slice(0, 6).map((p) => (
+                  <ProposalCard key={p.id} proposal={p} />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </AppShell>
   );
 }

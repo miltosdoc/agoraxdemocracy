@@ -95,7 +95,7 @@ export function GeofenceMap({
   onRadiusChange,
   onLocationInfoChange,
 }: GeofenceMapProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [center, setCenter] = useState<[number, number]>(initialCenter);
   const [radius, setRadius] = useState(initialRadius);
   const [postalCode, setPostalCode] = useState('');

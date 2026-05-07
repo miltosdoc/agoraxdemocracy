@@ -6,7 +6,7 @@
  */
 
 import fetch from "node-fetch";
-import * as FormData from "form-data";
+import FormData from "form-data";
 
 // Ballot service URL — Docker internal network
 const BALLOT_SERVICE_URL = process.env.BALLOT_SERVICE_URL || "http://localhost:8000";

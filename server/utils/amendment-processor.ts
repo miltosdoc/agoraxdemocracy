@@ -29,8 +29,8 @@ export interface AmendmentReview {
   text: string;
   authorDecision: 'accepted' | 'rejected' | null;
   authorReason: string | null;
-  rejectionUpvotes: number;
-  rejectionDownvotes: number;
+  rejectionUpvotes: number | null;
+  rejectionDownvotes: number | null;
   llmScore: number | null;
   createdAt: Date;
 }

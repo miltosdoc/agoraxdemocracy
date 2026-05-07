@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Area, AreaChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from "recharts";
 import { Users, MessageSquare, Vote, BarChart3, TrendingUp, Clock, Calendar, Activity, UserPlus, Percent } from "lucide-react";
 import { useTranslation } from "@/hooks/use-translation";
 import { format } from "date-fns";
@@ -48,8 +48,8 @@ interface UsagePattern {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function AnalyticsDashboard() {
-  const { t, locale } = useTranslation();
-  const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery<AnalyticsOverview>({
+  const { t } = useTranslation();
+  const { data: overview, isLoading: overviewLoading } = useQuery<AnalyticsOverview>({
     queryKey: ["/api/analytics/overview"],
     retry: false,
   });

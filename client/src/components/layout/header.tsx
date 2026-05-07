@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Vote, Menu } from "lucide-react";
+import { PlusCircle, UserCircle, ChevronDown, LogOut, User, BarChart3, Users, Bell, Shield, FileText, MessageSquare, Menu } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
@@ -25,22 +26,10 @@ import logoImage from "../../assets/logo.png";
 import { VerifyGovgrModal } from "../user/verify-govgr-modal";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
-interface NotificationWithPoll {
-  id: number;
-  userId: number;
-  pollId: number;
-  read: boolean;
-  createdAt: string;
-  poll: {
-    id: number;
-    title: string;
-    groupId: number | null;
-    group?: {
-      id: number;
-      name: string;
-    } | null;
-  };
-}
+import { useUnreadCount, useNotifications, useMarkAsRead } from "@/hooks/use-notifications";
+import type { SortitionNotification } from "@/types/notifications";
+import { notificationTypeConfig } from "@/types/notifications";
+import SearchBar from "@/components/SearchBar";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
@@ -56,47 +45,33 @@ export default function Header() {
     logoutMutation.mutate();
   };
 
-  const handleCreatePoll = () => {
-    navigate("/polls/create");
-  };
-
-  const handleCreateSurvey = () => {
-    navigate("/surveys/create");
-  };
-
   // Fetch unread notification count
-  const { data: unreadCountData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/unread/count"],
-    enabled: !!user,
-    refetchInterval: 30000,
-  });
+  const { data: unreadCountData } = useUnreadCount();
 
-  // Fetch all notifications
-  const { data: notifications, isLoading: notificationsLoading } = useQuery<NotificationWithPoll[]>({
-    queryKey: ["/api/notifications"],
-    enabled: !!user && isNotificationsOpen,
+  // Fetch notifications when popover is open
+  const { data: notificationsData, isLoading: notificationsLoading } = useNotifications({
+    limit: 20,
   });
 
   // Mark notification as read mutation
-  const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: number) => {
-      return await apiRequest("POST", `/api/notifications/${notificationId}/read`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
-    },
-  });
+  const markAsRead = useMarkAsRead();
 
-  const handleNotificationClick = (notification: NotificationWithPoll) => {
+  const handleNotificationClick = (notification: SortitionNotification) => {
     if (!notification.read) {
-      markAsReadMutation.mutate(notification.id);
+      markAsRead.mutate(notification.id);
     }
     setIsNotificationsOpen(false);
-    navigate(`/polls/${notification.pollId}`);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    } else if (notification.proposalId) {
+      navigate(`/proposals/${notification.proposalId}`);
+    } else {
+      navigate("/notifications");
+    }
   };
 
   const unreadCount = unreadCountData?.count || 0;
+  const notifications = notificationsData?.notifications || [];
 
   return (
     <header className="bg-background/95 backdrop-blur-sm border-b border-border shadow-md sticky top-0 z-50 transition-smooth">
@@ -127,30 +102,31 @@ export default function Header() {
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
             {/* Desktop buttons */}
-            <Button
-              variant="outline"
+            <button
+              type="button"
               onClick={() => navigate("/auth")}
-              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] transition-smooth hover:bg-muted hover:border-primary"
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap h-11 px-4 text-sm font-medium transition-smooth border border-border hover:bg-muted hover:border-primary rounded-md cursor-pointer"
               data-testid="button-login"
             >
               {t('auth.login')}
-            </Button>
-            <Button
+            </button>
+            <button
+              type="button"
               onClick={() => navigate("/auth?tab=register")}
-              className="hidden sm:inline-flex min-h-[44px] min-w-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md"
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap h-11 px-4 text-sm font-medium transition-smooth shadow-sm hover:shadow-md bg-primary hover:bg-primary/90 text-white rounded-md cursor-pointer"
               data-testid="button-register"
             >
               {t('auth.register')}
-            </Button>
-            <Button
-              variant="ghost"
+            </button>
+            <button
+              type="button"
               onClick={() => navigate("/walkthrough")}
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted"
+              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted rounded-md px-3 py-2 cursor-pointer"
               data-testid="button-walkthrough"
             >
               <MessageSquare className="h-4 w-4" />
               <span>{t('nav.process')}</span>
-            </Button>
+            </button>
             {/* Mobile hamburger */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -166,6 +142,10 @@ export default function Header() {
                   {t('auth.register')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/proposals")} className="cursor-pointer">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {t('nav.proposals')}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/walkthrough")} className="cursor-pointer">
                   <MessageSquare className="mr-2 h-4 w-4" />
                   {t('nav.process')}
@@ -174,44 +154,37 @@ export default function Header() {
             </DropdownMenu>
           </div>
         ) : (
-          <div className="flex items-center gap-2 sm:gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  className="hidden sm:flex items-center bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md min-h-[44px] gap-2"
-                  data-testid="button-new-poll"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>{t('nav.newPoll')}</span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mt-2">
-                <DropdownMenuItem
-                  onClick={handleCreatePoll}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-create-standard"
-                >
-                  {t('ballot.standardPoll')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleCreateSurvey}
-                  className="cursor-pointer transition-smooth"
-                  data-testid="menu-create-survey"
-                >
-                  {t('ballot.surveyPoll')} <span className="text-xs text-muted-foreground ml-1">({t('ballot.beta')})</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="outline"
-              className="hidden sm:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary"
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 justify-end">
+            <div className="flex-1 max-w-md min-w-0">
+              <SearchBar />
+            </div>
+            <button
+              type="button"
               onClick={() => navigate("/proposals/new")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] bg-primary hover:bg-primary/90 text-white transition-smooth shadow-sm hover:shadow-md rounded-md px-3 py-2 cursor-pointer"
               data-testid="button-new-proposal"
             >
-              <FileText className="h-4 w-4" />
+              <PlusCircle className="h-4 w-4" />
               <span>{t('nav.newProposal')}</span>
-            </Button>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/proposals")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary rounded-md border border-border px-3 py-2 cursor-pointer"
+              data-testid="button-proposals"
+            >
+              <FileText className="h-4 w-4" />
+              <span>{t('nav.proposals')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/communities")}
+              className="hidden lg:flex items-center gap-2 min-h-[44px] transition-smooth hover:bg-muted hover:border-primary rounded-md border border-border px-3 py-2 cursor-pointer"
+              data-testid="button-communities"
+            >
+              <Users className="h-4 w-4" />
+              <span>{t('nav.communities')}</span>
+            </button>
 
             {/* Notification Bell */}
             <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
@@ -242,39 +215,40 @@ export default function Header() {
                     <div className="p-4 text-center text-sm text-muted-foreground" data-testid="text-loading-notifications">
                       {t('notification.loading')}
                     </div>
-                  ) : notifications && notifications.length > 0 ? (
+                  ) : notifications.length > 0 ? (
                     <div className="divide-y" data-testid="list-notifications">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          onClick={() => handleNotificationClick(notification)}
-                          className={`p-4 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-blue-50 dark:bg-blue-950" : ""}`}
-                          data-testid={`notification-item-${notification.id}`}
-                        >
-                          <div className="flex items-start gap-2">
-                            {!notification.read && (
-                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" data-testid="indicator-unread" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
-                                {notification.poll.group
-                                  ? `${t('notification.newPollIn')} ${notification.poll.group.name}`
-                                  : `${t('notification.newPollIn')} ${t('notification.community')}`
-                                }
-                              </p>
-                              <p className="text-sm text-primary font-medium truncate mt-1" data-testid={`text-poll-title-${notification.id}`}>
-                                {notification.poll.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1" data-testid={`text-time-ago-${notification.id}`}>
-                                {formatDistanceToNow(new Date(notification.createdAt), {
-                                  addSuffix: true,
-                                  locale: dateFnsLocale
-                                })}
-                              </p>
+                      {notifications.map((notification) => {
+                        const config = notificationTypeConfig[notification.type] || { icon: '📋', color: 'bg-gray-50 border-gray-200' };
+                        return (
+                          <div
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={`p-3 cursor-pointer transition-smooth hover:bg-muted ${!notification.read ? "bg-muted/30" : ""}`}
+                            data-testid={`notification-item-${notification.id}`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg flex-shrink-0 mt-0.5">{config.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm ${!notification.read ? "font-semibold" : ""}`}>
+                                  {notification.title}
+                                </p>
+                                {notification.message && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{notification.message}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1" data-testid={`text-time-ago-${notification.id}`}>
+                                  {formatDistanceToNow(new Date(notification.createdAt), {
+                                    addSuffix: true,
+                                    locale: dateFnsLocale
+                                  })}
+                                </p>
+                              </div>
+                              {!notification.read && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" data-testid="indicator-unread" />
+                              )}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-8 text-center text-sm text-muted-foreground" data-testid="text-no-notifications">
@@ -331,6 +305,20 @@ export default function Header() {
                 )}
 
                 <DropdownMenuItem
+                  onClick={() => navigate("/notifications")}
+                  className="cursor-pointer transition-smooth"
+                  data-testid="menu-notifications"
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  {t('notification.title')}
+                  {unreadCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
                   onClick={() => navigate("/profile")}
                   className="cursor-pointer transition-smooth"
                   data-testid="menu-profile"
@@ -339,12 +327,12 @@ export default function Header() {
                   {t('nav.profile')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => navigate("/my-polls")}
+                  onClick={() => navigate("/proposals")}
                   className="cursor-pointer transition-smooth"
-                  data-testid="menu-my-polls"
+                  data-testid="menu-proposals"
                 >
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  {t('nav.myPolls')}
+                  <FileText className="mr-2 h-4 w-4" />
+                  {t('nav.proposals')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/communities")}

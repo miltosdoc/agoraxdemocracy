@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, jsonb, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -173,31 +174,17 @@ export const pollUserResponses = pgTable("poll_user_responses", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// ─── Groups (Ομάδες) ─────────────────────────────────────────────────────────
-
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  creatorId: integer("creator_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const groupMembers = pgTable("group_members", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  joinedAt: timestamp("joined_at").notNull().defaultNow(),
-}, (table) => ({
-  groupMemberUnique: uniqueIndex("group_member_unique").on(table.groupId, table.userId),
-}));
-
-// ─── Demopolis: Communities (Κοινότητες) ─────────────────────────────────────
+// ─── Demopolis: Communities (Κοινότητες) ──────────────────────────────────────
 
 export const communities = pgTable("communities", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull().default("autonomous"), // 'autonomous' | 'managed'
+  // Διαχειριστές για managed κοινότητες· κενός πίνακας για autonomous.
+  adminIds: jsonb("admin_ids").default("[]"),
+  // Σημαία για τη μοναδική «Γενική» κοινότητα όπου εγγράφεται κάθε νέος χρήστης.
+  isGeneral: boolean("is_general").default(false),
   governanceModel: text("governance_model").default("no_admin"), // 'no_admin' | 'admin_team' | 'hybrid'
   creatorId: integer("creator_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -246,9 +233,10 @@ export const proposals = pgTable("proposals", {
   finalText: text("final_text"),              // Τελικό κείμενο από κληρωτό σώμα (null until synthesis)
 
   // State machine
-  status: text("status").notNull().default("submitted"),
-  // 'submitted' → 'validating' → 'valid' | 'returned' | 'rejected'
-  //   → 'scoring' → 'under_review' → 'amendments' → 'debate' → 'voting' → 'resolved'
+  status: text("status").notNull().default("draft"),
+  // Canonical lifecycle lives in shared/proposal-lifecycle.ts:
+  // draft → review → author_review → community_signal → sortition_synthesis → voting → decided
+  // plus archived as a terminal non-decision state.
 
   // LLM validation
   llmScore: numeric("llm_score"),              // 0-100 score from LLM validation
@@ -308,6 +296,41 @@ export const amendmentRejectionVotes = pgTable("amendment_rejection_votes", {
   amendmentVoteUnique: uniqueIndex('amendment_vote_unique').on(table.amendmentId, table.userId),
 }));
 
+// ─── Demopolis: LLM Validation Results (Αξιολογήσεις LLM) ────────────────────
+// Persists the structured output of `validateProposal` so the score, the
+// freeform feedback, the per-criterion breakdown, and the routing category
+// (return / sortition / auto_approve) survive across requests. The
+// `proposals.llmScore` / `llmFeedback` columns keep the latest scalar values
+// for fast list rendering; the full history (one row per validation round)
+// lives here.
+
+export const validationResults = pgTable("validation_results", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  score: integer("score").notNull(),                    // 0-100
+  feedback: text("feedback"),                            // Λεκτικό σχόλιο LLM
+  details: jsonb("details"),                             // { structure, specificity, feasibility, completeness, clarity }
+  category: text("category").notNull(),                  // 'return' | 'sortition' | 'auto_approve'
+  validatedAt: timestamp("validated_at").notNull().defaultNow(),
+});
+
+// ─── Demopolis: Sortition Notifications ──────────────────────────────────────
+
+export const sortitionNotifications = pgTable("sortition_notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'sortition_assigned' | 'sortition_deadline' | 'sortition_reminder' | 'proposal_advanced' | 'amendment_ready' | 'vote_started'
+  title: text("title").notNull(),
+  message: text("message"),
+  sortitionBodyId: integer("sortition_body_id").references(() => sortitionBodies.id, { onDelete: "cascade" }),
+  proposalId: integer("proposal_id").references(() => proposals.id, { onDelete: "cascade" }),
+  communityId: integer("community_id").references(() => communities.id, { onDelete: "cascade" }),
+  read: boolean("read").notNull().default(false),
+  actionUrl: text("action_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
 // ─── Demopolis: Sortition Bodies (Κληρωτά Σώματα) ────────────────────────────
 
 export const sortitionBodies = pgTable("sortition_bodies", {
@@ -333,9 +356,39 @@ export const sortitionMembers = pgTable("sortition_members", {
   userId: integer("user_id").notNull().references(() => users.id),
   responded: boolean("responded").default(false),
   score: numeric("score"),                    // individual score (0-10 or 0-100)
+  feedback: text("feedback"),                  // optional written justification for the score
   scoredAt: timestamp("scored_at"),
 }, (table) => ({
   sortitionMemberUnique: uniqueIndex('sortition_member_unique').on(table.bodyId, table.userId),
+}));
+
+// ─── Demopolis: Debate Threads (Διάλογος σε νήματα) ──────────────────────────
+// Real-time threaded discussion attached to a proposal during deliberation.
+// `parentId` is null for top-level threads and points at another row for
+// replies. Active only while the proposal is in a deliberation state — the
+// route layer enforces this so historical threads survive once voting opens.
+
+export const debateThreads = pgTable("debate_threads", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  parentId: integer("parent_id").references((): any => debateThreads.id, { onDelete: "cascade" }), // null = top-level
+  content: text("content").notNull(),
+  upvotes: integer("upvotes").default(0),
+  downvotes: integer("downvotes").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const debateVotes = pgTable("debate_votes", {
+  id: serial("id").primaryKey(),
+  threadId: integer("thread_id").notNull().references(() => debateThreads.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  direction: text("direction").notNull(), // 'up' | 'down'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  // Ένας χρήστης μία ψήφος ανά νήμα.
+  debateVoteUnique: uniqueIndex('debate_vote_unique').on(table.threadId, table.userId),
 }));
 
 // ─── Demopolis: Debate Arguments (Διάλογος) ──────────────────────────────────
@@ -367,6 +420,22 @@ export const proposalSupport = pgTable("proposal_support", {
   proposalSupportUnique: uniqueIndex('proposal_support_unique').on(table.proposalId, table.userId, table.type),
 }));
 
+// ─── Demopolis: Proposal Final Ratification Votes (Επικυρωτική Ψηφοφορία) ────
+// Distinct from proposal_support: this is the binding final vote cast during
+// the `voting` lifecycle phase. One row per (proposal, user). The choice is
+// 'yes' | 'no' | 'abstain'; abstain counts toward participation but not
+// toward yes/no totals.
+export const proposalVotes = pgTable("proposal_votes", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").notNull().references(() => proposals.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  choice: text("choice").notNull(), // 'yes' | 'no' | 'abstain'
+  weight: numeric("weight").notNull().default("1"),
+  castAt: timestamp("cast_at").notNull().defaultNow(),
+}, (table) => ({
+  proposalVoteUnique: uniqueIndex('proposal_vote_unique').on(table.proposalId, table.userId),
+}));
+
 // ─── Admin Action Log ───────────────────────────────────────────────────────
 
 export const adminActions = pgTable("admin_actions", {
@@ -377,6 +446,22 @@ export const adminActions = pgTable("admin_actions", {
   targetId: integer("target_id"),
   details: jsonb("details"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+// ─── Platform Settings (Καθολικές ρυθμίσεις πλατφόρμας) ─────────────────────
+// Key/value store for instance-wide defaults that the General community can
+// vote to change (sortition body size, validation model, similarity
+// threshold, etc.). Values are stored as text — callers parse to the type
+// they expect. lastChangedBy/At record who flipped the switch and when, so
+// changes have an audit trail without a separate log table.
+
+export const platformSettings = pgTable("platform_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  lastChangedBy: integer("last_changed_by").references(() => users.id),
+  lastChangedAt: timestamp("last_changed_at").defaultNow(),
 });
 
 // ─── Job Queue ──────────────────────────────────────────────────────────────
@@ -566,8 +651,17 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
   }),
   amendments: many(proposalAmendments),
   debateArguments: many(debateArguments),
+  debateThreads: many(debateThreads),
   support: many(proposalSupport),
   sortitionBodies: many(sortitionBodies),
+  validationResults: many(validationResults),
+}));
+
+export const validationResultsRelations = relations(validationResults, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [validationResults.proposalId],
+    references: [proposals.id],
+  }),
 }));
 
 export const proposalAmendmentsRelations = relations(proposalAmendments, ({ one }) => ({
@@ -604,6 +698,54 @@ export const sortitionMembersRelations = relations(sortitionMembers, ({ one }) =
   }),
 }));
 
+export const sortitionNotificationsRelations = relations(sortitionNotifications, ({ one }) => ({
+  user: one(users, {
+    fields: [sortitionNotifications.userId],
+    references: [users.id],
+  }),
+  body: one(sortitionBodies, {
+    fields: [sortitionNotifications.sortitionBodyId],
+    references: [sortitionBodies.id],
+  }),
+  proposal: one(proposals, {
+    fields: [sortitionNotifications.proposalId],
+    references: [proposals.id],
+  }),
+  community: one(communities, {
+    fields: [sortitionNotifications.communityId],
+    references: [communities.id],
+  }),
+}));
+
+export const debateThreadsRelations = relations(debateThreads, ({ one, many }) => ({
+  proposal: one(proposals, {
+    fields: [debateThreads.proposalId],
+    references: [proposals.id],
+  }),
+  author: one(users, {
+    fields: [debateThreads.authorId],
+    references: [users.id],
+  }),
+  parent: one(debateThreads, {
+    fields: [debateThreads.parentId],
+    references: [debateThreads.id],
+    relationName: 'thread_parent',
+  }),
+  replies: many(debateThreads, { relationName: 'thread_parent' }),
+  votes: many(debateVotes),
+}));
+
+export const debateVotesRelations = relations(debateVotes, ({ one }) => ({
+  thread: one(debateThreads, {
+    fields: [debateVotes.threadId],
+    references: [debateThreads.id],
+  }),
+  user: one(users, {
+    fields: [debateVotes.userId],
+    references: [users.id],
+  }),
+}));
+
 export const debateArgumentsRelations = relations(debateArguments, ({ one }) => ({
   proposal: one(proposals, {
     fields: [debateArguments.proposalId],
@@ -622,6 +764,17 @@ export const proposalSupportRelations = relations(proposalSupport, ({ one }) => 
   }),
   user: one(users, {
     fields: [proposalSupport.userId],
+    references: [users.id],
+  }),
+}));
+
+export const proposalVotesRelations = relations(proposalVotes, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalVotes.proposalId],
+    references: [proposals.id],
+  }),
+  user: one(users, {
+    fields: [proposalVotes.userId],
     references: [users.id],
   }),
 }));
@@ -685,18 +838,25 @@ export const rankingVoteSchema = z.object({
 export const insertPollQuestionSchema = createInsertSchema(pollQuestions).omit({ id: true });
 export const insertPollAnswerSchema = createInsertSchema(pollAnswers).omit({ id: true });
 export const insertPollUserResponseSchema = createInsertSchema(pollUserResponses).omit({ id: true, createdAt: true });
-export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
-export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, joinedAt: true });
-
 // Demopolis Insert Schemas
 export const insertCommunitySchema = createInsertSchema(communities).omit({ id: true, createdAt: true });
+export const insertPlatformSettingSchema = createInsertSchema(platformSettings).omit({ id: true, lastChangedAt: true });
 export const insertCommunityMemberSchema = createInsertSchema(communityMembers).omit({ id: true, joinedAt: true });
 export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProposalAmendmentSchema = createInsertSchema(proposalAmendments).omit({ id: true, createdAt: true });
+export const insertValidationResultSchema = createInsertSchema(validationResults).omit({ id: true, validatedAt: true });
 export const insertSortitionBodySchema = createInsertSchema(sortitionBodies).omit({ id: true, createdAt: true });
 export const insertSortitionMemberSchema = createInsertSchema(sortitionMembers).omit({ id: true });
 export const insertDebateArgumentSchema = createInsertSchema(debateArguments).omit({ id: true, createdAt: true });
+export const insertDebateThreadSchema = createInsertSchema(debateThreads).omit({ id: true, createdAt: true, updatedAt: true, upvotes: true, downvotes: true });
+export const insertDebateVoteSchema = createInsertSchema(debateVotes).omit({ id: true, createdAt: true });
 export const insertProposalSupportSchema = createInsertSchema(proposalSupport).omit({ id: true, createdAt: true });
+export const insertProposalVoteSchema = createInsertSchema(proposalVotes).omit({ id: true, castAt: true });
+
+export const proposalVoteChoiceSchema = z.enum(['yes', 'no', 'abstain']);
+export const castProposalVoteSchema = z.object({
+  choice: proposalVoteChoiceSchema,
+});
 export const insertAdminActionSchema = createInsertSchema(adminActions).omit({ id: true, timestamp: true });
 
 // Poll with options schema for creation
@@ -850,28 +1010,56 @@ export type BallotVote = typeof ballotVotes.$inferSelect;
 
 // Demopolis Types
 export type Community = typeof communities.$inferSelect;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
 export type CommunityMember = typeof communityMembers.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type ProposalAmendment = typeof proposalAmendments.$inferSelect;
+export type ValidationResult = typeof validationResults.$inferSelect;
 export type SortitionBody = typeof sortitionBodies.$inferSelect;
 export type SortitionMember = typeof sortitionMembers.$inferSelect;
+export type SortitionNotification = typeof sortitionNotifications.$inferSelect;
 export type DebateArgument = typeof debateArguments.$inferSelect;
+export type DebateThread = typeof debateThreads.$inferSelect;
+export type DebateVote = typeof debateVotes.$inferSelect;
 export type ProposalSupport = typeof proposalSupport.$inferSelect;
+export type ProposalVote = typeof proposalVotes.$inferSelect;
+export type ProposalVoteChoice = z.infer<typeof proposalVoteChoiceSchema>;
 export type AdminAction = typeof adminActions.$inferSelect;
 
 // Demopolis Insert Types
 export type InsertCommunity = z.infer<typeof insertCommunitySchema>;
+export type InsertPlatformSetting = z.infer<typeof insertPlatformSettingSchema>;
 export type InsertCommunityMember = z.infer<typeof insertCommunityMemberSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertProposalAmendment = z.infer<typeof insertProposalAmendmentSchema>;
+export type InsertValidationResult = z.infer<typeof insertValidationResultSchema>;
 export type InsertSortitionBody = z.infer<typeof insertSortitionBodySchema>;
 export type InsertSortitionMember = z.infer<typeof insertSortitionMemberSchema>;
 export type InsertDebateArgument = z.infer<typeof insertDebateArgumentSchema>;
+export type InsertDebateThread = z.infer<typeof insertDebateThreadSchema>;
+export type InsertDebateVote = z.infer<typeof insertDebateVoteSchema>;
 export type InsertProposalSupport = z.infer<typeof insertProposalSupportSchema>;
+export type InsertProposalVote = z.infer<typeof insertProposalVoteSchema>;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 
-// Safe user type without sensitive fields (password, providerId, provider, etc.)
-export type SafeUser = Pick<User, 'id' | 'username' | 'name' | 'email' | 'profilePicture'>;
+// Safe user type without sensitive auth/internal fields.
+export type SafeUser = Pick<
+  User,
+  | 'id'
+  | 'username'
+  | 'name'
+  | 'email'
+  | 'profilePicture'
+  | 'latitude'
+  | 'longitude'
+  | 'locationConfirmed'
+  | 'locationVerified'
+  | 'isAdmin'
+  | 'accountStatus'
+  | 'govgrVerified'
+  | 'govgrVerifiedAt'
+>;
+
 
 // Extended types
 export type PollWithOptions = Poll & {
@@ -929,3 +1117,24 @@ export interface PollResult {
   isRanking?: boolean;
   rankingStats?: RankingStats;
 }
+
+// ─── Sortition Attendance ──────────────────────────────────────────────────
+export const sortitionAttendance = pgTable(
+  "sortition_attendance",
+  {
+    id: serial("id").primaryKey(),
+    bodyId: integer("body_id").notNull().references(() => sortitionBodies.id, { onDelete: "cascade" }),
+    memberId: integer("member_id").notNull(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull(), // 'invited' | 'accepted' | 'declined' | 'no-show' | 'completed'
+    invitedAt: timestamp("invited_at").notNull(),
+    respondedAt: timestamp("responded_at"),
+    completedAt: timestamp("completed_at"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
+export type SortitionAttendance = InferSelectModel<typeof sortitionAttendance>;
+export type InsertSortitionAttendance = InferInsertModel<typeof sortitionAttendance>;

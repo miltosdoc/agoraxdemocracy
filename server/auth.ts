@@ -1,16 +1,17 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Express, Request } from "express";
+import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
-import { db, pool } from "./db";
-import { users, User } from "@shared/schema";
+import { db } from "./db";
+import { users, User, SafeUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
+import { addMember as addCommunityMember, getGeneralCommunity } from "./utils/community-manager";
 
 // Extend session interface to include returnTo property
 declare module "express-session" {
@@ -27,6 +28,25 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
+function sanitizeUser(user: User): SafeUser {
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    email: user.email,
+    profilePicture: user.profilePicture,
+    latitude: user.latitude,
+    longitude: user.longitude,
+    locationConfirmed: user.locationConfirmed,
+    locationVerified: user.locationVerified,
+    isAdmin: user.isAdmin,
+    accountStatus: user.accountStatus,
+    govgrVerified: user.govgrVerified,
+    govgrVerifiedAt: user.govgrVerifiedAt,
+  };
+}
+
+
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -34,17 +54,16 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  // Handle bcrypt-format demo hashes (e.g. $2b$10$dummyhash)
-  if (stored.startsWith("$2b$")) {
-    return process.env.DEMO_MODE === "true";
-  }
   const [hashed, salt] = stored.split(".");
-  // Handle demo hashes (e.g. demo_hash_1) that don't use scrypt format
   if (!hashed || !salt) {
-    return process.env.DEMO_MODE === "true";
+    // Stored value isn't in the scrypt "<hex>.<salt>" format we produce.
+    // This includes legacy/demo placeholder hashes (e.g. "$2b$10$demo").
+    // Fail closed — never accept a password against a malformed hash, regardless of env.
+    return false;
   }
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  if (hashedBuf.length !== suppliedBuf.length) return false;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
@@ -54,6 +73,7 @@ export function setupAuth(app: Express) {
     throw new Error("SESSION_SECRET is required");
   }
 
+  const isProduction = process.env.APP_ENV === "production";
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
     resave: false,
@@ -61,7 +81,10 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    }
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProduction,
+    },
   };
 
   app.set("trust proxy", 1);
@@ -71,100 +94,112 @@ export function setupAuth(app: Express) {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: process.env.DEMO_MODE === "true" ? 999 : 10,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.method === "GET",
+    skip: (req) => req.method === "GET" || process.env.DEMO_MODE === "true",
   });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !user.password || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
+        if (!user) return done(null, false);
+
+        // Demo mode: allow login by username alone for seeded demo accounts.
+        // APP_ENV=production blocks DEMO_MODE in config.ts, so this branch is
+        // unreachable in production by construction.
+        if (process.env.DEMO_MODE === "true") {
           return done(null, user);
         }
+
+        if (!user.password || !(await comparePasswords(password, user.password))) {
+          return done(null, false);
+        }
+        return done(null, user);
       } catch (error) {
         return done(error);
       }
     }),
   );
 
-  // Google OAuth Strategy
-  passport.use(
-    new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
-      scope: ["profile", "email"],
-      proxy: true // This helps with proxied requests
-    },
-      async (accessToken, refreshToken, profile, done) => {
-        try {
-          // First check if user exists with this Google ID
-          let user = await storage.getUserByProviderId(profile.id, 'google');
+  // Google OAuth Strategy — only register when credentials are configured
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(
+      new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
+        scope: ["profile", "email"],
+        proxy: true // This helps with proxied requests
+      },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            // First check if user exists with this Google ID
+            let user = await storage.getUserByProviderId(profile.id, 'google');
 
-          if (user) {
-            // User already exists, return it
-            return done(null, user);
-          }
-
-          // Check if user exists with this email
-          if (profile.emails && profile.emails.length > 0) {
-            const email = profile.emails[0].value;
-            const existingUser = await storage.getUserByEmail(email);
-
-            if (existingUser) {
-              // Update existing user with Google provider details
-              const [updatedUser] = await db
-                .update(users)
-                .set({
-                  providerId: profile.id,
-                  provider: 'google',
-                  profilePicture: profile.photos?.[0]?.value || null
-                })
-                .where(eq(users.id, existingUser.id))
-                .returning();
-
-              return done(null, updatedUser);
+            if (user) {
+              // User already exists, return it
+              return done(null, user);
             }
+
+            // Check if user exists with this email
+            if (profile.emails && profile.emails.length > 0) {
+              const email = profile.emails[0].value;
+              const existingUser = await storage.getUserByEmail(email);
+
+              if (existingUser) {
+                // Update existing user with Google provider details
+                const [updatedUser] = await db
+                  .update(users)
+                  .set({
+                    providerId: profile.id,
+                    provider: 'google',
+                    profilePicture: profile.photos?.[0]?.value || null
+                  })
+                  .where(eq(users.id, existingUser.id))
+                  .returning();
+
+                return done(null, updatedUser);
+              }
+            }
+
+            // Create a new user with Google profile info
+            const name = profile.displayName || 'User';
+            const email = profile.emails?.[0]?.value || `${profile.id}@gmail.com`;
+
+            // Generate a unique username
+            const baseUsername = (profile.displayName || 'user').toLowerCase().replace(/\s+/g, '');
+            let username = baseUsername;
+            let attempt = 1;
+
+            // Find a unique username
+            while (true) {
+              const existingUser = await storage.getUserByUsername(username);
+              if (!existingUser) break;
+              username = `${baseUsername}${attempt}`;
+              attempt++;
+            }
+
+            // Create the new user
+            const newUser = await storage.createUser({
+              username,
+              name,
+              email,
+              provider: 'google',
+              providerId: profile.id,
+              profilePicture: profile.photos?.[0]?.value || null
+            });
+
+            return done(null, newUser);
+          } catch (error) {
+            return done(error);
           }
-
-          // Create a new user with Google profile info
-          const name = profile.displayName || 'User';
-          const email = profile.emails?.[0]?.value || `${profile.id}@gmail.com`;
-
-          // Generate a unique username
-          const baseUsername = (profile.displayName || 'user').toLowerCase().replace(/\s+/g, '');
-          let username = baseUsername;
-          let attempt = 1;
-
-          // Find a unique username
-          while (true) {
-            const existingUser = await storage.getUserByUsername(username);
-            if (!existingUser) break;
-            username = `${baseUsername}${attempt}`;
-            attempt++;
-          }
-
-          // Create the new user
-          const newUser = await storage.createUser({
-            username,
-            name,
-            email,
-            provider: 'google',
-            providerId: profile.id,
-            profilePicture: profile.photos?.[0]?.value || null
-          });
-
-          return done(null, newUser);
-        } catch (error) {
-          return done(error);
-        }
-      })
-  );
+        })
+    );
+  } else {
+    console.log('[auth] Google OAuth skipped — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set');
+  }
 
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
@@ -221,15 +256,27 @@ export function setupAuth(app: Express) {
         userAgent: req.headers['user-agent'] || null,
       });
 
+      // Auto-enrol new users in the General community so they have at least
+      // one place to deliberate from day one. Best-effort: a missing General
+      // community (e.g. fresh install before seed) must not block signup.
+      try {
+        const general = await getGeneralCommunity();
+        if (general) {
+          await addCommunityMember(general.id, user.id);
+        }
+      } catch (enrolErr) {
+        console.error('General community auto-enrollment failed:', enrolErr);
+      }
+
       req.login(user, (err) => {
         if (err) return next(err);
 
         // Also store in session for redundancy
         req.session.returnTo = returnTo;
 
-        // Include returnTo in the response
+        // Include returnTo in the response without leaking sensitive user fields.
         res.status(201).json({
-          ...user,
+          ...sanitizeUser(user),
           returnTo
         });
       });
@@ -279,9 +326,9 @@ export function setupAuth(app: Express) {
         // Store the redirect URL in the session as well, for redundancy
         req.session.returnTo = returnTo;
 
-        // Include returnTo in the response so client can redirect
+        // Include returnTo in the response so client can redirect, without leaking sensitive user fields.
         return res.status(200).json({
-          ...user,
+          ...sanitizeUser(user),
           returnTo: returnTo
         });
       });
@@ -297,7 +344,7 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    res.json(sanitizeUser(req.user as User));
   });
 
   // Delete user account endpoint

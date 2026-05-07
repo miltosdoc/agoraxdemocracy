@@ -11,23 +11,35 @@
  * This ensures proposals follow the deliberation cycle strictly.
  */
 
-import type { Proposal, InsertProposal } from '@shared/schema';
+import type { Proposal } from '@shared/schema';
 import type { IStorage } from '../storage';
-import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore } from './job-queue';
-import { validateProposal } from './proposal-structuring';
-import { createSortitionBody } from './sortition';
+import {
+  PROPOSAL_STATE_DESCRIPTIONS,
+  VALID_PROPOSAL_TRANSITIONS,
+  assertProposalState,
+  canTransitionProposal,
+  getNextProposalStates,
+  isTerminalProposalState,
+  type ProposalState,
+} from '@shared/proposal-lifecycle';
+import { enqueueStructureProposal, enqueueNotification, enqueueCreateSortition, enqueueRecalculateScore, enqueueSortitionTimeout } from './job-queue';
+import { completeSortitionBody } from './sortition-timeout';
+import { storage } from '../storage';
+// Lazy import — db throws if DATABASE_URL is unset (e.g. CI unit tests).
+// Only transitionToValidation() needs it, so defer until called.
+let getDb: () => typeof import('../db')['db'];
+function database() {
+  if (!getDb) {
+    const dbMod = require('../db');
+    getDb = () => dbMod.db;
+  }
+  return getDb();
+}
+import { proposals, validationResults } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { validateProposal, type LLMValidationResult } from './llm-validation';
 
-// ─── State Definitions ──────────────────────────────────────────────────────
-
-export type ProposalState = 
-  | 'draft'                // Author is still editing
-  | 'review'               // Submitted for LLM structuring + validation
-  | 'author_review'        // Author reviews amendments, accepts/rejects each
-  | 'community_signal'     // Community votes ⬆️/⬇️ on rejected amendments
-  | 'sortition_synthesis'  // Sortition body composes final text
-  | 'voting'               // Final vote — community ratifies the sortition's version
-  | 'decided'              // Vote completed, outcome recorded
-  | 'archived';            // Closed without reaching decision
+export type { ProposalState } from '@shared/proposal-lifecycle';
 
 // ─── Valid Transitions ──────────────────────────────────────────────────────
 // 
@@ -50,16 +62,7 @@ export type ProposalState =
 // Note: No backward transitions from voting → sortition_synthesis.
 // Once voting starts, the proposal is locked.
 
-const VALID_TRANSITIONS: Record<ProposalState, ProposalState[]> = {
-  draft: ['review', 'archived'],
-  review: ['author_review', 'draft', 'archived'],
-  author_review: ['community_signal', 'archived'],
-  community_signal: ['sortition_synthesis', 'voting', 'archived'],
-  sortition_synthesis: ['voting', 'author_review', 'archived'],
-  voting: ['decided', 'archived'],
-  decided: [],  // Terminal state — no transitions out
-  archived: [], // Terminal state — no transitions out
-};
+const VALID_TRANSITIONS = VALID_PROPOSAL_TRANSITIONS;
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -67,14 +70,14 @@ const VALID_TRANSITIONS: Record<ProposalState, ProposalState[]> = {
  * Check if a state transition is valid.
  */
 export function canTransition(from: ProposalState, to: ProposalState): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+  return canTransitionProposal(from, to);
 }
 
 /**
  * Get all valid next states from the current state.
  */
 export function getNextStates(current: ProposalState): ProposalState[] {
-  return VALID_TRANSITIONS[current] || [];
+  return [...getNextProposalStates(current)];
 }
 
 /**
@@ -88,42 +91,16 @@ export async function transitionProposal(
   newState: ProposalState,
   storage: IStorage,
 ): Promise<Proposal> {
-  if (!canTransition(proposal.status as ProposalState, newState)) {
+  const currentState = assertProposalState(proposal.status);
+
+  if (!canTransition(currentState, newState)) {
     throw new Error(
       `Invalid transition: ${proposal.status} → ${newState}. ` +
-      `Valid transitions from ${proposal.status}: ${getNextStates(proposal.status as ProposalState).join(', ')}`
+      `Valid transitions from ${proposal.status}: ${getNextStates(currentState).join(', ')}`
     );
   }
 
-  const updates: Partial<Proposal> = {
-    status: newState,
-    updatedAt: new Date(),
-  };
-
-  // Set state-specific timestamps
-  if (newState === 'review') {
-    updates.reviewStartedAt = new Date();
-  }
-  if (newState === 'author_review') {
-    updates.authorReviewStartedAt = new Date();
-  }
-  if (newState === 'community_signal') {
-    updates.communitySignalStartedAt = new Date();
-  }
-  if (newState === 'sortition_synthesis') {
-    updates.sortitionSynthesisStartedAt = new Date();
-  }
-  if (newState === 'voting') {
-    updates.votingStartedAt = new Date();
-  }
-  if (newState === 'decided') {
-    updates.decidedAt = new Date();
-  }
-  if (newState === 'archived') {
-    updates.archivedAt = new Date();
-  }
-
-  return await storage.updateProposal(proposal.id, updates);
+  return await storage.updateProposal(proposal.id, { status: newState });
 }
 
 /**
@@ -131,24 +108,14 @@ export async function transitionProposal(
  * Used for UI display and notifications.
  */
 export function getStateDescription(state: ProposalState): string {
-  const descriptions: Record<ProposalState, string> = {
-    draft: 'Under author revision',
-    review: 'Being validated by LLM',
-    author_review: 'Author reviewing amendments',
-    community_signal: 'Community voting on rejected amendments',
-    sortition_synthesis: 'Sortition body composing final text',
-    voting: 'Final ratification vote in progress',
-    decided: 'Decision reached',
-    archived: 'Closed without decision',
-  };
-  return descriptions[state];
+  return PROPOSAL_STATE_DESCRIPTIONS[state];
 }
 
 /**
  * Check if a proposal is in a terminal state (no further transitions possible).
  */
 export function isTerminalState(state: ProposalState): boolean {
-  return state === 'decided' || state === 'archived';
+  return isTerminalProposalState(state);
 }
 
 /**
@@ -238,7 +205,7 @@ export async function triggerSideEffects(
     
     case 'community_signal->sortition_synthesis':
       // Create sortition body for text synthesis
-      await enqueueCreateSortition(proposal.communityId, 12);
+      await enqueueCreateSortition(proposal.communityId, 12, proposal.id, 'text_synthesis');
       break;
     
     case 'sortition_synthesis->voting':
@@ -252,4 +219,219 @@ export async function triggerSideEffects(
   }
 }
 
+/**
+ * Handle sortition body completion.
+ * 
+ * Called when a sortition body times out or all members have responded.
+ * Computes the average score and transitions the proposal accordingly:
+ * - score <= 33: return to author_review (needs revision)
+ * - score 34-100: advance to voting (approved)
+ * - null (no scores): archive the proposal
+ * 
+ * @param bodyId - The sortition body ID
+ * @param proposalId - The linked proposal ID
+ */
+export async function handleSortitionCompletion(
+  bodyId: number,
+  proposalId: number,
+): Promise<void> {
+  // Complete the body and get the average score
+  const average = await completeSortitionBody(bodyId);
+  
+  // Get the proposal
+  const proposal = await storage.getProposal(proposalId);
+  if (!proposal) {
+    console.error(`Proposal ${proposalId} not found for sortition body ${bodyId}`);
+    return;
+  }
+  
+  // Determine target state based on score
+  let targetState: ProposalState;
+  if (average === null) {
+    // No scores submitted — archive
+    targetState = 'archived';
+  } else if (average <= 33) {
+    // Low score — return to author for revision
+    targetState = 'author_review';
+  } else {
+    // Good score — advance to voting
+    targetState = 'voting';
+  }
+  
+  // Transition the proposal
+  const currentState = assertProposalState(proposal.status);
+  if (!canTransitionProposal(currentState, targetState)) {
+    console.error(
+      `Cannot transition proposal ${proposalId} from ${currentState} to ${targetState}. ` +
+      `Average score: ${average}. Valid transitions: ${getNextProposalStates(currentState).join(', ')}`
+    );
+    return;
+  }
+  
+  await storage.updateProposal(proposalId, { status: targetState });
+  
+  // Trigger side effects for the transition
+  await triggerSideEffects(currentState, targetState, { ...proposal, status: targetState });
+  
+  // Notify author
+  const reason = average === null 
+    ? 'No scores were submitted by the sortition body' 
+    : average <= 33 
+      ? `Low average score (${average.toFixed(1)}/100). Please revise and resubmit.`
+      : `Approved with average score ${average.toFixed(1)}/100. Moving to voting phase.`;
+  
+  await enqueueNotification(
+    proposal.authorId,
+    'sortition_completed',
+    `Your proposal has been ${targetState === 'voting' ? 'approved' : targetState === 'archived' ? 'archived' : 'returned for revision'}: ${reason}`,
+    { proposalId, bodyId, average, targetState },
+  );
+  
+  console.log(
+    `Sortition body ${bodyId} completed for proposal ${proposalId}: ` +
+    `avg=${average ?? 'null'}, transition=${currentState}→${targetState}`
+  );
+}
+
 export { VALID_TRANSITIONS };
+
+// ─── LLM Validation Transition ──────────────────────────────────────────────
+
+export interface ValidationTransitionOutcome {
+  proposalId: number;
+  validationResultId: number;
+  fromState: ProposalState;
+  toState: ProposalState;
+  category: LLMValidationResult['category'];
+  score: number;
+}
+
+/**
+ * Map a tiered LLM validation outcome to the appropriate canonical state.
+ *
+ * - `return`     → `draft`        (low confidence: send back for author revision)
+ * - `sortition`  → `author_review` (mid confidence: open deliberation, sortition body
+ *                                   created as a side effect for additional scoring)
+ * - `auto_approve` → `voting`     (high confidence: skip deliberation, ratify directly)
+ */
+function targetStateFor(category: LLMValidationResult['category']): ProposalState {
+  switch (category) {
+    case 'return':
+      return 'draft';
+    case 'sortition':
+      return 'author_review';
+    case 'auto_approve':
+      return 'voting';
+  }
+}
+
+/**
+ * Run LLM validation on a proposal and route it to the next canonical state.
+ *
+ * Persists the full structured result to `validation_results` (history), and
+ * mirrors the latest score/feedback onto the proposal row for fast list
+ * rendering. Side effects:
+ *  - `return`       → notifies the author that their proposal was returned
+ *  - `sortition`    → enqueues a sortition body for proposal scoring
+ *  - `auto_approve` → recalculates the community democracy score
+ *
+ * The proposal must currently be in the `review` state — calling this from
+ * any other state throws to keep the lifecycle honest.
+ */
+export async function transitionToValidation(proposalId: number): Promise<ValidationTransitionOutcome> {
+  const proposal = await storage.getProposal(proposalId);
+  if (!proposal) {
+    throw new Error(`transitionToValidation: proposal ${proposalId} not found`);
+  }
+
+  const fromState = assertProposalState(proposal.status);
+  if (fromState !== 'review') {
+    throw new Error(
+      `transitionToValidation: proposal ${proposalId} must be in 'review' state ` +
+      `(current: ${fromState})`
+    );
+  }
+
+  const result = await validateProposal(proposal.question, proposal.solution);
+  const toState = targetStateFor(result.category);
+
+  if (!canTransitionProposal(fromState, toState)) {
+    throw new Error(
+      `transitionToValidation: cannot route ${fromState} → ${toState} ` +
+      `for category ${result.category}`
+    );
+  }
+
+  // Persist the full structured result for history and audit.
+  const db = database();
+  const [persisted] = await db
+    .insert(validationResults)
+    .values({
+      proposalId,
+      score: Math.round(result.score),
+      feedback: result.feedback,
+      details: result.details,
+      category: result.category,
+    })
+    .returning();
+
+  // Mirror the latest scalar score onto the proposal row + advance state.
+  await db
+    .update(proposals)
+    .set({
+      status: toState,
+      llmScore: String(result.score),
+      llmFeedback: result.feedback,
+      llmValidatedAt: new Date(),
+      llmValidationRound: (proposal.llmValidationRound ?? 0) + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(proposals.id, proposalId));
+
+  // Side effects per category. We do not reuse `triggerSideEffects` here
+  // because the natural transition map (e.g. `review->author_review`) already
+  // sends a generic "amendments ready" notification, which would be
+  // misleading for a freshly-validated proposal.
+  switch (result.category) {
+    case 'return':
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_returned',
+        `Η πρόταση επιστράφηκε για αναθεώρηση (βαθμός ${Math.round(result.score)}/100): ${result.feedback}`,
+        { proposalId, score: result.score, feedback: result.feedback },
+      );
+      break;
+    case 'sortition':
+      await enqueueCreateSortition(proposal.communityId, 12, proposalId, 'scoring');
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_validated',
+        `Η πρόταση πέρασε στην κοινοτική διαβούλευση (βαθμός ${Math.round(result.score)}/100).`,
+        { proposalId, score: result.score },
+      );
+      break;
+    case 'auto_approve':
+      await enqueueRecalculateScore(proposal.communityId);
+      await enqueueNotification(
+        proposal.authorId,
+        'proposal_auto_approved',
+        `Η πρόταση εγκρίθηκε αυτόματα (βαθμός ${Math.round(result.score)}/100) και πέρασε σε ψηφοφορία.`,
+        { proposalId, score: result.score },
+      );
+      break;
+  }
+
+  console.log(
+    `[validation] proposal ${proposalId}: score=${result.score} ` +
+    `category=${result.category} transition=${fromState}→${toState}`
+  );
+
+  return {
+    proposalId,
+    validationResultId: persisted.id,
+    fromState,
+    toState,
+    category: result.category,
+    score: result.score,
+  };
+}
