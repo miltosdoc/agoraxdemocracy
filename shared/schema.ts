@@ -200,8 +200,8 @@ export const communities = pgTable("communities", {
   amendmentThreshold: numeric("amendment_threshold").default("0.5"), // upvote ratio to flag rejected amendments
   maxAmendmentsPerProposal: integer("max_amendments_per_proposal").default(-1), // -1 = unlimited
 
-  // Merge tracking
-  mergedInto: integer("merged_into").references(() => communities.id),
+  // Merge tracking (self-reference — defined without FK to avoid circular init)
+  mergedInto: integer("merged_into"),
 
   // Verification settings
   requireGovgrVerification: boolean("require_govgr_verification").default(false),
