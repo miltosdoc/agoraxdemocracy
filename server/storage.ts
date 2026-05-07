@@ -225,6 +225,15 @@ export interface IStorage {
   updateMemberRole(communityId: number, userId: number, role: string): Promise<CommunityMember>;
   isCommunityMember(communityId: number, userId: number): Promise<boolean>;
   getCommunityMemberRole(communityId: number, userId: number): Promise<string | undefined>;
+  mergeCommunities(sourceId: number, targetId: number): Promise<{
+    success: boolean;
+    sourceId: number;
+    targetId: number;
+    membersTransferred: number;
+    proposalsTransferred: number;
+    errors: string[];
+  }>;
+  getMergedCommunities(targetId: number): Promise<Community[]>;
 
   // ─── Demopolis: Proposal methods ───────────────────────────────────────────
   createProposal(proposal: InsertProposal): Promise<Proposal>;
@@ -2600,6 +2609,23 @@ export class DatabaseStorage implements IStorage {
       .from(communityMembers)
       .where(and(eq(communityMembers.communityId, communityId), eq(communityMembers.userId, userId)));
     return member?.role;
+  }
+
+  async mergeCommunities(sourceId: number, targetId: number): Promise<{
+    success: boolean;
+    sourceId: number;
+    targetId: number;
+    membersTransferred: number;
+    proposalsTransferred: number;
+    errors: string[];
+  }> {
+    const { mergeCommunities: doMerge } = await import('./utils/community-manager');
+    return await doMerge(sourceId, targetId);
+  }
+
+  async getMergedCommunities(targetId: number): Promise<Community[]> {
+    const { getMergedIntoCommunity } = await import('./utils/community-manager');
+    return await getMergedIntoCommunity(targetId);
   }
 
   // ─── Demopolis: Proposal methods ───────────────────────────────────────────

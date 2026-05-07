@@ -329,6 +329,17 @@ const el: TranslationDictionary = {
   'community.sortition_bodies': 'Σώματα Κλήρωσης',
   'community.no_sortition_bodies': 'Δεν υπάρχουν ενεργά σώματα κλήρωσης',
   'community.members_coming_soon': 'Λίστα μελών σύντομα',
+  'community.tab_merge': 'Ενσωμάτωση',
+  'community.merge_title': 'Ενσωμάτωση Κοινοτήτων',
+  'community.merge_description': 'Ενσωματώστε αυτή την κοινότητα σε άλλη. Τα μέλη και οι προτάσεις θα μεταφερθούν.',
+  'community.already_merged': 'Αυτή η κοινότητα έχει ήδη ενσωματωθεί σε άλλη κοινότητα.',
+  'community.select_target': 'Στόχος κοινότητας:',
+  'community.choose_community': 'Επιλέξτε κοινότητα...',
+  'community.merge_members': 'Τα μέλη θα μεταφερθούν (τα διπλοτυπία επιλύονται)',
+  'community.merge_proposals': 'Οι προτάσεις θα ανατεθούν ξανά',
+  'community.merge_archived': 'Αυτή η κοινότητα θα αρχειοθετηθεί',
+  'community.merge_button': 'Ενσωμάτωση Κοινοτήτων',
+  'community.merge_success': 'Οι κοινότητες ενσωματώθηκαν επιτυχώς!',
 
   // Proposal Form
   'proposal.submit_title': 'Υπόβαλε Πρόταση',

@@ -329,6 +329,17 @@ const en: TranslationDictionary = {
   'community.sortition_bodies': 'Sortition Bodies',
   'community.no_sortition_bodies': 'No active sortition bodies',
   'community.members_coming_soon': 'Member list coming soon',
+  'community.tab_merge': 'Merge',
+  'community.merge_title': 'Merge Communities',
+  'community.merge_description': 'Merge this community into another. Members and proposals will be transferred.',
+  'community.already_merged': 'This community has already been merged into another community.',
+  'community.select_target': 'Target community:',
+  'community.choose_community': 'Choose a community...',
+  'community.merge_members': 'Members will be transferred (duplicates resolved)',
+  'community.merge_proposals': 'Proposals will be reassigned',
+  'community.merge_archived': 'This community will be archived',
+  'community.merge_button': 'Merge Communities',
+  'community.merge_success': 'Communities merged successfully!',
 
   // Proposal Form
   'proposal.submit_title': 'Submit Proposal',

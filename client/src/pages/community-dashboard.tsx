@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Users, FileText, Vote, Shield } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Vote, Shield, Merge } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useTranslation } from '@/hooks/use-translation';
 
@@ -25,6 +25,7 @@ interface Community {
   governanceModel: string;
   memberCount: number;
   democracyScore: number;
+  mergedInto: number | null;
 }
 
 interface Proposal {
@@ -43,19 +44,47 @@ export default function CommunityDashboardPage() {
   const [community, setCommunity] = useState<Community | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [targetCommunityId, setTargetCommunityId] = useState<number | null>(null);
+  const [allCommunities, setAllCommunities] = useState<Community[]>([]);
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [mergeSuccess, setMergeSuccess] = useState(false);
 
-  useEffect(() => {
+ useEffect(() => {
     if (!communityId) return;
-    
+
     Promise.all([
       api.get(`/api/communities/${communityId}`),
       api.get(`/api/communities/${communityId}/proposals`),
-    ]).then(([commResp, propResp]) => {
-      setCommunity(commResp.data);
-      setProposals(propResp.data);
+      api.get(`/api/communities`),
+    ]).then(([commResp, propResp, allResp]) => {
+      setCommunity(commResp.data as Community);
+      setProposals(propResp.data as Proposal[]);
+      setAllCommunities(allResp.data as Community[]);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [communityId]);
+
+  const handleMerge = async () => {
+    if (!targetCommunityId || !communityId) return;
+    setMerging(true);
+    setMergeError(null);
+    try {
+      const resp = await api.post(`/api/communities/${communityId}/merge`, {
+        targetCommunityId,
+      });
+      setMergeSuccess(true);
+      setTimeout(() => {
+        setShowMergeDialog(false);
+        setMergeSuccess(false);
+        window.location.href = `/communities/${targetCommunityId}`;
+      }, 2000);
+    } catch (error: any) {
+      setMergeError(error.response?.data?.message || 'Merge failed');
+    }
+    setMerging(false);
+  };
 
   if (loading) {
     return (
@@ -129,6 +158,7 @@ export default function CommunityDashboardPage() {
           <TabsTrigger value="proposals">{t('community.tab_proposals')}</TabsTrigger>
           <TabsTrigger value="sortition">{t('community.tab_sortition')}</TabsTrigger>
           <TabsTrigger value="members">{t('community.tab_members')}</TabsTrigger>
+          <TabsTrigger value="merge">{t('community.tab_merge')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="proposals">
@@ -182,6 +212,61 @@ export default function CommunityDashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">{t('community.members_coming_soon')}</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="merge">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Merge className="w-5 h-5" />
+                {t('community.merge_title')}
+              </CardTitle>
+              <CardDescription>{t('community.merge_description')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {community?.mergedInto ? (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm">{t('community.already_merged')}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{t('community.select_target')}</span>
+                    <select
+                      value={targetCommunityId || ''}
+                      onChange={(e) => setTargetCommunityId(parseInt(e.target.value))}
+                      className="border rounded px-3 py-1 text-sm"
+                    >
+                      <option value="">{t('community.choose_community')}</option>
+                      {allCommunities
+                        .filter(c => c.id !== community?.id && !c.mergedInto)
+                        .map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>• {t('community.merge_members')}</p>
+                    <p>• {t('community.merge_proposals')}</p>
+                    <p>• {t('community.merge_archived')}</p>
+                  </div>
+                  <Button
+                    onClick={handleMerge}
+                    disabled={!targetCommunityId || merging}
+                    className="w-full"
+                  >
+                    {merging ? t('common.loading') : t('community.merge_button')}
+                  </Button>
+                  {mergeError && (
+                    <p className="text-sm text-destructive">{mergeError}</p>
+                  )}
+                  {mergeSuccess && (
+                    <p className="text-sm text-green-600">{t('community.merge_success')}</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -1953,6 +1953,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Merge two communities (admin/founder only)
+  app.post("/api/communities/:id/merge", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      // Check if user is admin or founder of the source community
+      const role = await storage.getCommunityMemberRole(communityId, userId);
+      if (role !== 'admin' && role !== 'founder') {
+        return res.status(403).json({ message: "Only admin or founder can merge communities" });
+      }
+
+      const { targetCommunityId } = req.body;
+
+      if (!targetCommunityId || typeof targetCommunityId !== 'number') {
+        return res.status(400).json({ message: "targetCommunityId is required and must be a number" });
+      }
+
+      // Validate target community exists
+      const target = await storage.getCommunity(targetCommunityId);
+      if (!target) {
+        return res.status(404).json({ message: "Target community not found" });
+      }
+
+      // Perform merge
+      const result = await storage.mergeCommunities(communityId, targetCommunityId);
+
+      if (!result.success) {
+        return res.status(400).json({
+          message: "Merge failed",
+          errors: result.errors,
+        });
+      }
+
+      res.json({
+        message: "Communities merged successfully",
+        result: {
+          sourceId: result.sourceId,
+          targetId: result.targetId,
+          membersTransferred: result.membersTransferred,
+          proposalsTransferred: result.proposalsTransferred,
+        },
+      });
+    } catch (error) {
+      console.error("Error merging communities:", error);
+      res.status(500).json({ message: "Failed to merge communities" });
+    }
+  });
+
+  // Get communities merged into a target community
+  app.get("/api/communities/:id/merged", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.id);
+      const merged = await storage.getMergedCommunities(communityId);
+      res.json(merged);
+    } catch (error) {
+      console.error("Error fetching merged communities:", error);
+      res.status(500).json({ message: "Failed to fetch merged communities" });
+    }
+  });
+
   // List proposals for a community
   app.get("/api/communities/:communityId/proposals", async (req, res) => {
     try {
