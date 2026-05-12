@@ -3,6 +3,12 @@
  *
  * Handles ballot routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { ballotUpload } from '../utils/ballot-client';
+import { requireAuth } from '../auth';
+
 export function registerBallotRoutes(app: Express): void {
   app.post("/api/ballot/token", requireAuth, async (req, res) => {
     try {

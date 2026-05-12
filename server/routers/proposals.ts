@@ -3,6 +3,23 @@
  *
  * Handles proposals routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import { db } from '../db';
+import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
+import {
+  sortitionMembers,
+  sortitionBodies,
+  sortitionNotifications,
+  communityMembers,
+  proposals,
+  castProposalVoteSchema,
+} from '@shared/schema';
+import { INITIAL_PROPOSAL_STATE, isProposalState } from '@shared/proposal-lifecycle';
+import { createServer, type Server } from 'http';
+
 export function registerProposalsRoutes(app: Express): void {
   app.get("/api/proposals", async (req, res) => {
     try {

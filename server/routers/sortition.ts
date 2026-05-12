@@ -3,6 +3,20 @@
  *
  * Handles sortition routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
+import {
+  sortitionMembers,
+  sortitionBodies,
+  sortitionNotifications,
+  communityMembers,
+  proposals,
+  castProposalVoteSchema,
+} from '@shared/schema';
+
 export function registerSortitionRoutes(app: Express): void {
   app.get("/api/sortition/my-bodies", requireAuth, async (req: any, res) => {
     try {

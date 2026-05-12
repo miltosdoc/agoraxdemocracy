@@ -3,6 +3,11 @@
  *
  * Handles admin routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAdmin } from '../auth';
+
 export function registerAdminRoutes(app: Express): void {
   app.get("/api/admin/accounts", requireAdmin, async (req, res) => {
     try {

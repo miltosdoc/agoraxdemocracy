@@ -3,6 +3,12 @@
  *
  * Handles users routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import { requireAdmin } from '../auth';
+
 export function registerUsersRoutes(app: Express): void {
   app.patch("/api/user/verify-location", requireAuth, async (req, res) => {
     try {

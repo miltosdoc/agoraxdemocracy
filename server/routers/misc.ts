@@ -3,6 +3,12 @@
  *
  * Handles misc routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import { db } from '../db';
+
 export function registerMiscRoutes(app: Express): void {
   app.get("/polls/:id", async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';

@@ -3,6 +3,11 @@
  *
  * Handles platform routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+
 export function registerPlatformRoutes(app: Express): void {
   // Get platform settings
   app.get("/api/platform-settings", requireAuth, async (req: Request, res: Response) => {

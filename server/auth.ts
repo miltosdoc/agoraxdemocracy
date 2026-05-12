@@ -73,6 +73,16 @@ async function comparePasswords(supplied: string, stored: string) {
  * Require authentication middleware.
  * In demo mode, creates a fake user for testing.
  */
+/**
+ * Require admin authentication middleware.
+ */
+export const requireAdmin = (req: any, res: any, next: any) => {
+  if (req.isAuthenticated() && req.user.isAdmin) {
+    return next();
+  }
+  res.status(403).json({ message: 'Admin access required' });
+};
+
 export const requireAuth = (req: any, res: any, next: any) => {
   // Demo mode: bypass auth, use user 3 (maria) as demo user
   if (process.env.DEMO_MODE === 'true') {

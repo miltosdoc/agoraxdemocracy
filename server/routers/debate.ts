@@ -3,6 +3,12 @@
  *
  * Handles debate routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import * as debateService from '../utils/debate';
+
 export function registerDebateRoutes(app: Express): void {
   app.get("/api/proposals/:id/arguments", async (req, res) => {
     try {

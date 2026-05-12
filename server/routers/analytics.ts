@@ -3,6 +3,10 @@
  *
  * Handles analytics routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+
 export function registerAnalyticsRoutes(app: Express): void {
   app.get("/api/analytics/overview", async (req, res) => {
     try {

@@ -3,6 +3,18 @@
  *
  * Handles amendments routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import {
+  authorReviewAmendment,
+  castRejectionVote,
+  calculateCommunitySignals,
+  buildSortitionInput,
+  saveFinalText,
+} from '../utils/amendment-processor';
+
 export function registerAmendmentsRoutes(app: Express): void {
   app.get("/api/proposals/:id/amendments", async (req, res) => {
     try {

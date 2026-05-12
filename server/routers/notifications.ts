@@ -3,7 +3,17 @@
  *
  * Handles notifications routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { requireAuth } from '../auth';
+import { db } from '../db';
+import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
+import { z } from 'zod';
+import { sortitionNotifications } from '@shared/schema';
+
 export function registerNotificationsRoutes(app: Express): void {
+
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;

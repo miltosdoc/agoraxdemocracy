@@ -3,6 +3,23 @@
  *
  * Handles communities routes.
  */
+
+import type { Express, Request, Response } from 'express';
+import { storage } from '../storage';
+import { db } from '../db';
+import { requireAuth } from '../auth';
+import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
+import {
+  sortitionMembers,
+  sortitionBodies,
+  sortitionNotifications,
+  communityMembers,
+  proposals,
+  castProposalVoteSchema,
+} from '@shared/schema';
+import { sanitizeCommunityCreateInput, sanitizeCommunityUpdateInput } from '@shared/community-settings';
+import { buildCommunitySummary } from '@shared/community-summary';
+
 export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities", async (req, res) => {
     try {
