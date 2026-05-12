@@ -81,7 +81,6 @@ export function registerBallotRoutes(app: Express): void {
       if (result.success) {
         // Vote was recorded in Python service
         // Optionally sync to main DB for unified reporting
-        console.log(`Ballot vote recorded for poll ${pollId}: ${result.vote_choice}`);
         return res.status(201).json({
           success: true,
           message: "Η ψήφος σας καταχωρήθηκε επιτυχώς μέσω Gov.gr",

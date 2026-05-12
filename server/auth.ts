@@ -241,7 +241,6 @@ export function setupAuth(app: Express) {
         })
     );
   } else {
-    console.log('[auth] Google OAuth skipped — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set');
   }
 
   passport.serializeUser((user, done) => done(null, user.id));

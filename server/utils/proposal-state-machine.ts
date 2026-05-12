@@ -287,10 +287,6 @@ export async function handleSortitionCompletion(
     { proposalId, bodyId, average, targetState },
   );
   
-  console.log(
-    `Sortition body ${bodyId} completed for proposal ${proposalId}: ` +
-    `avg=${average ?? 'null'}, transition=${currentState}→${targetState}`
-  );
 }
 
 export { VALID_TRANSITIONS };
@@ -421,10 +417,6 @@ export async function transitionToValidation(proposalId: number): Promise<Valida
       break;
   }
 
-  console.log(
-    `[validation] proposal ${proposalId}: score=${result.score} ` +
-    `category=${result.category} transition=${fromState}→${toState}`
-  );
 
   return {
     proposalId,

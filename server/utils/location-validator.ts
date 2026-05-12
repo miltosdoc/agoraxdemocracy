@@ -11,32 +11,14 @@ import { Poll, User } from "../../shared/schema";
  * @returns boolean indicating if the user is eligible, and a message explaining why if not
  */
 export function isUserEligibleForPoll(poll: Poll, user: User): { isEligible: boolean; message?: string } {
-  console.log("[Location Validation] Starting eligibility check");
-  console.log("[Location Validation] Poll:", {
-    id: poll.id,
-    title: poll.title,
-    locationScope: poll.locationScope,
-    centerLat: poll.centerLat,
-    centerLng: poll.centerLng,
-    radiusKm: poll.radiusKm
-  });
-  console.log("[Location Validation] User:", {
-    id: user.id,
-    username: user.username,
-    latitude: user.latitude,
-    longitude: user.longitude,
-    locationConfirmed: user.locationConfirmed
-  });
   
   // If poll has no location restrictions, user is eligible
   if (!poll.locationScope || poll.locationScope === 'global') {
-    console.log("[Location Validation] Poll has no location restrictions");
     return { isEligible: true };
   }
   
   // If user has not confirmed their location, they are not eligible
   if (!user.locationConfirmed) {
-    console.log("[Location Validation] User has not confirmed their location");
     return { 
       isEligible: false, 
       message: "Πρέπει να επιβεβαιώσετε την τοποθεσία σας για να συμμετάσχετε σε αυτή την ψηφοφορία" 

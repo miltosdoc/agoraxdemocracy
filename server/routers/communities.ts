@@ -198,7 +198,6 @@ export function registerCommunitiesRoutes(app: Express): void {
           null,
           72
         );
-        console.log(`Notified ${notified} sortition members for body ${result.bodyId}`);
       } catch (notifError) {
         console.error('Failed to send sortition notifications:', notifError);
         // Don't fail the sortition creation if notifications fail

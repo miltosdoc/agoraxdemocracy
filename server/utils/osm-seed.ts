@@ -201,7 +201,6 @@ export async function seedGreekCommunities(options: {
   const unique = [...new Map(seeds.map(s => [s.name, s])).values()];
 
   if (dryRun) {
-    console.log(`Would seed ${unique.length} communities from OSM`);
     return unique.length;
   }
 
@@ -219,5 +218,4 @@ export async function seedGreekCommunities(options: {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dryRun = process.argv.includes('--dry-run');
   const count = await seedGreekCommunities({ dryRun });
-  console.log(`Seeded ${count} Greek communities from OSM`);
 }

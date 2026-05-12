@@ -29,6 +29,27 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+
+// ─── Health Check ───────────────────────────────────────────────────────────
+
+app.get('/health', (_req, res) => {
+  const uptime = process.uptime();
+  const memUsage = process.memoryUsage();
+  
+  res.json({
+    status: 'healthy',
+    uptime_seconds: Math.round(uptime),
+    timestamp: new Date().toISOString(),
+    memory: {
+      rss_bytes: memUsage.rss,
+      heap_used_bytes: memUsage.heapUsed,
+      heap_total_bytes: memUsage.heapTotal,
+    },
+    version: process.version,
+  });
+});
+
+
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

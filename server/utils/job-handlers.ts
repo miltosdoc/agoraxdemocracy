@@ -30,19 +30,13 @@ async function handleStructureProposal(payload: JobPayload): Promise<void> {
     throw new Error(`structure_proposal: missing or invalid proposalId in payload`);
   }
 
-  console.log(`[job] Validating proposal ${proposalId} via LLM`);
   const outcome = await transitionToValidation(proposalId);
-  console.log(
-    `[job] Proposal ${proposalId} validated: score=${outcome.score} ` +
-    `category=${outcome.category} → ${outcome.toState}`
-  );
 }
 
 // ─── Handler: send_notification ─────────────────────────────────────────────
 
 async function handleSendNotification(payload: JobPayload): Promise<void> {
   const { userId, type, message } = payload.data;
-  console.log(`[job] Notification for user ${userId}: ${type} — ${message}`);
   // TODO: Actually persist to notifications table and push via WebSocket/email
 }
 
@@ -50,7 +44,6 @@ async function handleSendNotification(payload: JobPayload): Promise<void> {
 
 async function handleCreateSortition(payload: JobPayload): Promise<void> {
   const { communityId, size, proposalId, purpose } = payload.data;
-  console.log(`[job] Creating sortition body: community=${communityId}, size=${size}, purpose=${purpose}`);
   
   const { createSortitionBody } = await import('./sortition');
   const { storage } = await import('../storage');
@@ -64,28 +57,24 @@ async function handleCreateSortition(payload: JobPayload): Promise<void> {
     proposalId ?? undefined,
   );
   
-  console.log(`[job] Sortition body ${result.bodyId} created with ${result.selectedCount} members (seed: ${result.seed})`);
 }
 
 // ─── Handler: recalculate_score ─────────────────────────────────────────────
 
 async function handleRecalculateScore(payload: JobPayload): Promise<void> {
   const { communityId } = payload.data;
-  console.log(`[job] Recalculating democracy score for community ${communityId}`);
   // TODO: Implement score recalculation logic
 }
 
 // ─── Handler: cleanup_expired ───────────────────────────────────────────────
 
 async function handleCleanupExpired(payload: JobPayload): Promise<void> {
-  console.log('[job] Cleaning up expired sessions/votes');
   // TODO: Implement cleanup logic
 }
 
 // ─── Handler: sortition_timeout ─────────────────────────────────────────────
 
 async function handleSortitionTimeout(payload: JobPayload): Promise<void> {
-  console.log('[job] Sortition timeout sweep started');
   
   // Query all active sortition bodies
   const activeBodies = await db
@@ -99,11 +88,9 @@ async function handleSortitionTimeout(payload: JobPayload): Promise<void> {
     const isTimedOut = await checkSortitionTimeout(body.id);
     
     if (isTimedOut) {
-      console.log(`[job] Body ${body.id} has timed out`);
       
       // First, try to replace non-responders
       const nonResponding = await replaceNonRespondingMembers(body.id, body.communityId);
-      console.log(`[job] Replaced ${nonResponding} non-responding members in body ${body.id}`);
       
       // Then complete the body and handle the proposal transition
       if (body.proposalId) {
@@ -116,7 +103,6 @@ async function handleSortitionTimeout(payload: JobPayload): Promise<void> {
     }
   }
   
-  console.log(`[job] Sortition timeout sweep complete: ${processed} bodies processed out of ${activeBodies.length}`);
 }
 
 // ─── Register all handlers ──────────────────────────────────────────────────
@@ -129,7 +115,6 @@ export function registerAllHandlers(): void {
   registerHandler('cleanup_expired', handleCleanupExpired);
   registerHandler('sortition_timeout', handleSortitionTimeout);
   
-  console.log('[job-queue] All handlers registered');
 }
 
 // ─── Start the worker ───────────────────────────────────────────────────────
@@ -145,7 +130,6 @@ export function startJobQueue(): () => void {
   // Start the worker (polls every 5 seconds)
   const stopWorker = startWorker(5000);
   
-  console.log('[job-queue] Worker started (5s interval)');
   
   return stopWorker;
 }
