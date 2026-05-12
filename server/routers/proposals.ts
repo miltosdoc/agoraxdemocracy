@@ -106,8 +106,7 @@ export function registerProposalsRoutes(app: Express): void {
       const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
       const { storage: storageInstance } = await import('../storage');
       // draft → review (validated by the state machine; archived states blocked).
-      const inReview = await transitionProposal(proposal, 'review', storageInstance);
-      await triggerSideEffects(proposal.status, 'review', inReview);
+      const inReview = await transitionProposal(proposal, 'review', storageInstance as any as IStorage);      await triggerSideEffects(proposal.status, 'review', inReview);
       // ─── LLM Validation while the proposal sits in `review` ───────────────
       let llmScore: string | undefined;
       let llmFeedback: string | undefined;
@@ -140,7 +139,7 @@ export function registerProposalsRoutes(app: Express): void {
       });
       let updated = scored;
       if (nextStatus !== 'review') {
-        updated = await transitionProposal(scored, nextStatus, storageInstance);
+        updated = await transitionProposal(scored, nextStatus, storageInstance as any as IStorage);
         await triggerSideEffects('review', nextStatus, updated);
       }
       res.json({
@@ -261,7 +260,7 @@ export function registerProposalsRoutes(app: Express): void {
       const nextState = results.meetsQuorum ? 'decided' : 'archived';
       const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
       const { storage: storageInstance } = await import('../storage');
-      const updated = await transitionProposal(proposal, nextState, storageInstance);
+      const updated = await transitionProposal(proposal, nextState, storageInstance as any as IStorage);
       await triggerSideEffects(proposal.status, nextState, updated);
       res.json({ proposal: updated, results });
     } catch (error) {
@@ -303,7 +302,7 @@ export function registerProposalsRoutes(app: Express): void {
         }
       }
       const { storage: storageInstance } = await import('../storage');
-      const updated = await transitionProposal(proposal, newState, storageInstance);
+      const updated = await transitionProposal(proposal, newState, storageInstance as any as IStorage);
       await triggerSideEffects(proposal.status, newState, updated);
       res.json(updated);
     } catch (error) {
