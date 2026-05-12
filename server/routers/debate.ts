@@ -15,7 +15,6 @@ export function registerDebateRoutes(app: Express): void {
       const arguments_ = await debateRepo.getDebateArguments(parseInt(req.params.id));
       res.json(arguments_);
     } catch (error) {
-      console.error("Error fetching arguments:", error);
       res.status(500).json({ message: "Failed to fetch arguments" });
     }
   });
@@ -38,7 +37,6 @@ export function registerDebateRoutes(app: Express): void {
       });
       res.status(201).json(argument);
     } catch (error) {
-      console.error("Error creating argument:", error);
       res.status(500).json({ message: "Failed to create argument" });
     }
   });
@@ -47,7 +45,6 @@ export function registerDebateRoutes(app: Express): void {
       const argument = await debateRepo.supportDebateArgument(parseInt(req.params.id), req.user.id);
       res.json(argument);
     } catch (error) {
-      console.error("Error supporting argument:", error);
       res.status(500).json({ message: "Failed to support argument" });
     }
   });
@@ -56,7 +53,6 @@ export function registerDebateRoutes(app: Express): void {
       const argument = await debateRepo.opposeDebateArgument(parseInt(req.params.id), req.user.id);
       res.json(argument);
     } catch (error) {
-      console.error("Error opposing argument:", error);
       res.status(500).json({ message: "Failed to oppose argument" });
     }
   });
@@ -70,7 +66,6 @@ export function registerDebateRoutes(app: Express): void {
       const threads = await debateService.getThreads(proposalId);
       res.json(threads);
     } catch (error) {
-      console.error("Error fetching debate threads:", error);
       res.status(500).json({ message: "Failed to fetch debate threads" });
     }
   });
@@ -83,7 +78,6 @@ export function registerDebateRoutes(app: Express): void {
       const stats = await debateService.getThreadStats(proposalId);
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching debate stats:", error);
       res.status(500).json({ message: "Failed to fetch debate stats" });
     }
   });
@@ -110,7 +104,6 @@ export function registerDebateRoutes(app: Express): void {
         const status = error.code === 'not_found' ? 404 : error.code === 'closed' ? 409 : 400;
         return res.status(status).json({ message: error.message });
       }
-      console.error("Error creating debate thread:", error);
       res.status(500).json({ message: "Failed to create debate thread" });
     }
   });
@@ -131,7 +124,6 @@ export function registerDebateRoutes(app: Express): void {
         const status = error.code === 'not_found' ? 404 : error.code === 'closed' ? 409 : 400;
         return res.status(status).json({ message: error.message });
       }
-      console.error("Error voting on debate thread:", error);
       res.status(500).json({ message: "Failed to vote on debate thread" });
     }
   });

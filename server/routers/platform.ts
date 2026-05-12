@@ -15,7 +15,6 @@ export function registerPlatformRoutes(app: Express): void {
       const settings = await platformRepo.getPlatformSettings();
       res.json(settings);
     } catch (error) {
-      console.error("Error getting platform settings:", error);
       res.status(500).json({ message: "Failed to get platform settings" });
     }
   });
@@ -30,7 +29,6 @@ export function registerPlatformRoutes(app: Express): void {
       const setting = await platformRepo.updatePlatformSetting(key, String(value), userId);
       res.json(setting);
     } catch (error) {
-      console.error("Error updating platform setting:", error);
       res.status(500).json({ message: "Failed to update platform setting" });
     }
   };
@@ -61,7 +59,6 @@ export function registerPlatformRoutes(app: Express): void {
         })),
       });
     } catch (error) {
-      console.error("Error performing search:", error);
       res.status(500).json({ message: "Search failed" });
     }
   });

@@ -307,8 +307,7 @@ export function setupAuth(app: Express) {
           await addCommunityMember(general.id, user.id);
         }
       } catch (enrolErr) {
-        console.error('General community auto-enrollment failed:', enrolErr);
-      }
+        }
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -359,8 +358,7 @@ export function setupAuth(app: Express) {
           userAgent: req.headers['user-agent'] || null,
         });
       } catch (updateErr) {
-        console.error('Error updating login info:', updateErr);
-      }
+        }
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -409,7 +407,6 @@ export function setupAuth(app: Express) {
         // Log the user out after successful deletion
         req.logout((err) => {
           if (err) {
-            console.error("Error logging out after account deletion:", err);
             // Still return success even if logout fails
           }
 
@@ -427,7 +424,6 @@ export function setupAuth(app: Express) {
         });
       }
     } catch (error) {
-      console.error("Error deleting user:", error);
       res.status(500).json({
         success: false,
         message: "Σφάλμα κατά τη διαγραφή του λογαριασμού"
@@ -450,18 +446,15 @@ export function setupAuth(app: Express) {
   app.get('/auth/google/callback', (req, res, next) => {
     passport.authenticate('google', (err: Error | null, user: User | false, info: any) => {
       if (err) {
-        console.error('Google auth error:', err);
         return res.redirect('/?error=authentication_failed');
       }
 
       if (!user) {
-        console.error('Google auth failed, no user:', info);
         return res.redirect('/?error=authentication_failed');
       }
 
       req.login(user, (err) => {
         if (err) {
-          console.error('Login error after Google auth:', err);
           return res.redirect('/?error=login_failed');
         }
 

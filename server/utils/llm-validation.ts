@@ -91,7 +91,6 @@ async function callLLM(prompt: string): Promise<string> {
   const config = getConfig();
 
   if (!config.apiKey) {
-    console.warn('⚠️  LLM_API_KEY not set — returning mock validation result');
     return JSON.stringify({
       score: 75,
       feedback: 'Αυτή είναι μια δοκιμαστική απάντηση. Ρύθμισε το LLM_API_KEY για πραγματική αξιολόγηση.',

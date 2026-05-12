@@ -21,7 +21,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       const amendments = await amendmentRepo.getAmendments(parseInt(req.params.id));
       res.json(amendments);
     } catch (error) {
-      console.error("Error fetching amendments:", error);
       res.status(500).json({ message: "Failed to fetch amendments" });
     }
   });
@@ -68,7 +67,6 @@ export function registerAmendmentsRoutes(app: Express): void {
           : null,
       });
     } catch (error) {
-      console.error("Error creating amendment:", error);
       res.status(500).json({ message: "Failed to create amendment" });
     }
   });
@@ -91,7 +89,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       await authorReviewAmendment(amendmentId, decision as 'accepted' | 'rejected', reason);
       res.json({ success: true, decision });
     } catch (error) {
-      console.error("Error reviewing amendment:", error);
       res.status(500).json({ message: "Failed to review amendment" });
     }
   });
@@ -112,7 +109,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       await castRejectionVote(amendmentId, req.user.id, vote as 1 | -1);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error casting rejection vote:", error);
       res.status(500).json({ message: "Failed to cast vote" });
     }
   });
@@ -134,7 +130,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       );
       res.json({ proposalId, groups });
     } catch (error) {
-      console.error("Error detecting duplicate amendments:", error);
       res.status(500).json({ message: "Failed to detect duplicate amendments" });
     }
   });
@@ -147,7 +142,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       const signals = await calculateCommunitySignals(proposalId, proposal.communityId);
       res.json(signals);
     } catch (error) {
-      console.error("Error fetching community signals:", error);
       res.status(500).json({ message: "Failed to fetch signals" });
     }
   });
@@ -162,7 +156,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       const input = await buildSortitionInput(proposalId, proposal.communityId);
       res.json(input);
     } catch (error) {
-      console.error("Error fetching sortition input:", error);
       res.status(500).json({ message: "Failed to fetch sortition input" });
     }
   });
@@ -183,7 +176,6 @@ export function registerAmendmentsRoutes(app: Express): void {
       await saveFinalText(proposalId, finalText);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving final text:", error);
       res.status(500).json({ message: "Failed to save final text" });
     }
   });

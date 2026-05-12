@@ -76,7 +76,6 @@ export function registerSortitionRoutes(app: Express): void {
       );
       res.json(enriched);
     } catch (error) {
-      console.error("Error listing user's sortition bodies:", error);
       res.status(500).json({ message: "Failed to list sortition bodies" });
     }
   });
@@ -121,7 +120,6 @@ export function registerSortitionRoutes(app: Express): void {
           enrichedMembers.find(m => m.userId === req.user.id)?.assignmentId ?? null,
       });
     } catch (error) {
-      console.error("Error fetching ceremony view:", error);
       res.status(500).json({ message: "Failed to fetch ceremony view" });
     }
   });
@@ -149,7 +147,6 @@ export function registerSortitionRoutes(app: Express): void {
         memberCount: enrichedMembers.length,
       });
     } catch (error) {
-      console.error("Error getting sortition body:", error);
       res.status(500).json({ message: "Failed to get sortition body" });
     }
   });
@@ -171,7 +168,6 @@ export function registerSortitionRoutes(app: Express): void {
       const completed = await sortitionRepo.completeSortitionBody(bodyId);
       res.json(completed);
     } catch (error) {
-      console.error("Error completing sortition body:", error);
       res.status(500).json({ message: "Failed to complete sortition body" });
     }
   });
@@ -222,7 +218,6 @@ export function registerSortitionRoutes(app: Express): void {
         responded: sortMember.responded,
       });
     } catch (error) {
-      console.error("Error fetching sortition assignment:", error);
       res.status(500).json({ message: "Failed to fetch assignment" });
     }
   });
@@ -253,7 +248,6 @@ export function registerSortitionRoutes(app: Express): void {
       });
       res.json({ success: true, member: updated });
     } catch (error) {
-      console.error("Error submitting sortition score:", error);
       res.status(500).json({ message: "Failed to submit score" });
     }
   });
@@ -273,7 +267,6 @@ export function registerSortitionRoutes(app: Express): void {
       const result = await synthesizeSortitionScores(bodyId, storage);
       res.json(result);
     } catch (error) {
-      console.error("Error synthesizing sortition scores:", error);
       res.status(500).json({ message: "Failed to synthesize scores" });
     }
   });

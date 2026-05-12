@@ -37,7 +37,6 @@ export function registerUsersRoutes(app: Express): void {
       }
       res.json(updated);
     } catch (error) {
-      console.error("Error verifying location:", error);
       res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση τοποθεσίας" });
     }
   });
@@ -109,7 +108,6 @@ export function registerUsersRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Error verifying identity:", error);
       res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση ταυτότητας" });
     }
   });

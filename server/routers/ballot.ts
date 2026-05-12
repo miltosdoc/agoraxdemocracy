@@ -27,7 +27,6 @@ export function registerBallotRoutes(app: Express): void {
       const token = generatePollToken();
       res.json({ token, pollId: String(pollId) });
     } catch (error) {
-      console.error("Error generating ballot token:", error);
       res.status(500).json({ message: "Σφάλμα κατά τη δημιουργία token" });
     }
   });
@@ -49,7 +48,6 @@ export function registerBallotRoutes(app: Express): void {
       }
       res.json(instructions);
     } catch (error) {
-      console.error("Error getting ballot instructions:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση οδηγιών" });
     }
   });
@@ -111,7 +109,6 @@ export function registerBallotRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Error validating ballot:", error);
       res.status(500).json({ message: "Σφάλμα κατά την επαλήθευση της ψήφου" });
     }
   });
@@ -127,7 +124,6 @@ export function registerBallotRoutes(app: Express): void {
       }
       res.json(stats);
     } catch (error) {
-      console.error("Error getting ballot stats:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση στατιστικών" });
     }
   });

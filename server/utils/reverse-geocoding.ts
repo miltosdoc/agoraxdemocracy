@@ -55,14 +55,12 @@ export async function reverseGeocode(
     );
     
     if (!response.ok) {
-      console.error(`Geocoding failed: HTTP ${response.status}`);
       return null;
     }
     
     const data = await response.json() as any;
     
     if (!data || !data.address) {
-      console.error('Invalid geocoding response:', data);
       return null;
     }
 
@@ -92,7 +90,6 @@ export async function reverseGeocode(
       countryId
     };
   } catch (error) {
-    console.error('Reverse geocoding error:', error);
     return null;
   }
 }

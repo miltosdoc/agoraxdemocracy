@@ -173,8 +173,7 @@ export async function seedGreekCommunities(options: {
       const regions = await fetchGreekRegions();
       seeds.push(...regions.map(r => osmToCommunitySeed(r, 'region')));
     } catch (error) {
-      console.warn('Failed to fetch regions:', error);
-    }
+      }
   }
 
   // Fetch municipalities
@@ -183,8 +182,7 @@ export async function seedGreekCommunities(options: {
       const municipalities = await fetchGreekMunicipalities();
       seeds.push(...municipalities.map(m => osmToCommunitySeed(m, 'municipality')));
     } catch (error) {
-      console.warn('Failed to fetch municipalities:', error);
-    }
+      }
   }
 
   // Fetch cities
@@ -193,8 +191,7 @@ export async function seedGreekCommunities(options: {
       const cities = await fetchGreekCities();
       seeds.push(...cities.map(c => osmToCommunitySeed(c, 'city')));
     } catch (error) {
-      console.warn('Failed to fetch cities:', error);
-    }
+      }
   }
 
   // Deduplicate by name

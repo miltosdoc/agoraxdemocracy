@@ -20,7 +20,6 @@ export function registerAdminRoutes(app: Express): void {
       const users = await userRepo.getAllUsersWithAccountInfo(filters);
       res.json(users);
     } catch (error: any) {
-      console.error("Error fetching user accounts:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των λογαριασμών χρηστών" });
     }
   });
@@ -33,7 +32,6 @@ export function registerAdminRoutes(app: Express): void {
       const activity = await userRepo.getUserAccountActivity(userId);
       res.json(activity);
     } catch (error: any) {
-      console.error("Error fetching user activity:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση του ιστορικού δραστηριότητας" });
     }
   });
@@ -50,7 +48,6 @@ export function registerAdminRoutes(app: Express): void {
         user: updatedUser
       });
     } catch (error: any) {
-      console.error("Error banning user account:", error);
       res.status(500).json({ message: "Σφάλμα κατά τον αποκλεισμό του λογαριασμού χρήστη" });
     }
   });
@@ -67,7 +64,6 @@ export function registerAdminRoutes(app: Express): void {
         user: updatedUser
       });
     } catch (error: any) {
-      console.error("Error approving user account:", error);
       res.status(500).json({ message: "Σφάλμα κατά την έγκριση του λογαριασμού χρήστη" });
     }
   });

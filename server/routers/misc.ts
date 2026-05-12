@@ -72,7 +72,6 @@ export function registerMiscRoutes(app: Express): void {
 </html>`;
       res.send(html);
     } catch (error) {
-      console.error("Error generating bot HTML:", error);
       next();
     }
   });
@@ -117,7 +116,6 @@ export function registerMiscRoutes(app: Express): void {
       res.setHeader('Content-Disposition', 'inline; filename="poll-preview.png"');
       res.send(pngBuffer);
     } catch (error) {
-      console.error("Error generating OG image:", error);
       res.status(500).send("Error generating image");
     }
   });

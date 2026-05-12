@@ -28,7 +28,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const communities = await communityRepo.getCommunities(userId);
       res.json(communities);
     } catch (error) {
-      console.error("Error fetching communities:", error);
       res.status(500).json({ message: "Failed to fetch communities" });
     }
   });
@@ -43,7 +42,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       await communityRepo.addCommunityMember(community.id, req.user.id, 'founder');
       res.status(201).json(community);
     } catch (error) {
-      console.error("Error creating community:", error);
       res.status(500).json({ message: "Failed to create community" });
     }
   });
@@ -54,7 +52,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       if (!community) return res.status(404).json({ message: "Community not found" });
       res.json(community);
     } catch (error) {
-      console.error("Error fetching community:", error);
       res.status(500).json({ message: "Failed to fetch community" });
     }
   });
@@ -72,7 +69,6 @@ export function registerCommunitiesRoutes(app: Express): void {
         : undefined;
       res.json(buildCommunitySummary(community, proposals, members.length, currentUserRole));
     } catch (error) {
-      console.error("Error fetching community summary:", error);
       res.status(500).json({ message: "Failed to fetch community summary" });
     }
   });
@@ -87,7 +83,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const community = await communityRepo.updateCommunity(communityId, communitySettings);
       res.json(community);
     } catch (error) {
-      console.error("Error updating community:", error);
       res.status(500).json({ message: "Failed to update community" });
     }
   });
@@ -96,7 +91,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const members = await communityRepo.getCommunityMembers(parseInt(req.params.id));
       res.json(members);
     } catch (error) {
-      console.error("Error fetching members:", error);
       res.status(500).json({ message: "Failed to fetch members" });
     }
   });
@@ -112,7 +106,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const member = await communityRepo.addCommunityMember(communityId, userId);
       res.status(201).json(member);
     } catch (error) {
-      console.error("Error joining community:", error);
       res.status(500).json({ message: "Failed to join community" });
     }
   });
@@ -123,7 +116,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       await communityRepo.removeCommunityMember(communityId, userId);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error leaving community:", error);
       res.status(500).json({ message: "Failed to leave community" });
     }
   });
@@ -164,7 +156,6 @@ export function registerCommunitiesRoutes(app: Express): void {
         },
       });
     } catch (error) {
-      console.error("Error merging communities:", error);
       res.status(500).json({ message: "Failed to merge communities" });
     }
   });
@@ -174,7 +165,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const merged = await communityRepo.getMergedCommunities(communityId);
       res.json(merged);
     } catch (error) {
-      console.error("Error fetching merged communities:", error);
       res.status(500).json({ message: "Failed to fetch merged communities" });
     }
   });
@@ -199,7 +189,6 @@ export function registerCommunitiesRoutes(app: Express): void {
           72
         );
       } catch (notifError) {
-        console.error('Failed to send sortition notifications:', notifError);
         // Don't fail the sortition creation if notifications fail
       }
       res.status(201).json({
@@ -207,7 +196,6 @@ export function registerCommunitiesRoutes(app: Express): void {
         redirectUrl: `/sortition/${result.bodyId}/ceremony`,
       });
     } catch (error) {
-      console.error("Error creating sortition body:", error);
       res.status(500).json({ message: "Failed to create sortition body" });
     }
   });
@@ -224,7 +212,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       const result = await previewSortition(communityId, panelSize, storage);
       res.json(result);
     } catch (error) {
-      console.error("Error previewing sortition:", error);
       res.status(500).json({ message: "Failed to preview sortition" });
     }
   });
@@ -254,7 +241,6 @@ export function registerCommunitiesRoutes(app: Express): void {
       );
       res.json(enriched);
     } catch (error) {
-      console.error("Error listing sortition bodies:", error);
       res.status(500).json({ message: "Failed to list sortition bodies" });
     }
   });
@@ -273,7 +259,6 @@ export function registerCommunitiesRoutes(app: Express): void {
         grade: getDemocracyGrade(result.score),
       });
     } catch (error) {
-      console.error("Error calculating democracy score:", error);
       res.status(500).json({ message: "Failed to calculate democracy score" });
     }
   });

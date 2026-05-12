@@ -117,7 +117,6 @@ export async function validateBallot(
 
     return data;
   } catch (error) {
-    console.error("Ballot service error:", error);
     return {
       success: false,
       message: "Ballot validation service unavailable",
@@ -153,7 +152,6 @@ export async function verifyIdentity(
 
     return data;
   } catch (error) {
-    console.error("Ballot service error:", error);
     return {
       success: false,
       message: "Ballot validation service unavailable",
@@ -180,7 +178,6 @@ export async function getBallotStats(pollId: string): Promise<PollStats> {
 
     return data;
   } catch (error) {
-    console.error("Ballot service error:", error);
     return {
       poll_id: pollId,
       total_votes: 0,
@@ -212,7 +209,6 @@ export async function checkBallotServiceHealth(): Promise<{
 
     return data;
   } catch (error) {
-    console.error("Ballot service health check failed:", error);
     return {
       status: "unavailable",
       database: "unreachable",

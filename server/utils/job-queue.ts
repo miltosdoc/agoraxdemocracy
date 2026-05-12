@@ -236,7 +236,6 @@ export async function processNextJob(): Promise<boolean> {
     
     return true;
   } catch (error) {
-    console.error(`Job ${job.id} failed:`, error);
     await failJob(job.id, error instanceof Error ? error.message : String(error));
     return true; // Still counts as processed (even though it failed)
   }
@@ -253,8 +252,7 @@ export function startWorker(intervalMs: number = 5000): () => void {
     try {
       await processNextJob();
     } catch (error) {
-      console.error('Worker error:', error);
-    }
+      }
   }, intervalMs);
   
   // Return cleanup function

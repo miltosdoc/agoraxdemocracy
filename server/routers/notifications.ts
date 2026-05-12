@@ -20,7 +20,6 @@ export function registerNotificationsRoutes(app: Express): void {
       const notifications = await notificationRepo.getUserNotifications(userId);
       res.json(notifications);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση ειδοποιήσεων" });
     }
   });
@@ -39,7 +38,6 @@ export function registerNotificationsRoutes(app: Express): void {
       const updatedNotification = await notificationRepo.markNotificationAsRead(notificationId);
       res.json({ success: true, notification: updatedNotification });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση ειδοποίησης" });
     }
   });
@@ -50,7 +48,6 @@ export function registerNotificationsRoutes(app: Express): void {
       const unreadCount = notifications.filter(n => !n.read).length;
       res.json({ count: unreadCount });
     } catch (error) {
-      console.error("Error fetching unread notification count:", error);
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση μη αναγνωσμένων ειδοποιήσεων" });
     }
   });
@@ -90,7 +87,6 @@ export function registerNotificationsRoutes(app: Express): void {
         total: notifications.length,
       });
     } catch (error) {
-      console.error("Error fetching sortition notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
@@ -103,7 +99,6 @@ export function registerNotificationsRoutes(app: Express): void {
         .where(and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false)));
       res.json({ count: row?.count ?? 0 });
     } catch (error) {
-      console.error("Error fetching unread count:", error);
       res.status(500).json({ message: "Failed to fetch unread count" });
     }
   });
@@ -127,7 +122,6 @@ export function registerNotificationsRoutes(app: Express): void {
         .where(eq(sortitionNotifications.id, notificationId));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
       res.status(500).json({ message: "Failed to mark as read" });
     }
   });
@@ -140,7 +134,6 @@ export function registerNotificationsRoutes(app: Express): void {
         .where(and(eq(sortitionNotifications.userId, userId), eq(sortitionNotifications.read, false)));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error marking all as read:", error);
       res.status(500).json({ message: "Failed to mark all as read" });
     }
   });
@@ -151,7 +144,6 @@ export function registerNotificationsRoutes(app: Express): void {
       const prefs = await getOrCreatePreferences(userId);
       res.json(prefs);
     } catch (error) {
-      console.error("Error fetching preferences:", error);
       res.status(500).json({ message: "Failed to fetch preferences" });
     }
   });
@@ -162,7 +154,6 @@ export function registerNotificationsRoutes(app: Express): void {
       await updatePreferences(userId, req.body);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error updating preferences:", error);
       res.status(500).json({ message: "Failed to update preferences" });
     }
   });

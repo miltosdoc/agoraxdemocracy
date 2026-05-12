@@ -27,7 +27,6 @@ export function registerProposalsRoutes(app: Express): void {
       const proposals = await proposalRepo.getAllProposals(limit ? parseInt(limit as string) : undefined);
       res.json(proposals);
     } catch (error) {
-      console.error("Error fetching proposals:", error);
       res.status(500).json({ message: "Failed to fetch proposals" });
     }
   });
@@ -41,7 +40,6 @@ export function registerProposalsRoutes(app: Express): void {
       });
       res.json(proposals);
     } catch (error) {
-      console.error("Error fetching proposals:", error);
       res.status(500).json({ message: "Failed to fetch proposals" });
     }
   });
@@ -68,7 +66,6 @@ export function registerProposalsRoutes(app: Express): void {
       });
       res.status(201).json(proposal);
     } catch (error) {
-      console.error("Error creating proposal:", error);
       res.status(500).json({ message: "Failed to create proposal" });
     }
   });
@@ -78,7 +75,6 @@ export function registerProposalsRoutes(app: Express): void {
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       res.json(proposal);
     } catch (error) {
-      console.error("Error fetching proposal:", error);
       res.status(500).json({ message: "Failed to fetch proposal" });
     }
   });
@@ -92,7 +88,6 @@ export function registerProposalsRoutes(app: Express): void {
       const updated = await proposalRepo.updateProposal(proposalId, req.body);
       res.json(updated);
     } catch (error) {
-      console.error("Error updating proposal:", error);
       res.status(500).json({ message: "Failed to update proposal" });
     }
   });
@@ -125,7 +120,6 @@ export function registerProposalsRoutes(app: Express): void {
         // - sortition / auto_approve: review → author_review (amendments open)
         nextStatus = result.category === 'return' ? 'draft' : 'author_review';
       } catch (llmError) {
-        console.error('LLM validation failed:', llmError);
         // Persist the failure on the row but leave it in `review` for manual handling.
         llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
         llmValidatedAt = new Date();
@@ -151,7 +145,6 @@ export function registerProposalsRoutes(app: Express): void {
         },
       });
     } catch (error) {
-      console.error("Error submitting proposal:", error);
       res.status(500).json({ message: "Failed to submit proposal" });
     }
   });
@@ -166,7 +159,6 @@ export function registerProposalsRoutes(app: Express): void {
       const support = await proposalRepo.getProposalSupport(proposalId);
       res.status(201).json(support);
     } catch (error) {
-      console.error("Error creating support:", error);
       res.status(500).json({ message: "Failed to create support" });
     }
   });
@@ -176,7 +168,6 @@ export function registerProposalsRoutes(app: Express): void {
       const support = await proposalRepo.getProposalSupport(parseInt(req.params.id), userId);
       res.json(support);
     } catch (error) {
-      console.error("Error fetching support:", error);
       res.status(500).json({ message: "Failed to fetch support" });
     }
   });
@@ -210,7 +201,6 @@ export function registerProposalsRoutes(app: Express): void {
       const vote = await proposalRepo.castProposalVote(proposalId, req.user.id, parsed.data.choice);
       res.status(201).json(vote);
     } catch (error) {
-      console.error("Error casting proposal vote:", error);
       res.status(500).json({ message: "Failed to cast vote" });
     }
   });
@@ -231,7 +221,6 @@ export function registerProposalsRoutes(app: Express): void {
         userVote: userVote?.choice ?? null,
       });
     } catch (error) {
-      console.error("Error fetching vote results:", error);
       res.status(500).json({ message: "Failed to fetch vote results" });
     }
   });
@@ -264,7 +253,6 @@ export function registerProposalsRoutes(app: Express): void {
       await triggerSideEffects(proposal.status, nextState, updated);
       res.json({ proposal: updated, results });
     } catch (error) {
-      console.error("Error finalizing proposal:", error);
       res.status(500).json({ message: "Failed to finalize proposal" });
     }
   });
@@ -306,7 +294,6 @@ export function registerProposalsRoutes(app: Express): void {
       await triggerSideEffects(proposal.status, newState, updated);
       res.json(updated);
     } catch (error) {
-      console.error("Error transitioning proposal:", error);
       res.status(500).json({ message: "Failed to transition proposal" });
     }
   });
@@ -340,7 +327,6 @@ export function registerProposalsRoutes(app: Express): void {
         : null;
       res.json({ summary, userMemberId, userAttendance, responseDeadline });
     } catch (error) {
-      console.error("Error getting attendance:", error);
       res.status(500).json({ message: "Failed to get attendance" });
     }
   });
@@ -404,11 +390,9 @@ export function registerProposalsRoutes(app: Express): void {
           }
         }
       } catch (e) {
-        console.error('Failed to notify author of attendance threshold:', e);
-      }
+        }
       res.json({ attendance, summary });
     } catch (error) {
-      console.error("Error upserting attendance:", error);
       res.status(500).json({ message: "Failed to update attendance" });
     }
   });
@@ -446,7 +430,6 @@ export function registerProposalsRoutes(app: Express): void {
         },
       });
     } catch (error) {
-      console.error("Error re-validating proposal:", error);
       res.status(500).json({ message: "Failed to re-validate proposal" });
     }
   });

@@ -241,7 +241,6 @@ export async function handleSortitionCompletion(
   // Get the proposal
   const proposal = await storage.getProposal(proposalId);
   if (!proposal) {
-    console.error(`Proposal ${proposalId} not found for sortition body ${bodyId}`);
     return;
   }
   
@@ -261,11 +260,6 @@ export async function handleSortitionCompletion(
   // Transition the proposal
   const currentState = assertProposalState(proposal.status);
   if (!canTransitionProposal(currentState, targetState)) {
-    console.error(
-      `Cannot transition proposal ${proposalId} from ${currentState} to ${targetState}. ` +
-      `Average score: ${average}. Valid transitions: ${getNextProposalStates(currentState).join(', ')}`
-    );
-    return;
   }
   
   await storage.updateProposal(proposalId, { status: targetState });

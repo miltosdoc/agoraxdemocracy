@@ -13,7 +13,6 @@ export function registerAnalyticsRoutes(app: Express): void {
       const overview = await storage.getAnalyticsOverview();
       res.json(overview);
     } catch (error: any) {
-      console.error("Error fetching analytics overview:", error);
       res.status(500).json({ error: "Failed to fetch analytics overview" });
     }
   });
@@ -22,7 +21,6 @@ export function registerAnalyticsRoutes(app: Express): void {
       const popularity = await storage.getPollPopularityStats();
       res.json(popularity);
     } catch (error: any) {
-      console.error("Error fetching poll popularity:", error);
       res.status(500).json({ error: "Failed to fetch poll popularity data" });
     }
   });
@@ -31,7 +29,6 @@ export function registerAnalyticsRoutes(app: Express): void {
       const trends = await storage.getActivityTrends();
       res.json(trends);
     } catch (error: any) {
-      console.error("Error fetching activity trends:", error);
       res.status(500).json({ error: "Failed to fetch activity trends" });
     }
   });
@@ -40,7 +37,6 @@ export function registerAnalyticsRoutes(app: Express): void {
       const patterns = await storage.getUsagePatterns();
       res.json(patterns);
     } catch (error: any) {
-      console.error("Error fetching usage patterns:", error);
       res.status(500).json({ error: "Failed to fetch usage patterns" });
     }
   });
