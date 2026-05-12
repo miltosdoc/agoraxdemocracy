@@ -194,10 +194,11 @@ curl http://localhost:3000/health
 - [x] Docker multi-stage build
 - [x] CI/CD pipeline
 - [x] E2E test infrastructure
+- [x] Database migration strategy
+- [x] Performance benchmarking script
 - [ ] Playwright test suite completion
-- [ ] Database migration strategy
-- [ ] Performance benchmarks
 - [ ] Load testing
+- [ ] Security audit
 
 ---
 
@@ -206,6 +207,7 @@ curl http://localhost:3000/health
 - [API Reference](docs/API.md) — Complete endpoint documentation
 - [Architecture Guide](docs/ARCHITECTURE.md) — Domain-driven design principles
 - [Test Suite](docs/TESTS.md) — Test coverage and structure
+- [Migration Strategy](docs/MIGRATION_STRATEGY.md) — Database migration workflow
 - [Refactoring Plan](docs/REFACTORING_PLAN.md) — Migration roadmap
 
 ---
