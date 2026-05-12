@@ -1,0 +1,439 @@
+/**
+ * Proposals Router
+ *
+ * Handles proposals routes.
+ */
+export function registerProposalsRoutes(app: Express): void {
+  app.get("/api/proposals", async (req, res) => {
+    try {
+      const { limit } = req.query;
+      const proposals = await storage.getAllProposals(limit ? parseInt(limit as string) : undefined);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+  app.get("/api/communities/:communityId/proposals", async (req, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const { status, category } = req.query;
+      const proposals = await storage.getProposals(communityId, {
+        status: status as string,
+        category: category as string,
+      });
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      res.status(500).json({ message: "Failed to fetch proposals" });
+    }
+  });
+  app.post("/api/communities/:communityId/proposals", requireAuth, async (req: any, res) => {
+    try {
+      const communityId = parseInt(req.params.communityId);
+      const userId = req.user!.id;
+      // Check membership
+      const isMember = await storage.isCommunityMember(communityId, userId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Must be a community member to submit proposals" });
+      }
+      const { question, solution, category } = req.body;
+      if (!question || !solution) {
+        return res.status(400).json({ message: "Question and solution are required" });
+      }
+      const proposal = await storage.createProposal({
+        communityId,
+        authorId: userId,
+        question,
+        solution,
+        category,
+        status: INITIAL_PROPOSAL_STATE,
+      });
+      res.status(201).json(proposal);
+    } catch (error) {
+      console.error("Error creating proposal:", error);
+      res.status(500).json({ message: "Failed to create proposal" });
+    }
+  });
+  app.get("/api/proposals/:id", async (req, res) => {
+    try {
+      const proposal = await storage.getProposal(parseInt(req.params.id));
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      res.json(proposal);
+    } catch (error) {
+      console.error("Error fetching proposal:", error);
+      res.status(500).json({ message: "Failed to fetch proposal" });
+    }
+  });
+  app.patch("/api/proposals/:id", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Can only edit drafts" });
+      const updated = await storage.updateProposal(proposalId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating proposal:", error);
+      res.status(500).json({ message: "Failed to update proposal" });
+    }
+  });
+  app.post("/api/proposals/:id/submit", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
+      if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
+      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('./storage');
+      // draft → review (validated by the state machine; archived states blocked).
+      const inReview = await transitionProposal(proposal, 'review', storageInstance);
+      await triggerSideEffects(proposal.status, 'review', inReview);
+      // ─── LLM Validation while the proposal sits in `review` ───────────────
+      let llmScore: string | undefined;
+      let llmFeedback: string | undefined;
+      let llmValidatedAt: Date | undefined;
+      let nextStatus: 'author_review' | 'draft' | 'review' = 'review';
+      let category: 'return' | 'sortition' | 'auto_approve' | null = null;
+      try {
+        const { validateProposal } = await import('./utils/llm-validation');
+        const result = await validateProposal(proposal.question, proposal.solution);
+        llmScore = String(result.score);
+        llmFeedback = result.feedback;
+        llmValidatedAt = new Date();
+        category = result.category;
+        // Canonical lifecycle mapping from review:
+        // - return:   review → draft   (author revises)
+        // - sortition / auto_approve: review → author_review (amendments open)
+        nextStatus = result.category === 'return' ? 'draft' : 'author_review';
+      } catch (llmError) {
+        console.error('LLM validation failed:', llmError);
+        // Persist the failure on the row but leave it in `review` for manual handling.
+        llmFeedback = 'Το σύστημα αξιολόγησης δεν ήταν διαθέσιμο. Η πρόταση θα εξεταστεί χειροκίνητα.';
+        llmValidatedAt = new Date();
+      }
+      // Persist the LLM scoring on the in-review row first so the columns stay
+      // populated even if the follow-up transition is skipped.
+      const scored = await storageInstance.updateProposal(proposalId, {
+        llmScore,
+        llmFeedback,
+        llmValidatedAt,
+      });
+      let updated = scored;
+      if (nextStatus !== 'review') {
+        updated = await transitionProposal(scored, nextStatus, storageInstance);
+        await triggerSideEffects('review', nextStatus, updated);
+      }
+      res.json({
+        ...updated,
+        validation: {
+          score: llmScore ? Number(llmScore) : null,
+          feedback: llmFeedback,
+          category,
+        },
+      });
+    } catch (error) {
+      console.error("Error submitting proposal:", error);
+      res.status(500).json({ message: "Failed to submit proposal" });
+    }
+  });
+  // ─── Demopolis: Amendment Routes ───────────────────────────────────────────
+  app.post("/api/proposals/:id/support", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { type } = req.body; // 'support' or 'oppose'
+      if (!type || !['support', 'oppose'].includes(type)) {
+        return res.status(400).json({ message: "Type must be 'support' or 'oppose'" });
+      }
+      const support = await storage.createProposalSupport(proposalId, req.user.id, type);
+      res.status(201).json(support);
+    } catch (error) {
+      console.error("Error creating support:", error);
+      res.status(500).json({ message: "Failed to create support" });
+    }
+  });
+  app.get("/api/proposals/:id/support", async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      const support = await storage.getProposalSupport(parseInt(req.params.id), userId);
+      res.json(support);
+    } catch (error) {
+      console.error("Error fetching support:", error);
+      res.status(500).json({ message: "Failed to fetch support" });
+    }
+  });
+  // ─── Demopolis: Proposal Final Ratification Vote Routes ────────────────────
+  // Cast or update final ratification vote (one per user per proposal).
+  app.post("/api/proposals/:id/vote", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const parsed = castProposalVoteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Choice must be one of 'yes', 'no', 'abstain'",
+          errors: parsed.error.flatten(),
+        });
+      }
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.status !== 'voting') {
+        return res.status(409).json({
+          message: "Proposal is not currently in the voting phase",
+          current_status: proposal.status,
+        });
+      }
+      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      if (!isMember) {
+        return res.status(403).json({ message: "Only community members may cast a final vote" });
+      }
+      const vote = await storage.castProposalVote(proposalId, req.user.id, parsed.data.choice);
+      res.status(201).json(vote);
+    } catch (error) {
+      console.error("Error casting proposal vote:", error);
+      res.status(500).json({ message: "Failed to cast vote" });
+    }
+  });
+  // Get aggregated final-vote results for a proposal.
+  app.get("/api/proposals/:id/vote-results", async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      const results = await storage.getProposalVoteResults(proposalId);
+      const userId = (req.user as any)?.id;
+      const userVote = userId ? await storage.getUserProposalVote(proposalId, userId) : undefined;
+      res.json({
+        ...results,
+        userVote: userVote?.choice ?? null,
+      });
+    } catch (error) {
+      console.error("Error fetching vote results:", error);
+      res.status(500).json({ message: "Failed to fetch vote results" });
+    }
+  });
+  // Finalize the ratification vote and transition the proposal to `decided`
+  app.post("/api/proposals/:id/finalize", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      if (!Number.isFinite(proposalId)) {
+        return res.status(400).json({ message: "Invalid proposal id" });
+      }
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.status !== 'voting') {
+        return res.status(409).json({
+          message: "Only proposals in the voting phase can be finalized",
+          current_status: proposal.status,
+        });
+      }
+      if (proposal.authorId !== req.user.id) {
+        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        if (role !== 'admin' && role !== 'founder') {
+          return res.status(403).json({ message: "Not authorized to finalize this proposal" });
+        }
+      }
+      const results = await storage.getProposalVoteResults(proposalId);
+      const nextState = results.meetsQuorum ? 'decided' : 'archived';
+      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('./storage');
+      const updated = await transitionProposal(proposal, nextState, storageInstance);
+      await triggerSideEffects(proposal.status, nextState, updated);
+      res.json({ proposal: updated, results });
+    } catch (error) {
+      console.error("Error finalizing proposal:", error);
+      res.status(500).json({ message: "Failed to finalize proposal" });
+    }
+  });
+  // ─── Demopolis: State Machine Routes ───────────────────────────────────────
+  app.post("/api/proposals/:id/transition", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      const { newState } = req.body;
+      if (!isProposalState(newState)) {
+        return res.status(400).json({ message: "A valid canonical proposal state is required" });
+      }
+      if (!isProposalState(proposal.status)) {
+        return res.status(409).json({
+          message: `Proposal has legacy or invalid status: ${proposal.status}`,
+          current_status: proposal.status,
+        });
+      }
+      // Import state machine
+      const { transitionProposal, canTransition, getNextStates, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      // Validate transition
+      if (!canTransition(proposal.status, newState)) {
+        const valid = getNextStates(proposal.status);
+        return res.status(409).json({
+          message: `Invalid transition: ${proposal.status} → ${newState}`,
+          valid_transitions: valid,
+        });
+      }
+      // Check permissions
+      if (proposal.authorId !== req.user.id) {
+        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        if (role !== 'admin' && role !== 'founder') {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+      const { storage: storageInstance } = await import('./storage');
+      const updated = await transitionProposal(proposal, newState, storageInstance);
+      await triggerSideEffects(proposal.status, newState, updated);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error transitioning proposal:", error);
+      res.status(500).json({ message: "Failed to transition proposal" });
+    }
+  });
+  // ─── Demopolis: Sortition Routes ──────────────────────────────────────────
+  app.get("/api/proposals/:id/attendance", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const summary = await storage.getAttendanceSummary(proposalId);
+      // Find the current user's sortition member id (if any) for this proposal
+      const userId = req.user.id;
+      const bodies = await db
+        .select()
+        .from(sortitionBodies)
+        .where(eq(sortitionBodies.proposalId, proposalId));
+      let userMemberId: number | null = null;
+      let userAttendance: any = null;
+      for (const body of bodies) {
+        const [member] = await db
+          .select()
+          .from(sortitionMembers)
+          .where(and(eq(sortitionMembers.bodyId, body.id), eq(sortitionMembers.userId, userId)))
+          .limit(1);
+        if (member) {
+          userMemberId = member.id;
+          userAttendance = await storage.getAttendance(proposalId, member.id) ?? null;
+          break;
+        }
+      }
+      const responseDeadline = bodies[0]?.selectedAt
+        ? new Date(new Date(bodies[0].selectedAt).getTime() + (bodies[0].responseHours ?? 72) * 60 * 60 * 1000).toISOString()
+        : null;
+      res.json({ summary, userMemberId, userAttendance, responseDeadline });
+    } catch (error) {
+      console.error("Error getting attendance:", error);
+      res.status(500).json({ message: "Failed to get attendance" });
+    }
+  });
+  app.post("/api/proposals/:id/attendance", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const { status, notes, memberId } = req.body ?? {};
+      const allowed = ['accepted', 'declined', 'completed'];
+      if (!allowed.includes(status)) {
+        return res.status(400).json({ message: `status must be one of ${allowed.join(', ')}` });
+      }
+      // Resolve member id from current user if not supplied
+      let resolvedMemberId = Number(memberId);
+      if (!Number.isFinite(resolvedMemberId)) {
+        const userId = req.user.id;
+        const bodies = await db
+          .select()
+          .from(sortitionBodies)
+          .where(eq(sortitionBodies.proposalId, proposalId));
+        for (const body of bodies) {
+          const [member] = await db
+            .select()
+            .from(sortitionMembers)
+            .where(and(eq(sortitionMembers.bodyId, body.id), eq(sortitionMembers.userId, userId)))
+            .limit(1);
+          if (member) {
+            resolvedMemberId = member.id;
+            break;
+          }
+        }
+      }
+      if (!Number.isFinite(resolvedMemberId)) {
+        return res.status(403).json({ message: "Not a member of this proposal's sortition body" });
+      }
+      // Verify this member belongs to the requesting user
+      const [memberRow] = await db
+        .select()
+        .from(sortitionMembers)
+        .where(eq(sortitionMembers.id, resolvedMemberId))
+        .limit(1);
+      if (!memberRow || memberRow.userId !== req.user.id) {
+        return res.status(403).json({ message: "Not your assignment" });
+      }
+      const attendance = await storage.upsertAttendance(proposalId, resolvedMemberId, status, notes);
+      const summary = await storage.getAttendanceSummary(proposalId);
+      // Notify the proposal author when ≥50% confirm
+      try {
+        if (summary.confirmedPct >= 0.5 && summary.total > 0) {
+          const proposal = await storage.getProposal(proposalId);
+          if (proposal) {
+            const { createNotification } = await import('./utils/notifications');
+            await createNotification({
+              userId: proposal.authorId,
+              type: 'sortition_assigned',
+              title: 'Sortition body confirmed',
+              message: `${Math.round(summary.confirmedPct * 100)}% of selected members have confirmed attendance.`,
+              proposalId,
+              communityId: proposal.communityId,
+              actionUrl: `/proposals/${proposalId}`,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to notify author of attendance threshold:', e);
+      }
+      res.json({ attendance, summary });
+    } catch (error) {
+      console.error("Error upserting attendance:", error);
+      res.status(500).json({ message: "Failed to update attendance" });
+    }
+  });
+  app.post("/api/proposals/:id/revalidate", requireAuth, async (req: any, res) => {
+    try {
+      const proposalId = parseInt(req.params.id);
+      const proposal = await storage.getProposal(proposalId);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      if (proposal.authorId !== req.user.id) {
+        return res.status(403).json({ message: "Only the author can request re-validation" });
+      }
+      const { validateProposal } = await import('./utils/llm-validation');
+      const { validationResults } = await import('@shared/schema');
+      const result = await validateProposal(proposal.question, proposal.solution);
+      await db.insert(validationResults).values({
+        proposalId,
+        score: Math.round(result.score),
+        feedback: result.feedback,
+        details: result.details,
+        category: result.category,
+      });
+      const updated = await storage.updateProposal(proposalId, {
+        llmScore: String(result.score),
+        llmFeedback: result.feedback,
+        llmValidatedAt: new Date(),
+        llmValidationRound: (proposal.llmValidationRound ?? 1) + 1,
+      });
+      res.json({
+        proposal: updated,
+        validation: {
+          score: result.score,
+          feedback: result.feedback,
+          category: result.category,
+          details: result.details,
+        },
+      });
+    } catch (error) {
+      console.error("Error re-validating proposal:", error);
+      res.status(500).json({ message: "Failed to re-validate proposal" });
+    }
+  });
+  const httpServer = createServer(app);
+  return httpServer;
+}

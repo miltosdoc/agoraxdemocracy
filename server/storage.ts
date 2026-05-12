@@ -27,3 +27,8 @@ export type { IStorage } from './storage/types';
 // Re-export schema types for convenience
 export type * from '../../shared/schema';
 
+
+
+// Legacy storage instance for backward compatibility
+import { DatabaseStorage } from "./storage/legacy";
+export const storage = new DatabaseStorage();

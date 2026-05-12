@@ -5,7 +5,8 @@ import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { storage } from "./storage";
+import { DatabaseStorage } from "./storage";
+export const storage = new DatabaseStorage();
 import { User as SelectUser } from "@shared/schema";
 import { db } from "./db";
 import { users, User, SafeUser } from "@shared/schema";
@@ -66,6 +67,38 @@ async function comparePasswords(supplied: string, stored: string) {
   if (hashedBuf.length !== suppliedBuf.length) return false;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
+
+
+/**
+ * Require authentication middleware.
+ * In demo mode, creates a fake user for testing.
+ */
+export const requireAuth = (req: any, res: any, next: any) => {
+  // Demo mode: bypass auth, use user 3 (maria) as demo user
+  if (process.env.DEMO_MODE === 'true') {
+    if (!req.user) {
+      req.user = {
+        id: 3,
+        username: 'demo',
+        email: 'demo@agorax.gr',
+        name: 'Demo User',
+        profilePicture: null,
+        isAdmin: true,
+        govgrVerified: true,
+        locationConfirmed: false,
+        locationVerified: false,
+      };
+    }
+    return next();
+  }
+
+  if (req.isAuthenticated()) {
+    return next();
+  }
+
+  res.status(401).json({ message: 'Authentication required' });
+};
+
 
 export function setupAuth(app: Express) {
   const sessionSecret = process.env.SESSION_SECRET;
