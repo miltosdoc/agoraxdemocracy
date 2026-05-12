@@ -132,7 +132,7 @@ export class UserRepository {
   async updateUserLoginInfo(userId: number, data: { lastLoginIp: string }): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ lastLoginIp: data.lastLoginIp, lastLoginAt: new Date() })
+      .set({ lastLoginIp: data.lastLoginIp, lastLoginIp: new Date() })
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
@@ -161,7 +161,7 @@ export class UserRepository {
       .select()
       .from(users)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(users.createdAt));
+      .orderBy(desc(users.id));
   }
 
   /** Update account status (active, suspended, etc.). */

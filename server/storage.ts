@@ -25,7 +25,7 @@ export { DatabaseStorage } from './storage/legacy';
 export type { IStorage } from './storage/types';
 
 // Re-export schema types for convenience
-export type * from '../../shared/schema';
+export type * from '@shared/schema';
 
 
 

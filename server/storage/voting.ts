@@ -32,8 +32,8 @@ export class VotingRepository {
   /** Get all polls with optional filters. */
   async getPolls(filters?: { status?: string; communityId?: number }): Promise<Poll[]> {
     const conditions = [];
-    if (filters?.status) {
-      conditions.push(eq(polls.status, filters.status));
+    if (filters?.isActive) {
+      conditions.push(eq(polls.isActive, filters.isActive));
     }
     if (filters?.communityId) {
       conditions.push(eq(polls.communityId, filters.communityId));

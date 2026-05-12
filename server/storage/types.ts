@@ -17,7 +17,7 @@ import type {
   PollQuestion, PollAnswer, PollUserResponse, InsertPollUserResponse,
   PollNotification,
   PlatformSetting,
-  Comment, InsertComment, CommentWithUser
+  Comment, InsertComment
 } from '../../shared/schema';
 
 /**
