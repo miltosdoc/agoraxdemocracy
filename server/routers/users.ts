@@ -5,9 +5,11 @@
  */
 
 import type { Express, Request, Response } from 'express';
+import multer from 'multer';
 import { storage } from '../storage';
 import { requireAuth } from '../auth';
 import { verifyLocationSchema, locationSchema } from '../utils/location-validator';
+import { ballotUpload } from '../utils/ballot-client';
 import { requireAdmin } from '../auth';
 
 export function registerUsersRoutes(app: Express): void {
@@ -17,11 +19,11 @@ export function registerUsersRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: "Δεν είστε συνδεδεμένοι" });
       }
-      const parsedData = verifyLocationSchema.safeParse(req.body);
+      const parsedData = verifyLocationSchema(req.body);
       if (!parsedData.success) {
         return res.status(400).json({
           message: "Λανθασμένα δεδομένα επαλήθευσης",
-          errors: parsedData.error.format()
+          errors: JSON.stringify(parsedData.error || "Validation failed")
         });
       }
       // Update the user's location verification status
@@ -46,7 +48,7 @@ export function registerUsersRoutes(app: Express): void {
       if (!parsedData.success) {
         return res.status(400).json({
           message: "Λανθασμένα δεδομένα τοποθεσίας",
-          errors: parsedData.error.format()
+          errors: JSON.stringify(parsedData.error || "Validation failed")
         });
       }
       const updatedUser = await storage.updateUserLocation(userId, parsedData.data);
@@ -66,7 +68,7 @@ export function registerUsersRoutes(app: Express): void {
     next();
   };
   // Analytics Dashboard Endpoints (Public - Platform Statistics)
-  app.post("/api/user/verify-govgr", requireAuth, ballotUpload.single('file'), async (req: any, res) => {
+  app.post("/api/user/verify-govgr", requireAuth, multer({ storage: multer.memoryStorage() }).single('file'), async (req: any, res) => {
     try {
       const file = req.file;
       if (!file) {

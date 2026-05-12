@@ -168,7 +168,7 @@ export class CommunityRepository {
         eq(communityMembers.communityId, communityId),
         eq(communityMembers.userId, userId)
       ));
-    return member?.role;
+    return member?.role ?? undefined;
   }
 
   /**

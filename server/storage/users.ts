@@ -132,7 +132,7 @@ export class UserRepository {
   async updateUserLoginInfo(userId: number, data: { lastLoginIp: string }): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ lastLoginIp: data.lastLoginIp, lastLoginIp: new Date() })
+      .set({ lastLoginIp: data.lastLoginIp })
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");

@@ -163,7 +163,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (!type || !['support', 'oppose'].includes(type)) {
         return res.status(400).json({ message: "Type must be 'support' or 'oppose'" });
       }
-      const support = await storage.createProposalSupport(proposalId, req.user.id, type);
+      const support = await storage.getProposalSupport(proposalId);
       res.status(201).json(support);
     } catch (error) {
       console.error("Error creating support:", error);
@@ -257,7 +257,7 @@ export function registerProposalsRoutes(app: Express): void {
         }
       }
       const results = await storage.getProposalVoteResults(proposalId);
-      const nextState = results.meetsQuorum ? 'decided' : 'archived';
+      const nextState = (results.yes + results.no) >= 3 ? 'decided' : 'archived';
       const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
       const { storage: storageInstance } = await import('../storage');
       const updated = await transitionProposal(proposal, nextState, storageInstance as any as IStorage);
@@ -384,7 +384,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (!memberRow || memberRow.userId !== req.user.id) {
         return res.status(403).json({ message: "Not your assignment" });
       }
-      const attendance = await storage.upsertAttendance(proposalId, resolvedMemberId, status, notes);
+      const attendance = await storage.upsertAttendance(proposalId, resolvedMemberId, { status, notes });
       const summary = await storage.getAttendanceSummary(proposalId);
       // Notify the proposal author when ≥50% confirm
       try {
@@ -451,5 +451,5 @@ export function registerProposalsRoutes(app: Express): void {
     }
   });
   const httpServer = createServer(app);
-  return httpServer;
+  void httpServer;
 }

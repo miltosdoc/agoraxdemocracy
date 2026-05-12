@@ -137,6 +137,6 @@ export interface IStorage {
 
   // Comment methods (temporary)
   createComment(comment: InsertComment): Promise<Comment>;
-  getPollComments(pollId: number): Promise<CommentWithUser[]>;
+  getPollComments(pollId: number): Promise<Comment[]>;
 }
 

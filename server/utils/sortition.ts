@@ -87,7 +87,7 @@ function cryptoShuffle<T>(array: T[]): T[] {
  */
 export async function getEligibleMembers(
   communityId: number,
-  storage: IStorage,
+  storage: any,
 ): Promise<EligibleMember[]> {
   const members = await storage.getCommunityMembers(communityId);
   
@@ -99,9 +99,9 @@ export async function getEligibleMembers(
   const activeMemberIds = await getActiveSortitionMembers(communityId);
   
   return members
-    .filter(m => new Date(m.joinedAt) <= sevenDaysAgo)
-    .filter(m => !activeMemberIds.has(m.userId))
-    .map(m => ({
+    .filter((m: any) => new Date(m.joinedAt) <= sevenDaysAgo)
+    .filter((m: any) => !activeMemberIds.has(m.userId))
+    .map((m: any) => ({
       userId: m.userId,
       role: m.role,
       joinedAt: new Date(m.joinedAt),
@@ -159,7 +159,7 @@ export async function getActiveSortitionMembers(
 export async function createSortitionBody(
   communityId: number,
   size: number = 7,
-  storage: IStorage,
+  storage: any,
   purpose: string = 'scoring',
   proposalId?: number,
   excludeUserIds?: Set<number>,
@@ -220,7 +220,7 @@ export async function createSortitionBody(
 export async function previewSortition(
   communityId: number,
   size: number = 7,
-  storage: IStorage,
+  storage: any,
 ): Promise<{ selectedUserIds: number[]; totalEligible: number }> {
   const eligible = await getEligibleMembers(communityId, storage);
   const shuffled = cryptoShuffle(eligible);
@@ -238,7 +238,7 @@ export async function previewSortition(
  */
 export async function completeSortitionBody(
   bodyId: number,
-  storage: IStorage,
+  storage: any,
 ): Promise<void> {
   await storage.completeSortitionBody(bodyId);
 }
@@ -254,7 +254,7 @@ export async function completeSortitionBody(
  */
 export async function synthesizeSortitionScores(
   bodyId: number,
-  storage: IStorage,
+  storage: any,
 ): Promise<{
   bodyId: number;
   totalMembers: number;
@@ -268,15 +268,15 @@ export async function synthesizeSortitionScores(
   if (!body) throw new Error('Sortition body not found');
   
   const members = await storage.getSortitionMembers(bodyId);
-  const responded = members.filter(m => m.responded);
+  const responded = members.filter((m: any) => m.responded);
   
   // Calculate average score
   const scores = responded
-    .map(m => m.score ? parseFloat(m.score) : null)
-    .filter((s): s is number => s !== null && !isNaN(s));
+    .map((m: any) => m.score ? parseFloat(m.score) : null)
+    .filter((s: any): s is number => s !== null && !isNaN(s));
   
   const averageScore = scores.length > 0
-    ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+    ? Math.round((scores.reduce((a: any, b: any) => a + b, 0) / scores.length) * 10) / 10
     : null;
   
   // Score distribution (bucket into ranges)

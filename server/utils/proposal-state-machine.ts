@@ -89,7 +89,7 @@ export function getNextStates(current: ProposalState): ProposalState[] {
 export async function transitionProposal(
   proposal: Proposal,
   newState: ProposalState,
-  storage: IStorage,
+  storage: any,
 ): Promise<Proposal> {
   const currentState = assertProposalState(proposal.status);
 

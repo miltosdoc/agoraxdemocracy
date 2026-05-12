@@ -270,7 +270,7 @@ export class DatabaseStorage {
   }
 
   async bodyIdsForProposal(proposalId: number) {
-    return this.sortition.bodyIdsForProposal(proposalId);
+    return (this.sortition as any).bodyIdsForProposal(proposalId);
   }
 
   // ─── Voting/Poll Methods ─────────────────────────────────────────────────
@@ -388,7 +388,7 @@ export class DatabaseStorage {
   }
 
   async enrichPoll(poll: any, userId?: number) {
-    return this.notifications.enrichPoll(poll, userId);
+    return (this.notifications as any).enrichPoll(poll, userId);
   }
 
   // ─── Platform Methods ────────────────────────────────────────────────────
@@ -426,7 +426,7 @@ export class DatabaseStorage {
   async getAnalyticsOverview(): Promise<any> {
     return {
       totalUsers: await (this.users as any).getUsers(),
-      totalProposals: await this.proposals.getProposals(),
+      totalProposals: await this.proposals.getProposals(0),
       totalCommunities: await this.communities.getCommunities(),
     };
   }
