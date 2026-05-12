@@ -6,7 +6,7 @@
 
 import type { Express, Request, Response } from 'express';
 import multer from 'multer';
-import { storage } from '../storage';
+import { votingRepo } from '../storage';
 import { ballotUpload } from '../utils/ballot-client';
 import { requireAuth } from '../auth';
 
@@ -18,7 +18,7 @@ export function registerBallotRoutes(app: Express): void {
         return res.status(400).json({ message: "Poll ID is required" });
       }
       // Verify poll exists and supports ballot voting
-      const poll = await storage.getPoll(parseInt(pollId));
+      const poll = await votingRepo.getPoll(parseInt(pollId));
       if (!poll) {
         return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
       }
@@ -64,7 +64,7 @@ export function registerBallotRoutes(app: Express): void {
         return res.status(400).json({ message: "Poll ID and token are required" });
       }
       // Verify poll exists
-      const poll = await storage.getPoll(parseInt(pollId));
+      const poll = await votingRepo.getPoll(parseInt(pollId));
       if (!poll) {
         return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
       }

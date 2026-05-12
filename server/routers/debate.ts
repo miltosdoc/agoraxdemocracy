@@ -5,14 +5,14 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { communityRepo, debateRepo, proposalRepo } from '../storage';
 import { requireAuth } from '../auth';
 import * as debateService from '../utils/debate';
 
 export function registerDebateRoutes(app: Express): void {
   app.get("/api/proposals/:id/arguments", async (req, res) => {
     try {
-      const arguments_ = await storage.getDebateArguments(parseInt(req.params.id));
+      const arguments_ = await debateRepo.getDebateArguments(parseInt(req.params.id));
       res.json(arguments_);
     } catch (error) {
       console.error("Error fetching arguments:", error);
@@ -22,15 +22,15 @@ export function registerDebateRoutes(app: Express): void {
   app.post("/api/proposals/:id/arguments", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
-      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      const isMember = await communityRepo.isCommunityMember(proposal.communityId, req.user.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
       const { side, text } = req.body;
       if (!side || !text) {
         return res.status(400).json({ message: "Side and text are required" });
       }
-      const argument = await storage.createDebateArgument({
+      const argument = await debateRepo.createDebateArgument({
         proposalId,
         authorId: req.user.id,
         side,
@@ -44,7 +44,7 @@ export function registerDebateRoutes(app: Express): void {
   });
   app.post("/api/arguments/:id/support", requireAuth, async (req: any, res) => {
     try {
-      const argument = await storage.supportDebateArgument(parseInt(req.params.id), req.user.id);
+      const argument = await debateRepo.supportDebateArgument(parseInt(req.params.id), req.user.id);
       res.json(argument);
     } catch (error) {
       console.error("Error supporting argument:", error);
@@ -53,7 +53,7 @@ export function registerDebateRoutes(app: Express): void {
   });
   app.post("/api/arguments/:id/oppose", requireAuth, async (req: any, res) => {
     try {
-      const argument = await storage.opposeDebateArgument(parseInt(req.params.id), req.user.id);
+      const argument = await debateRepo.opposeDebateArgument(parseInt(req.params.id), req.user.id);
       res.json(argument);
     } catch (error) {
       console.error("Error opposing argument:", error);
@@ -93,9 +93,9 @@ export function registerDebateRoutes(app: Express): void {
       if (Number.isNaN(proposalId)) {
         return res.status(400).json({ message: "Invalid proposal id" });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
-      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      const isMember = await communityRepo.isCommunityMember(proposal.communityId, req.user.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
       const { content, parentId } = req.body ?? {};
       if (typeof content !== 'string' || content.trim() === '') {

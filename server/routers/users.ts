@@ -6,7 +6,7 @@
 
 import type { Express, Request, Response } from 'express';
 import multer from 'multer';
-import { storage } from '../storage';
+import { userRepo } from '../storage';
 import { requireAuth } from '../auth';
 import { verifyLocationSchema, locationSchema } from '../utils/location-validator';
 import { ballotUpload } from '../utils/ballot-client';
@@ -27,10 +27,10 @@ export function registerUsersRoutes(app: Express): void {
         });
       }
       // Update the user's location verification status
-      const updated = await storage.verifyUserLocation(userId, parsedData.data.verified);
+      const updated = await userRepo.verifyUserLocation(userId, parsedData.data.verified);
       // If verification is false, reset the location confirmation as well
       if (!parsedData.data.verified) {
-        await storage.updateUserLocation(userId, {
+        await userRepo.updateUserLocation(userId, {
           locationConfirmed: false,
           locationVerified: false
         });
@@ -51,7 +51,7 @@ export function registerUsersRoutes(app: Express): void {
           errors: JSON.stringify(parsedData.error || "Validation failed")
         });
       }
-      const updatedUser = await storage.updateUserLocation(userId, parsedData.data);
+      const updatedUser = await userRepo.updateUserLocation(userId, parsedData.data);
       res.json(updatedUser);
     } catch (error) {
       res.status(500).json({ message: "Σφάλμα κατά την ενημέρωση της τοποθεσίας" });
@@ -81,7 +81,7 @@ export function registerUsersRoutes(app: Express): void {
         // Check if this voter hash is already used by another account
         const voterHash = result.voter_hash || "";
         if (voterHash) {
-          const existingUser = await storage.getUserByVoterHash(voterHash);
+          const existingUser = await userRepo.getUserByVoterHash(voterHash);
           if (existingUser && existingUser.id !== req.user.id) {
             return res.status(400).json({
               success: false,
@@ -91,7 +91,7 @@ export function registerUsersRoutes(app: Express): void {
           }
         }
         // Update user record with verification info
-        await storage.updateUser(req.user.id, {
+        await userRepo.updateUser(req.user.id, {
           govgrVerified: true,
           govgrVerifiedAt: new Date(),
           govgrVoterHash: voterHash || "hash-missing",

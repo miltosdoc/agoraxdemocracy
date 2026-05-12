@@ -5,14 +5,14 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { platformRepo } from '../storage';
 import { requireAuth } from '../auth';
 
 export function registerPlatformRoutes(app: Express): void {
   // Get platform settings
   app.get("/api/platform-settings", requireAuth, async (req: Request, res: Response) => {
     try {
-      const settings = await storage.getPlatformSettings();
+      const settings = await platformRepo.getPlatformSettings();
       res.json(settings);
     } catch (error) {
       console.error("Error getting platform settings:", error);
@@ -27,7 +27,7 @@ export function registerPlatformRoutes(app: Express): void {
       if (!key || value === undefined || value === null) {
         return res.status(400).json({ message: "key and value are required" });
       }
-      const setting = await storage.updatePlatformSetting(key, String(value), userId);
+      const setting = await platformRepo.updatePlatformSetting(key, String(value), userId);
       res.json(setting);
     } catch (error) {
       console.error("Error updating platform setting:", error);
@@ -45,8 +45,8 @@ export function registerPlatformRoutes(app: Express): void {
         return res.json({ members: [], communities: [] });
       }
       const [members, communities] = await Promise.all([
-        storage.searchMembers(query, limit),
-        storage.searchCommunities(query, limit),
+        platformRepo.searchMembers(query, limit),
+        platformRepo.searchCommunities(query, limit),
       ]);
       res.json({
         members: members.map(m => ({

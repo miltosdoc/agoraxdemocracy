@@ -6,7 +6,7 @@
 
 import type { Express, Request, Response } from 'express';
 import multer from 'multer';
-import { storage } from '../storage';
+import { userRepo } from '../storage';
 import { requireAdmin } from '../auth';
 
 export function registerAdminRoutes(app: Express): void {
@@ -17,7 +17,7 @@ export function registerAdminRoutes(app: Express): void {
         status: status && status !== 'undefined' ? status as string : undefined,
         search: search && search !== 'undefined' ? search as string : undefined
       };
-      const users = await storage.getAllUsersWithAccountInfo(filters);
+      const users = await userRepo.getAllUsersWithAccountInfo(filters);
       res.json(users);
     } catch (error: any) {
       console.error("Error fetching user accounts:", error);
@@ -30,7 +30,7 @@ export function registerAdminRoutes(app: Express): void {
       if (isNaN(userId)) {
         return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
       }
-      const activity = await storage.getUserAccountActivity(userId);
+      const activity = await userRepo.getUserAccountActivity(userId);
       res.json(activity);
     } catch (error: any) {
       console.error("Error fetching user activity:", error);
@@ -43,7 +43,7 @@ export function registerAdminRoutes(app: Express): void {
       if (isNaN(userId)) {
         return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
       }
-      const updatedUser = await storage.updateAccountStatus(userId, 'banned');
+      const updatedUser = await userRepo.updateAccountStatus(userId, 'banned');
       res.json({
         success: true,
         message: "Ο λογαριασμός χρήστη έχει αποκλειστεί επιτυχώς",
@@ -60,7 +60,7 @@ export function registerAdminRoutes(app: Express): void {
       if (isNaN(userId)) {
         return res.status(400).json({ message: "Μη έγκυρο αναγνωριστικό χρήστη" });
       }
-      const updatedUser = await storage.updateAccountStatus(userId, 'active');
+      const updatedUser = await userRepo.updateAccountStatus(userId, 'active');
       res.json({
         success: true,
         message: "Ο λογαριασμός χρήστη έχει εγκριθεί επιτυχώς",

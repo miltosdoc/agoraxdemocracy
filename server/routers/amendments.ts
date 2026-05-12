@@ -5,7 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { amendmentRepo, communityRepo, proposalRepo } from '../storage';
 import { requireAuth } from '../auth';
 import {
   authorReviewAmendment,
@@ -18,7 +18,7 @@ import {
 export function registerAmendmentsRoutes(app: Express): void {
   app.get("/api/proposals/:id/amendments", async (req, res) => {
     try {
-      const amendments = await storage.getAmendments(parseInt(req.params.id));
+      const amendments = await amendmentRepo.getAmendments(parseInt(req.params.id));
       res.json(amendments);
     } catch (error) {
       console.error("Error fetching amendments:", error);
@@ -28,15 +28,15 @@ export function registerAmendmentsRoutes(app: Express): void {
   app.post("/api/proposals/:id/amendments", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
-      const isMember = await storage.isCommunityMember(proposal.communityId, req.user!.id);
+      const isMember = await communityRepo.isCommunityMember(proposal.communityId, req.user!.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
       // Check amendment cap
-      const community = await storage.getCommunity(proposal.communityId);
+      const community = await communityRepo.getCommunity(proposal.communityId);
       const cap = community?.maxAmendmentsPerProposal ?? -1;
       if (cap > 0) {
-        const currentCount = await storage.countAmendmentsForProposal(proposalId);
+        const currentCount = await amendmentRepo.countAmendmentsForProposal(proposalId);
         if (currentCount >= cap) {
           return res.status(400).json({
             message: `Amendment limit reached (${cap} per proposal)`,
@@ -47,7 +47,7 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (!type || !text) {
         return res.status(400).json({ message: "Type and text are required" });
       }
-      const amendment = await storage.createAmendment({
+      const amendment = await amendmentRepo.createAmendment({
         proposalId,
         authorId: req.user.id,
         type,
@@ -80,10 +80,10 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (!['accepted', 'rejected'].includes(decision)) {
         return res.status(400).json({ message: "Decision must be 'accepted' or 'rejected'" });
       }
-      const amendment = await storage.getAmendment(amendmentId);
+      const amendment = await amendmentRepo.getAmendment(amendmentId);
       if (!amendment) return res.status(404).json({ message: "Amendment not found" });
       // Only the proposal author can review amendments
-      const proposal = await storage.getProposal(amendment.proposalId);
+      const proposal = await proposalRepo.getProposal(amendment.proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) {
         return res.status(403).json({ message: "Only the proposal author can review amendments" });
@@ -103,7 +103,7 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (![1, -1].includes(vote)) {
         return res.status(400).json({ message: "Vote must be +1 or -1" });
       }
-      const amendment = await storage.getAmendment(amendmentId);
+      const amendment = await amendmentRepo.getAmendment(amendmentId);
       if (!amendment) return res.status(404).json({ message: "Amendment not found" });
       // Only rejected amendments can be voted on
       if (amendment.authorDecision !== 'rejected') {
@@ -123,7 +123,7 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (!Number.isFinite(proposalId)) {
         return res.status(400).json({ message: "Invalid proposal id" });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       const thresholdParam = req.query.threshold;
       const threshold = typeof thresholdParam === 'string' ? Number.parseFloat(thresholdParam) : undefined;
@@ -142,7 +142,7 @@ export function registerAmendmentsRoutes(app: Express): void {
   app.get("/api/proposals/:id/amendments/signals", async (req, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       const signals = await calculateCommunitySignals(proposalId, proposal.communityId);
       res.json(signals);
@@ -155,7 +155,7 @@ export function registerAmendmentsRoutes(app: Express): void {
   app.get("/api/proposals/:id/sortition-input", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       // Check if user is part of the sortition body for this proposal
       // (simplified check — in production, verify sortition membership)
@@ -174,7 +174,7 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (!finalText) {
         return res.status(400).json({ message: "Final text is required" });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       // Check if proposal is in sortition_synthesis state
       if (proposal.status !== 'sortition_synthesis') {

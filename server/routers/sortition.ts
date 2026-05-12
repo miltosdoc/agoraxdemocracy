@@ -6,8 +6,8 @@
 
 import type { Express, Request, Response } from 'express';
 import { db } from '../db';
-import { storage } from '../storage';
-import type { IStorage } from '../storage/types';
+import {  communityRepo, proposalRepo, sortitionRepo, userRepo , storage } from '../storage';
+
 import { requireAuth } from '../auth';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
 import {
@@ -38,9 +38,9 @@ export function registerSortitionRoutes(app: Express): void {
         .orderBy(desc(sortitionBodies.createdAt));
       const enriched = await Promise.all(
         bodies.map(async (body) => {
-          const members = await storage.getSortitionMembers(body.id);
-          const community = await storage.getCommunity(body.communityId);
-          const proposal = body.proposalId ? await storage.getProposal(body.proposalId) : null;
+          const members = await sortitionRepo.getSortitionMembers(body.id);
+          const community = await communityRepo.getCommunity(body.communityId);
+          const proposal = body.proposalId ? await proposalRepo.getProposal(body.proposalId) : null;
           const responded = members.filter(m => m.responded).length;
           const scores = members
             .filter(m => m.responded && m.score !== null)
@@ -84,16 +84,16 @@ export function registerSortitionRoutes(app: Express): void {
   app.get("/api/sortition/:bodyId/ceremony", requireAuth, async (req: any, res) => {
     try {
       const bodyId = parseInt(req.params.bodyId);
-      const body = await storage.getSortitionBody(bodyId);
+      const body = await sortitionRepo.getSortitionBody(bodyId);
       if (!body) return res.status(404).json({ message: "Sortition body not found" });
-      const isMember = await storage.isCommunityMember(body.communityId, req.user.id);
+      const isMember = await communityRepo.isCommunityMember(body.communityId, req.user.id);
       if (!isMember) return res.status(403).json({ message: "Must be a community member" });
-      const community = await storage.getCommunity(body.communityId);
-      const proposal = body.proposalId ? await storage.getProposal(body.proposalId) : null;
-      const members = await storage.getSortitionMembers(bodyId);
+      const community = await communityRepo.getCommunity(body.communityId);
+      const proposal = body.proposalId ? await proposalRepo.getProposal(body.proposalId) : null;
+      const members = await sortitionRepo.getSortitionMembers(bodyId);
       const enrichedMembers = await Promise.all(
         members.map(async (m) => {
-          const user = await storage.getUser(m.userId);
+          const user = await userRepo.getUser(m.userId);
           return {
             assignmentId: m.id,
             userId: m.userId,
@@ -128,15 +128,15 @@ export function registerSortitionRoutes(app: Express): void {
   app.get("/api/sortition/:bodyId", requireAuth, async (req: any, res) => {
     try {
       const bodyId = parseInt(req.params.bodyId);
-      const body = await storage.getSortitionBody(bodyId);
+      const body = await sortitionRepo.getSortitionBody(bodyId);
       if (!body) {
         return res.status(404).json({ message: "Sortition body not found" });
       }
-      const members = await storage.getSortitionMembers(bodyId);
+      const members = await sortitionRepo.getSortitionMembers(bodyId);
       // Get user details for each member
       const enrichedMembers = await Promise.all(
         members.map(async (m) => {
-          const user = await storage.getUser(m.userId);
+          const user = await userRepo.getUser(m.userId);
           return {
             ...m,
             user: user ? { id: user.id, name: user.name, username: user.username } : null,
@@ -156,19 +156,19 @@ export function registerSortitionRoutes(app: Express): void {
   app.post("/api/sortition/:bodyId/complete", requireAuth, async (req: any, res) => {
     try {
       const bodyId = parseInt(req.params.bodyId);
-      const body = await storage.getSortitionBody(bodyId);
+      const body = await sortitionRepo.getSortitionBody(bodyId);
       if (!body) {
         return res.status(404).json({ message: "Sortition body not found" });
       }
       // Check if user is admin of the community
-      const role = await storage.getCommunityMemberRole(body.communityId, req.user.id);
+      const role = await communityRepo.getCommunityMemberRole(body.communityId, req.user.id);
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Not authorized" });
       }
       if (body.status === 'completed') {
         return res.status(400).json({ message: "Sortition body already completed" });
       }
-      const completed = await storage.completeSortitionBody(bodyId);
+      const completed = await sortitionRepo.completeSortitionBody(bodyId);
       res.json(completed);
     } catch (error) {
       console.error("Error completing sortition body:", error);
@@ -187,7 +187,7 @@ export function registerSortitionRoutes(app: Express): void {
         return res.status(404).json({ message: "Assignment not found" });
       }
       const sortMember = member[0];
-      const body = await storage.getSortitionBody(sortMember.bodyId);
+      const body = await sortitionRepo.getSortitionBody(sortMember.bodyId);
       if (!body) {
         return res.status(404).json({ message: "Sortition body not found" });
       }
@@ -195,10 +195,10 @@ export function registerSortitionRoutes(app: Express): void {
       let proposal = null;
       let similarProposals: any[] = [];
       if (body.proposalId) {
-        proposal = await storage.getProposal(body.proposalId);
+        proposal = await proposalRepo.getProposal(body.proposalId);
         if (proposal) {
           // Get similar proposals from same community
-          const allProposals = await storage.getProposals(body.communityId);
+          const allProposals = await proposalRepo.getProposals(body.communityId);
           similarProposals = allProposals
             .filter(p => p.id !== proposal!.id && p.status === proposal!.status)
             .slice(0, 3)
@@ -245,7 +245,7 @@ export function registerSortitionRoutes(app: Express): void {
       if (sortMember.userId !== req.user.id) {
         return res.status(403).json({ message: "Not your assignment" });
       }
-      const updated = await storage.updateSortitionMember(sortMember.bodyId, sortMember.userId, {
+      const updated = await sortitionRepo.updateSortitionMember(sortMember.bodyId, sortMember.userId, {
         score: String(numericScore),
         feedback: typeof feedback === 'string' && feedback.trim() ? feedback.trim() : null,
         responded: true,
@@ -260,17 +260,17 @@ export function registerSortitionRoutes(app: Express): void {
   app.post("/api/sortition/:bodyId/synthesize", requireAuth, async (req: any, res) => {
     try {
       const bodyId = parseInt(req.params.bodyId);
-      const body = await storage.getSortitionBody(bodyId);
+      const body = await sortitionRepo.getSortitionBody(bodyId);
       if (!body) {
         return res.status(404).json({ message: "Sortition body not found" });
       }
       // Check if user is admin of the community
-      const role = await storage.getCommunityMemberRole(body.communityId, req.user.id);
+      const role = await communityRepo.getCommunityMemberRole(body.communityId, req.user.id);
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Not authorized" });
       }
       const { synthesizeSortitionScores } = await import('../utils/sortition');
-      const result = await synthesizeSortitionScores(bodyId, storage as any as IStorage);
+      const result = await synthesizeSortitionScores(bodyId, storage);
       res.json(result);
     } catch (error) {
       console.error("Error synthesizing sortition scores:", error);

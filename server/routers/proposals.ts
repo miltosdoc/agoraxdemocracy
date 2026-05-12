@@ -5,7 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage, IStorage } from '../storage';
+import {  communityRepo, proposalRepo, sortitionRepo , storage } from '../storage';
 import { requireAuth } from '../auth';
 import { db } from '../db';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
@@ -24,7 +24,7 @@ export function registerProposalsRoutes(app: Express): void {
   app.get("/api/proposals", async (req, res) => {
     try {
       const { limit } = req.query;
-      const proposals = await storage.getAllProposals(limit ? parseInt(limit as string) : undefined);
+      const proposals = await proposalRepo.getAllProposals(limit ? parseInt(limit as string) : undefined);
       res.json(proposals);
     } catch (error) {
       console.error("Error fetching proposals:", error);
@@ -35,7 +35,7 @@ export function registerProposalsRoutes(app: Express): void {
     try {
       const communityId = parseInt(req.params.communityId);
       const { status, category } = req.query;
-      const proposals = await storage.getProposals(communityId, {
+      const proposals = await proposalRepo.getProposals(communityId, {
         status: status as string,
         category: category as string,
       });
@@ -50,7 +50,7 @@ export function registerProposalsRoutes(app: Express): void {
       const communityId = parseInt(req.params.communityId);
       const userId = req.user!.id;
       // Check membership
-      const isMember = await storage.isCommunityMember(communityId, userId);
+      const isMember = await communityRepo.isCommunityMember(communityId, userId);
       if (!isMember) {
         return res.status(403).json({ message: "Must be a community member to submit proposals" });
       }
@@ -58,7 +58,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (!question || !solution) {
         return res.status(400).json({ message: "Question and solution are required" });
       }
-      const proposal = await storage.createProposal({
+      const proposal = await proposalRepo.createProposal({
         communityId,
         authorId: userId,
         question,
@@ -74,7 +74,7 @@ export function registerProposalsRoutes(app: Express): void {
   });
   app.get("/api/proposals/:id", async (req, res) => {
     try {
-      const proposal = await storage.getProposal(parseInt(req.params.id));
+      const proposal = await proposalRepo.getProposal(parseInt(req.params.id));
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       res.json(proposal);
     } catch (error) {
@@ -85,11 +85,11 @@ export function registerProposalsRoutes(app: Express): void {
   app.patch("/api/proposals/:id", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
       if (proposal.status !== 'draft') return res.status(409).json({ message: "Can only edit drafts" });
-      const updated = await storage.updateProposal(proposalId, req.body);
+      const updated = await proposalRepo.updateProposal(proposalId, req.body);
       res.json(updated);
     } catch (error) {
       console.error("Error updating proposal:", error);
@@ -99,14 +99,14 @@ export function registerProposalsRoutes(app: Express): void {
   app.post("/api/proposals/:id/submit", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
       if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
       const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
       const { storage: storageInstance } = await import('../storage');
       // draft → review (validated by the state machine; archived states blocked).
-      const inReview = await transitionProposal(proposal, 'review', storageInstance as any as IStorage);      await triggerSideEffects(proposal.status, 'review', inReview);
+      const inReview = await transitionProposal(proposal, 'review', storage);      await triggerSideEffects(proposal.status, 'review', inReview);
       // ─── LLM Validation while the proposal sits in `review` ───────────────
       let llmScore: string | undefined;
       let llmFeedback: string | undefined;
@@ -139,7 +139,7 @@ export function registerProposalsRoutes(app: Express): void {
       });
       let updated = scored;
       if (nextStatus !== 'review') {
-        updated = await transitionProposal(scored, nextStatus, storageInstance as any as IStorage);
+        updated = await transitionProposal(scored, nextStatus, storage);
         await triggerSideEffects('review', nextStatus, updated);
       }
       res.json({
@@ -163,7 +163,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (!type || !['support', 'oppose'].includes(type)) {
         return res.status(400).json({ message: "Type must be 'support' or 'oppose'" });
       }
-      const support = await storage.getProposalSupport(proposalId);
+      const support = await proposalRepo.getProposalSupport(proposalId);
       res.status(201).json(support);
     } catch (error) {
       console.error("Error creating support:", error);
@@ -173,7 +173,7 @@ export function registerProposalsRoutes(app: Express): void {
   app.get("/api/proposals/:id/support", async (req: any, res) => {
     try {
       const userId = (req.user as any)?.id;
-      const support = await storage.getProposalSupport(parseInt(req.params.id), userId);
+      const support = await proposalRepo.getProposalSupport(parseInt(req.params.id), userId);
       res.json(support);
     } catch (error) {
       console.error("Error fetching support:", error);
@@ -195,7 +195,7 @@ export function registerProposalsRoutes(app: Express): void {
           errors: parsed.error.flatten(),
         });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.status !== 'voting') {
         return res.status(409).json({
@@ -203,11 +203,11 @@ export function registerProposalsRoutes(app: Express): void {
           current_status: proposal.status,
         });
       }
-      const isMember = await storage.isCommunityMember(proposal.communityId, req.user.id);
+      const isMember = await communityRepo.isCommunityMember(proposal.communityId, req.user.id);
       if (!isMember) {
         return res.status(403).json({ message: "Only community members may cast a final vote" });
       }
-      const vote = await storage.castProposalVote(proposalId, req.user.id, parsed.data.choice);
+      const vote = await proposalRepo.castProposalVote(proposalId, req.user.id, parsed.data.choice);
       res.status(201).json(vote);
     } catch (error) {
       console.error("Error casting proposal vote:", error);
@@ -221,11 +221,11 @@ export function registerProposalsRoutes(app: Express): void {
       if (!Number.isFinite(proposalId)) {
         return res.status(400).json({ message: "Invalid proposal id" });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
-      const results = await storage.getProposalVoteResults(proposalId);
+      const results = await proposalRepo.getProposalVoteResults(proposalId);
       const userId = (req.user as any)?.id;
-      const userVote = userId ? await storage.getUserProposalVote(proposalId, userId) : undefined;
+      const userVote = userId ? await proposalRepo.getUserProposalVote(proposalId, userId) : undefined;
       res.json({
         ...results,
         userVote: userVote?.choice ?? null,
@@ -242,7 +242,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (!Number.isFinite(proposalId)) {
         return res.status(400).json({ message: "Invalid proposal id" });
       }
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.status !== 'voting') {
         return res.status(409).json({
@@ -251,16 +251,16 @@ export function registerProposalsRoutes(app: Express): void {
         });
       }
       if (proposal.authorId !== req.user.id) {
-        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        const role = await communityRepo.getCommunityMemberRole(proposal.communityId, req.user.id);
         if (role !== 'admin' && role !== 'founder') {
           return res.status(403).json({ message: "Not authorized to finalize this proposal" });
         }
       }
-      const results = await storage.getProposalVoteResults(proposalId);
+      const results = await proposalRepo.getProposalVoteResults(proposalId);
       const nextState = (results.yes + results.no) >= 3 ? 'decided' : 'archived';
       const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
       const { storage: storageInstance } = await import('../storage');
-      const updated = await transitionProposal(proposal, nextState, storageInstance as any as IStorage);
+      const updated = await transitionProposal(proposal, nextState, storage);
       await triggerSideEffects(proposal.status, nextState, updated);
       res.json({ proposal: updated, results });
     } catch (error) {
@@ -272,7 +272,7 @@ export function registerProposalsRoutes(app: Express): void {
   app.post("/api/proposals/:id/transition", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       const { newState } = req.body;
       if (!isProposalState(newState)) {
@@ -296,13 +296,13 @@ export function registerProposalsRoutes(app: Express): void {
       }
       // Check permissions
       if (proposal.authorId !== req.user.id) {
-        const role = await storage.getCommunityMemberRole(proposal.communityId, req.user.id);
+        const role = await communityRepo.getCommunityMemberRole(proposal.communityId, req.user.id);
         if (role !== 'admin' && role !== 'founder') {
           return res.status(403).json({ message: "Not authorized" });
         }
       }
       const { storage: storageInstance } = await import('../storage');
-      const updated = await transitionProposal(proposal, newState, storageInstance as any as IStorage);
+      const updated = await transitionProposal(proposal, newState, storage);
       await triggerSideEffects(proposal.status, newState, updated);
       res.json(updated);
     } catch (error) {
@@ -314,7 +314,7 @@ export function registerProposalsRoutes(app: Express): void {
   app.get("/api/proposals/:id/attendance", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const summary = await storage.getAttendanceSummary(proposalId);
+      const summary = await sortitionRepo.getAttendanceSummary(proposalId);
       // Find the current user's sortition member id (if any) for this proposal
       const userId = req.user.id;
       const bodies = await db
@@ -331,7 +331,7 @@ export function registerProposalsRoutes(app: Express): void {
           .limit(1);
         if (member) {
           userMemberId = member.id;
-          userAttendance = await storage.getAttendance(proposalId, member.id) ?? null;
+          userAttendance = await sortitionRepo.getAttendance(proposalId, member.id) ?? null;
           break;
         }
       }
@@ -384,12 +384,12 @@ export function registerProposalsRoutes(app: Express): void {
       if (!memberRow || memberRow.userId !== req.user.id) {
         return res.status(403).json({ message: "Not your assignment" });
       }
-      const attendance = await storage.upsertAttendance(proposalId, resolvedMemberId, { status, notes });
-      const summary = await storage.getAttendanceSummary(proposalId);
+      const attendance = await sortitionRepo.upsertAttendance(proposalId, resolvedMemberId, status, notes);
+      const summary = await sortitionRepo.getAttendanceSummary(proposalId);
       // Notify the proposal author when ≥50% confirm
       try {
         if (summary.confirmedPct >= 0.5 && summary.total > 0) {
-          const proposal = await storage.getProposal(proposalId);
+          const proposal = await proposalRepo.getProposal(proposalId);
           if (proposal) {
             const { createNotification } = await import('../utils/notifications');
             await createNotification({
@@ -415,7 +415,7 @@ export function registerProposalsRoutes(app: Express): void {
   app.post("/api/proposals/:id/revalidate", requireAuth, async (req: any, res) => {
     try {
       const proposalId = parseInt(req.params.id);
-      const proposal = await storage.getProposal(proposalId);
+      const proposal = await proposalRepo.getProposal(proposalId);
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) {
         return res.status(403).json({ message: "Only the author can request re-validation" });
@@ -430,7 +430,7 @@ export function registerProposalsRoutes(app: Express): void {
         details: result.details,
         category: result.category,
       });
-      const updated = await storage.updateProposal(proposalId, {
+      const updated = await proposalRepo.updateProposal(proposalId, {
         llmScore: String(result.score),
         llmFeedback: result.feedback,
         llmValidatedAt: new Date(),

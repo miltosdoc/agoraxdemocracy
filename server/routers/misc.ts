@@ -5,7 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { votingRepo } from '../storage';
 import { requireAuth } from '../auth';
 import { db } from '../db';
 
@@ -21,11 +21,11 @@ export function registerMiscRoutes(app: Express): void {
     // Social bots - serve SEO-optimized HTML with Open Graph tags
     try {
       const pollId = parseInt(req.params.id);
-      const poll = await storage.getPoll(pollId);
+      const poll = await votingRepo.getPoll(pollId);
       if (!poll) {
         return next(); // Let frontend handle 404
       }
-      const results = await storage.getPollResults(pollId);
+      const results = await votingRepo.getPollResults(pollId);
       const totalVotes = results.reduce((sum, result) => sum + result.voteCount, 0);
       const isActive = new Date(poll.endDate) > new Date();
       // Clean description without HTML tags
@@ -79,7 +79,7 @@ export function registerMiscRoutes(app: Express): void {
   app.get("/api/og-image/:id", async (req, res) => {
     try {
       const pollId = parseInt(req.params.id);
-      const poll = await storage.getPoll(pollId);
+      const poll = await votingRepo.getPoll(pollId);
       if (!poll) {
         return res.status(404).send("Poll not found");
       }

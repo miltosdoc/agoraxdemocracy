@@ -5,7 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { notificationRepo } from '../storage';
 import { requireAuth } from '../auth';
 import { db } from '../db';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
@@ -17,7 +17,7 @@ export function registerNotificationsRoutes(app: Express): void {
   app.get("/api/notifications", requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const notifications = await storage.getUserNotifications(userId);
+      const notifications = await notificationRepo.getUserNotifications(userId);
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -28,7 +28,7 @@ export function registerNotificationsRoutes(app: Express): void {
     try {
       const notificationId = parseInt(req.params.id);
       const userId = req.user!.id;
-      const notifications = await storage.getUserNotifications(userId);
+      const notifications = await notificationRepo.getUserNotifications(userId);
       const notification = notifications.find(n => n.id === notificationId);
       if (!notification) {
         return res.status(404).json({ message: "Η ειδοποίηση δεν βρέθηκε" });
@@ -36,7 +36,7 @@ export function registerNotificationsRoutes(app: Express): void {
       if (notification.userId !== userId) {
         return res.status(403).json({ message: "Δεν έχετε δικαίωμα πρόσβασης σε αυτή την ειδοποίηση" });
       }
-      const updatedNotification = await storage.markNotificationAsRead(notificationId);
+      const updatedNotification = await notificationRepo.markNotificationAsRead(notificationId);
       res.json({ success: true, notification: updatedNotification });
     } catch (error) {
       console.error("Error marking notification as read:", error);
@@ -46,7 +46,7 @@ export function registerNotificationsRoutes(app: Express): void {
   app.get("/api/notifications/unread/count", requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const notifications = await storage.getUserNotifications(userId);
+      const notifications = await notificationRepo.getUserNotifications(userId);
       const unreadCount = notifications.filter(n => !n.read).length;
       res.json({ count: unreadCount });
     } catch (error) {

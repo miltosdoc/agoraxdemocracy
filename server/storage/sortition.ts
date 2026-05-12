@@ -155,4 +155,18 @@ private async bodyIdsForProposal(proposalId: number): Promise<number[]> {
   return rows.map(r => r.id);
 }
 
+
+  /**
+   * Get attendance summary for a proposal.
+   */
+  async getAttendanceSummary(proposalId: number) {
+    const members = await this.getSortitionMembers(proposalId);
+    const confirmed = members.filter(m => m.responded === true);
+    return {
+      confirmedPct: members.length > 0 ? (confirmed.length / members.length) * 100 : 0,
+      attended: confirmed.length,
+      total: members.length,
+      rate: members.length > 0 ? confirmed.length / members.length : 0,
+    };
+  }
 }

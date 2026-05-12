@@ -5,8 +5,8 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
-import type { IStorage } from '../storage/types';
+import {  communityRepo, proposalRepo, sortitionRepo , storage } from '../storage';
+
 import { db } from '../db';
 import { requireAuth } from '../auth';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
@@ -25,7 +25,7 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities", async (req, res) => {
     try {
       const userId = req.user?.id;
-      const communities = await storage.getCommunities(userId);
+      const communities = await communityRepo.getCommunities(userId);
       res.json(communities);
     } catch (error) {
       console.error("Error fetching communities:", error);
@@ -35,12 +35,12 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.post("/api/communities", requireAuth, async (req: any, res) => {
     try {
       const communitySettings = sanitizeCommunityCreateInput(req.body);
-      const community = await storage.createCommunity({
+      const community = await communityRepo.createCommunity({
         ...communitySettings,
         creatorId: req.user.id,
       });
       // Auto-add creator as founder
-      await storage.addCommunityMember(community.id, req.user.id, 'founder');
+      await communityRepo.addCommunityMember(community.id, req.user.id, 'founder');
       res.status(201).json(community);
     } catch (error) {
       console.error("Error creating community:", error);
@@ -50,7 +50,7 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id", async (req, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const community = await storage.getCommunity(communityId);
+      const community = await communityRepo.getCommunity(communityId);
       if (!community) return res.status(404).json({ message: "Community not found" });
       res.json(community);
     } catch (error) {
@@ -61,14 +61,14 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id/summary", async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const community = await storage.getCommunity(communityId);
+      const community = await communityRepo.getCommunity(communityId);
       if (!community) return res.status(404).json({ message: "Community not found" });
       const [members, proposals] = await Promise.all([
-        storage.getCommunityMembers(communityId),
-        storage.getProposals(communityId),
+        communityRepo.getCommunityMembers(communityId),
+        proposalRepo.getProposals(communityId),
       ]);
       const currentUserRole = req.user?.id
-        ? await storage.getCommunityMemberRole(communityId, req.user.id)
+        ? await communityRepo.getCommunityMemberRole(communityId, req.user.id)
         : undefined;
       res.json(buildCommunitySummary(community, proposals, members.length, currentUserRole));
     } catch (error) {
@@ -79,12 +79,12 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.patch("/api/communities/:id", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+      const role = await communityRepo.getCommunityMemberRole(communityId, req.user.id);
       if (!role || (role !== 'admin' && role !== 'founder')) {
         return res.status(403).json({ message: "Not authorized" });
       }
       const communitySettings = sanitizeCommunityUpdateInput(req.body);
-      const community = await storage.updateCommunity(communityId, communitySettings);
+      const community = await communityRepo.updateCommunity(communityId, communitySettings);
       res.json(community);
     } catch (error) {
       console.error("Error updating community:", error);
@@ -93,7 +93,7 @@ export function registerCommunitiesRoutes(app: Express): void {
   });
   app.get("/api/communities/:id/members", async (req, res) => {
     try {
-      const members = await storage.getCommunityMembers(parseInt(req.params.id));
+      const members = await communityRepo.getCommunityMembers(parseInt(req.params.id));
       res.json(members);
     } catch (error) {
       console.error("Error fetching members:", error);
@@ -105,11 +105,11 @@ export function registerCommunitiesRoutes(app: Express): void {
       const communityId = parseInt(req.params.id);
       const userId = req.user!.id;
       // Check if already a member
-      const isMember = await storage.isCommunityMember(communityId, userId);
+      const isMember = await communityRepo.isCommunityMember(communityId, userId);
       if (isMember) {
         return res.status(409).json({ message: "Already a member" });
       }
-      const member = await storage.addCommunityMember(communityId, userId);
+      const member = await communityRepo.addCommunityMember(communityId, userId);
       res.status(201).json(member);
     } catch (error) {
       console.error("Error joining community:", error);
@@ -120,7 +120,7 @@ export function registerCommunitiesRoutes(app: Express): void {
     try {
       const communityId = parseInt(req.params.id);
       const userId = req.user!.id;
-      await storage.removeCommunityMember(communityId, userId);
+      await communityRepo.removeCommunityMember(communityId, userId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error leaving community:", error);
@@ -133,7 +133,7 @@ export function registerCommunitiesRoutes(app: Express): void {
       const communityId = parseInt(req.params.id);
       const userId = req.user.id;
       // Check if user is admin or founder of the source community
-      const role = await storage.getCommunityMemberRole(communityId, userId);
+      const role = await communityRepo.getCommunityMemberRole(communityId, userId);
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Only admin or founder can merge communities" });
       }
@@ -142,12 +142,12 @@ export function registerCommunitiesRoutes(app: Express): void {
         return res.status(400).json({ message: "targetCommunityId is required and must be a number" });
       }
       // Validate target community exists
-      const target = await storage.getCommunity(targetCommunityId);
+      const target = await communityRepo.getCommunity(targetCommunityId);
       if (!target) {
         return res.status(404).json({ message: "Target community not found" });
       }
       // Perform merge
-      const result = await storage.mergeCommunities(communityId, targetCommunityId);
+      const result = await communityRepo.mergeCommunities(communityId, targetCommunityId);
       if (!result.success) {
         return res.status(400).json({
           message: "Merge failed",
@@ -171,7 +171,7 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id/merged", async (req, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const merged = await storage.getMergedCommunities(communityId);
+      const merged = await communityRepo.getMergedCommunities(communityId);
       res.json(merged);
     } catch (error) {
       console.error("Error fetching merged communities:", error);
@@ -181,14 +181,14 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.post("/api/communities/:id/sortition", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+      const role = await communityRepo.getCommunityMemberRole(communityId, req.user.id);
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Not authorized" });
       }
       const { size } = req.body;
       const panelSize = size || 7;
       const { createSortitionBody } = await import('../utils/sortition');
-      const result = await createSortitionBody(communityId, panelSize, storage as any as IStorage);
+      const result = await createSortitionBody(communityId, panelSize, storage);
       // Notify selected members
       try {
         const { notifySortitionMembers } = await import('../utils/notifications');
@@ -214,14 +214,14 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id/sortition/preview", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const isMember = await storage.isCommunityMember(communityId, req.user.id);
+      const isMember = await communityRepo.isCommunityMember(communityId, req.user.id);
       if (!isMember) {
         return res.status(403).json({ message: "Must be a community member" });
       }
       const { previewSortition } = await import('../utils/sortition');
       const { size } = req.query;
       const panelSize = parseInt(size as string) || 7;
-      const result = await previewSortition(communityId, panelSize, storage as any as IStorage);
+      const result = await previewSortition(communityId, panelSize, storage);
       res.json(result);
     } catch (error) {
       console.error("Error previewing sortition:", error);
@@ -231,7 +231,7 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id/sortition", requireAuth, async (req: any, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const role = await storage.getCommunityMemberRole(communityId, req.user.id);
+      const role = await communityRepo.getCommunityMemberRole(communityId, req.user.id);
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Not authorized" });
       }
@@ -244,7 +244,7 @@ export function registerCommunitiesRoutes(app: Express): void {
       // Enrich with member counts
       const enriched = await Promise.all(
         bodies.map(async (body) => {
-          const members = await storage.getSortitionMembers(body.id);
+          const members = await sortitionRepo.getSortitionMembers(body.id);
           return {
             ...body,
             memberCount: members.length,
@@ -262,12 +262,12 @@ export function registerCommunitiesRoutes(app: Express): void {
   app.get("/api/communities/:id/democracy-score", async (req, res) => {
     try {
       const communityId = parseInt(req.params.id);
-      const community = await storage.getCommunity(communityId);
+      const community = await communityRepo.getCommunity(communityId);
       if (!community) {
         return res.status(404).json({ message: "Community not found" });
       }
       const { calculateDemocracyScore, getDemocracyGrade } = await import('../utils/democracy-score');
-      const result = await calculateDemocracyScore(communityId, storage as any as IStorage);
+      const result = await calculateDemocracyScore(communityId, storage as any);
       res.json({
         ...result,
         grade: getDemocracyGrade(result.score),

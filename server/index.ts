@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import { apiLimit, authLimit } from './utils/rate-limiter';
+import { logger } from './utils/logger';
+
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -11,6 +14,10 @@ validateRuntimeConfig();
 const app = express();
 app.use(helmet());
 app.use(express.json({ limit: "100kb" }));
+
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimit);
+
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
 app.use((req, res, next) => {
@@ -54,7 +61,7 @@ app.get('/health', (_req, res) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error(`[error] ${req.method} ${req.path} ${status}: ${err.stack || err.message || err}`);
+    logger.error(`${req.method} ${req.path} ${status}: ${err.message || err}`, { method: req.method, path: req.path, status, stack: err.stack });
 
     if (!res.headersSent) {
       res.status(status).json({ message });
@@ -74,7 +81,7 @@ app.get('/health', (_req, res) => {
   // this serves both the API and the client.
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
+    logger.info(`Server started on port ${port}`, { port, env: process.env.NODE_ENV });
     
     // Start background job queue worker
     startJobQueue();
