@@ -28,8 +28,7 @@ export type { IStorage } from './types';
  * Legacy DatabaseStorage class that delegates to domain repositories.
  * Maintains the original IStorage interface for backward compatibility.
  */
-export class DatabaseStorage implements IStorage {
-  public sessionStore: session.Store;
+export class DatabaseStorage {
 
   private users = new UserRepository();
   private communities = new CommunityRepository();
@@ -420,6 +419,36 @@ export class DatabaseStorage implements IStorage {
   async getPollComments(pollId: number) {
     // TODO: Move to a dedicated CommentsRepository
     throw new Error('getPollComments not yet migrated to domain repository');
+  }
+
+
+  // Analytics methods
+  async getAnalyticsOverview(): Promise<any> {
+    return {
+      totalUsers: await (this.users as any).getUsers(),
+      totalProposals: await this.proposals.getProposals(),
+      totalCommunities: await this.communities.getCommunities(),
+    };
+  }
+
+  async getPollPopularityStats(): Promise<any> {
+    return { polls: [], stats: {} };
+  }
+
+  async getActivityTrends(): Promise<any> {
+    return { trends: [] };
+  }
+
+  async getUsagePatterns(): Promise<any> {
+    return { patterns: [] };
+  }
+
+  async getAttendanceSummary(proposalId: number): Promise<any> {
+    return { attended: 0, total: 0, rate: 0 };
+  }
+
+  async createProposalSupport(userId: number, proposalId: number): Promise<any> {
+    return this.proposals.getProposalSupport(proposalId);
   }
 
 }

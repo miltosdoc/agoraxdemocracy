@@ -5,6 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
+import multer from 'multer';
 import { storage } from '../storage';
 import { ballotUpload } from '../utils/ballot-client';
 import { requireAuth } from '../auth';
@@ -22,7 +23,7 @@ export function registerBallotRoutes(app: Express): void {
         return res.status(404).json({ message: "Η ψηφοφορία δεν βρέθηκε" });
       }
       // Import ballot client
-      const { generatePollToken } = await import('./utils/ballot-client');
+      const { generatePollToken } = await import('../utils/ballot-client');
       const token = generatePollToken();
       res.json({ token, pollId: String(pollId) });
     } catch (error) {
@@ -36,7 +37,7 @@ export function registerBallotRoutes(app: Express): void {
       if (!pollId || !pollToken) {
         return res.status(400).json({ message: "Poll ID and token are required" });
       }
-      const { getBallotInstructions } = await import('./utils/ballot-client');
+      const { getBallotInstructions } = await import('../utils/ballot-client');
       const instructions = await getBallotInstructions(
         String(pollId),
         String(pollToken)
@@ -52,7 +53,7 @@ export function registerBallotRoutes(app: Express): void {
       res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση οδηγιών" });
     }
   });
-  app.post("/api/ballot/validate", requireAuth, ballotUpload.single('file'), async (req: any, res) => {
+  app.post("/api/ballot/validate", requireAuth, multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }).single('file'), async (req: any, res) => {
     try {
       const file = req.file;
       const { pollId, pollToken } = req.body;
@@ -71,7 +72,7 @@ export function registerBallotRoutes(app: Express): void {
         return res.status(400).json({ message: "Η ψηφοφορία έχει ολοκληρωθεί" });
       }
       // Validate via Python ballot service
-      const { validateBallot } = await import('./utils/ballot-client');
+      const { validateBallot } = await import('../utils/ballot-client');
       const result = await validateBallot(
         file.buffer,
         String(pollId),
@@ -118,7 +119,7 @@ export function registerBallotRoutes(app: Express): void {
   app.get("/api/ballot/stats/:pollId", async (req, res) => {
     try {
       const pollId = req.params.pollId;
-      const { getBallotStats } = await import('./utils/ballot-client');
+      const { getBallotStats } = await import('../utils/ballot-client');
       const stats = await getBallotStats(pollId);
       if (!stats) {
         return res.status(503).json({
@@ -133,7 +134,7 @@ export function registerBallotRoutes(app: Express): void {
   });
   app.get("/api/ballot/health", async (req, res) => {
     try {
-      const { checkBallotServiceHealth } = await import('./utils/ballot-client');
+      const { checkBallotServiceHealth } = await import('../utils/ballot-client');
       const isHealthy = await checkBallotServiceHealth();
       res.json({
         status: isHealthy ? 'healthy' : 'unavailable',

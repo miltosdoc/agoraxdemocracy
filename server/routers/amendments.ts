@@ -54,7 +54,7 @@ export function registerAmendmentsRoutes(app: Express): void {
         text,
         status: 'pending',
       });
-      const { findDuplicateAmendments } = await import('./utils/amendment-merger');
+      const { findDuplicateAmendments } = await import('../utils/amendment-merger');
       const groups = await findDuplicateAmendments(proposalId);
       const duplicateGroup = groups.find(g => g.amendmentIds.includes(amendment.id));
       res.status(201).json({
@@ -127,7 +127,7 @@ export function registerAmendmentsRoutes(app: Express): void {
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       const thresholdParam = req.query.threshold;
       const threshold = typeof thresholdParam === 'string' ? Number.parseFloat(thresholdParam) : undefined;
-      const { findDuplicateAmendments, DEFAULT_SIMILARITY_THRESHOLD } = await import('./utils/amendment-merger');
+      const { findDuplicateAmendments, DEFAULT_SIMILARITY_THRESHOLD } = await import('../utils/amendment-merger');
       const groups = await findDuplicateAmendments(
         proposalId,
         Number.isFinite(threshold as number) ? threshold : DEFAULT_SIMILARITY_THRESHOLD,

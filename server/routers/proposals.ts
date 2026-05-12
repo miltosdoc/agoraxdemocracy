@@ -5,7 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
-import { storage } from '../storage';
+import { storage, IStorage } from '../storage';
 import { requireAuth } from '../auth';
 import { db } from '../db';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
@@ -103,8 +103,8 @@ export function registerProposalsRoutes(app: Express): void {
       if (!proposal) return res.status(404).json({ message: "Proposal not found" });
       if (proposal.authorId !== req.user.id) return res.status(403).json({ message: "Not the author" });
       if (proposal.status !== 'draft') return res.status(409).json({ message: "Already submitted" });
-      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
-      const { storage: storageInstance } = await import('./storage');
+      const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('../storage');
       // draft → review (validated by the state machine; archived states blocked).
       const inReview = await transitionProposal(proposal, 'review', storageInstance);
       await triggerSideEffects(proposal.status, 'review', inReview);
@@ -115,7 +115,7 @@ export function registerProposalsRoutes(app: Express): void {
       let nextStatus: 'author_review' | 'draft' | 'review' = 'review';
       let category: 'return' | 'sortition' | 'auto_approve' | null = null;
       try {
-        const { validateProposal } = await import('./utils/llm-validation');
+        const { validateProposal } = await import('../utils/llm-validation');
         const result = await validateProposal(proposal.question, proposal.solution);
         llmScore = String(result.score);
         llmFeedback = result.feedback;
@@ -259,8 +259,8 @@ export function registerProposalsRoutes(app: Express): void {
       }
       const results = await storage.getProposalVoteResults(proposalId);
       const nextState = results.meetsQuorum ? 'decided' : 'archived';
-      const { transitionProposal, triggerSideEffects } = await import('./utils/proposal-state-machine');
-      const { storage: storageInstance } = await import('./storage');
+      const { transitionProposal, triggerSideEffects } = await import('../utils/proposal-state-machine');
+      const { storage: storageInstance } = await import('../storage');
       const updated = await transitionProposal(proposal, nextState, storageInstance);
       await triggerSideEffects(proposal.status, nextState, updated);
       res.json({ proposal: updated, results });
@@ -286,7 +286,7 @@ export function registerProposalsRoutes(app: Express): void {
         });
       }
       // Import state machine
-      const { transitionProposal, canTransition, getNextStates, triggerSideEffects } = await import('./utils/proposal-state-machine');
+      const { transitionProposal, canTransition, getNextStates, triggerSideEffects } = await import('../utils/proposal-state-machine');
       // Validate transition
       if (!canTransition(proposal.status, newState)) {
         const valid = getNextStates(proposal.status);
@@ -302,7 +302,7 @@ export function registerProposalsRoutes(app: Express): void {
           return res.status(403).json({ message: "Not authorized" });
         }
       }
-      const { storage: storageInstance } = await import('./storage');
+      const { storage: storageInstance } = await import('../storage');
       const updated = await transitionProposal(proposal, newState, storageInstance);
       await triggerSideEffects(proposal.status, newState, updated);
       res.json(updated);
@@ -392,7 +392,7 @@ export function registerProposalsRoutes(app: Express): void {
         if (summary.confirmedPct >= 0.5 && summary.total > 0) {
           const proposal = await storage.getProposal(proposalId);
           if (proposal) {
-            const { createNotification } = await import('./utils/notifications');
+            const { createNotification } = await import('../utils/notifications');
             await createNotification({
               userId: proposal.authorId,
               type: 'sortition_assigned',
@@ -421,7 +421,7 @@ export function registerProposalsRoutes(app: Express): void {
       if (proposal.authorId !== req.user.id) {
         return res.status(403).json({ message: "Only the author can request re-validation" });
       }
-      const { validateProposal } = await import('./utils/llm-validation');
+      const { validateProposal } = await import('../utils/llm-validation');
       const { validationResults } = await import('@shared/schema');
       const result = await validateProposal(proposal.question, proposal.solution);
       await db.insert(validationResults).values({

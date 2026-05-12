@@ -6,7 +6,7 @@
 
 import { db } from '../db';
 import { sortitionBodies, sortitionMembers, sortitionAttendance, type SortitionBody, type InsertSortitionBody, type SortitionMember, type SortitionAttendance } from '../../shared/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 
 export class SortitionRepository {
 

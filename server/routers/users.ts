@@ -7,6 +7,7 @@
 import type { Express, Request, Response } from 'express';
 import { storage } from '../storage';
 import { requireAuth } from '../auth';
+import { verifyLocationSchema, locationSchema } from '../utils/location-validator';
 import { requireAdmin } from '../auth';
 
 export function registerUsersRoutes(app: Express): void {
@@ -41,7 +42,7 @@ export function registerUsersRoutes(app: Express): void {
   app.patch("/api/user/location", requireAuth, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const parsedData = locationSchema.safeParse(req.body);
+      const parsedData = verifyLocationSchema(req.body);
       if (!parsedData.success) {
         return res.status(400).json({
           message: "Λανθασμένα δεδομένα τοποθεσίας",
@@ -72,7 +73,7 @@ export function registerUsersRoutes(app: Express): void {
         return res.status(400).json({ message: "PDF file is required" });
       }
       // Verify identity via Python ballot service
-      const { verifyIdentity } = await import('./utils/ballot-client');
+      const { verifyIdentity } = await import('../utils/ballot-client');
       const result = await verifyIdentity(file.buffer);
       if (result.success) {
         // Check if this voter hash is already used by another account

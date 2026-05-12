@@ -6,7 +6,7 @@
 
 import { db } from '../db';
 import { platformSettings, users, communities, type PlatformSetting, type User, type Community } from '../../shared/schema';
-import { eq, ilike, desc } from 'drizzle-orm';
+import { eq, ilike, desc, or, sql, inArray } from 'drizzle-orm';
 
 export class PlatformRepository {
 

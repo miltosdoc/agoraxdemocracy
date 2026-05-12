@@ -148,7 +148,7 @@ export function registerMiscRoutes(app: Express): void {
   };
   app.get("/api/health", async (req, res) => {
     try {
-      const { db } = await import('./db');
+      const { db } = await import('../db');
       await db.execute('SELECT 1');
       res.json({
         status: 'healthy',

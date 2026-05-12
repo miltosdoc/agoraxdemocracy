@@ -147,7 +147,7 @@ export function registerNotificationsRoutes(app: Express): void {
   app.get("/api/notification-preferences", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { getOrCreatePreferences } = await import('./utils/notifications');
+      const { getOrCreatePreferences } = await import('../utils/notifications');
       const prefs = await getOrCreatePreferences(userId);
       res.json(prefs);
     } catch (error) {
@@ -158,7 +158,7 @@ export function registerNotificationsRoutes(app: Express): void {
   app.patch("/api/notification-preferences", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { updatePreferences } = await import('./utils/notifications');
+      const { updatePreferences } = await import('../utils/notifications');
       await updatePreferences(userId, req.body);
       res.json({ success: true });
     } catch (error) {

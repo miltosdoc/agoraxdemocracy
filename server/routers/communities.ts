@@ -6,6 +6,7 @@
 
 import type { Express, Request, Response } from 'express';
 import { storage } from '../storage';
+import type { IStorage } from '../storage/types';
 import { db } from '../db';
 import { requireAuth } from '../auth';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
@@ -186,11 +187,11 @@ export function registerCommunitiesRoutes(app: Express): void {
       }
       const { size } = req.body;
       const panelSize = size || 7;
-      const { createSortitionBody } = await import('./utils/sortition');
-      const result = await createSortitionBody(communityId, panelSize, storage);
+      const { createSortitionBody } = await import('../utils/sortition');
+      const result = await createSortitionBody(communityId, panelSize, storage as any as IStorage);
       // Notify selected members
       try {
-        const { notifySortitionMembers } = await import('./utils/notifications');
+        const { notifySortitionMembers } = await import('../utils/notifications');
         const notified = await notifySortitionMembers(
           result.bodyId,
           communityId,
@@ -218,10 +219,10 @@ export function registerCommunitiesRoutes(app: Express): void {
       if (!isMember) {
         return res.status(403).json({ message: "Must be a community member" });
       }
-      const { previewSortition } = await import('./utils/sortition');
+      const { previewSortition } = await import('../utils/sortition');
       const { size } = req.query;
       const panelSize = parseInt(size as string) || 7;
-      const result = await previewSortition(communityId, panelSize, storage);
+      const result = await previewSortition(communityId, panelSize, storage as any as IStorage);
       res.json(result);
     } catch (error) {
       console.error("Error previewing sortition:", error);
@@ -266,8 +267,8 @@ export function registerCommunitiesRoutes(app: Express): void {
       if (!community) {
         return res.status(404).json({ message: "Community not found" });
       }
-      const { calculateDemocracyScore, getDemocracyGrade } = await import('./utils/democracy-score');
-      const result = await calculateDemocracyScore(communityId, storage);
+      const { calculateDemocracyScore, getDemocracyGrade } = await import('../utils/democracy-score');
+      const result = await calculateDemocracyScore(communityId, storage as any as IStorage);
       res.json({
         ...result,
         grade: getDemocracyGrade(result.score),

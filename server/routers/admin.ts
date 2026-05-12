@@ -5,6 +5,7 @@
  */
 
 import type { Express, Request, Response } from 'express';
+import multer from 'multer';
 import { storage } from '../storage';
 import { requireAdmin } from '../auth';
 
@@ -75,11 +76,11 @@ export function registerAdminRoutes(app: Express): void {
   // ============================================
   // These routes proxy to the Python ballot validation service
   // for verifying Gov.gr Solemn Declaration PDFs as certified ballots
-  const multer = (await import('multer')).default;
+  // multer imported at top
   const ballotUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
-    fileFilter: (req, file, cb) => {
+    fileFilter: async (req, file, cb) => {
       if (file.mimetype === 'application/pdf') {
         cb(null, true);
       } else {

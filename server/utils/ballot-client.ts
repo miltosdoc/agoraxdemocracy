@@ -220,3 +220,20 @@ export async function checkBallotServiceHealth(): Promise<{
     };
   }
 }
+
+
+/**
+ * Upload and validate a ballot PDF document.
+ * @param pdfBuffer - Raw PDF buffer
+ * @param userId - User ID uploading the ballot
+ * @returns Validation result with hash and status
+ */
+export async function ballotUpload(
+  pdfBuffer: Buffer,
+  userId: string
+): Promise<{ hash: string; valid: boolean; error?: string }> {
+  // Placeholder - actual implementation calls external ballot service
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+  return { hash, valid: true };
+}

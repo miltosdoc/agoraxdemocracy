@@ -111,3 +111,28 @@ function calculateDistance(
   // Distance in kilometers
   return R * c;
 }
+import { z } from 'zod';
+
+/**
+ * Zod schema for location validation.
+ */
+export const locationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+});
+
+/**
+ * Verify location data against the schema.
+ * @param data - Location data to validate
+ * @returns Validation result
+ */
+export function verifyLocationSchema(data: unknown): { success: boolean; data?: any; error?: string } {
+  const result = locationSchema.safeParse(data);
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+  return { success: false, error: result.error.message };
+}

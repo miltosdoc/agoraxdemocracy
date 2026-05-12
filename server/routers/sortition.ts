@@ -5,7 +5,9 @@
  */
 
 import type { Express, Request, Response } from 'express';
+import { db } from '../db';
 import { storage } from '../storage';
+import type { IStorage } from '../storage/types';
 import { requireAuth } from '../auth';
 import { eq, and, desc, sql, inArray, or } from 'drizzle-orm';
 import {
@@ -267,8 +269,8 @@ export function registerSortitionRoutes(app: Express): void {
       if (role !== 'admin' && role !== 'founder') {
         return res.status(403).json({ message: "Not authorized" });
       }
-      const { synthesizeSortitionScores } = await import('./utils/sortition');
-      const result = await synthesizeSortitionScores(bodyId, storage);
+      const { synthesizeSortitionScores } = await import('../utils/sortition');
+      const result = await synthesizeSortitionScores(bodyId, storage as any as IStorage);
       res.json(result);
     } catch (error) {
       console.error("Error synthesizing sortition scores:", error);
