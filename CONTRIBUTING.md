@@ -1,132 +1,316 @@
 # Contributing to AgoraX
 
-Thank you for your interest in contributing to AgoraX — a digital democracy platform for Greek communities.
+Thank you for your interest in contributing to AgoraX! This guide will help you get started.
 
-## Before You Start
+## Code of Conduct
 
-1. Read the [README.md](README.md) to understand the project vision and architecture
-2. Read the project documentation and Demopolis notes committed to this repository (`README.md`, `OPEN_QUESTIONS.md`, `PHASE2_RESEARCH.md`)
-3. Check existing issues and pull requests to avoid duplicate work
+We follow the [Contributor Covenant](https://www.contributor-covenant.org/version/2/0/code_of_conduct/). Please read and follow it.
 
-## Development Environment
+## Development Setup
 
 ### Prerequisites
+
 - Node.js 20+
 - PostgreSQL 15+
-- Python 3.11+ (for ballot service)
-- npm or yarn
+- Docker & Docker Compose (optional)
 
-### Setup
+### Local Development
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone https://github.com/miltosdoc/agoraxdemo.git
 cd agoraxdemo
+
+# Install dependencies
 npm install
 
-# Database setup
+# Set up environment variables
 cp .env.example .env
-# Edit .env — set DATABASE_URL plus SESSION_SECRET/JWT_SECRET/SALT_KEY
+# Edit .env with your database credentials
 
-# Push schema to database
-npm run db:push
+# Start the database
+docker-compose up -d postgres
 
-# Start development server
+# Run database migrations
+DATABASE_URL=postgresql://user:pass@localhost:5432/agorax npx drizzle-kit push
+
+# Start development servers
 npm run dev
 ```
 
-### Ballot Service (Optional)
+### Project Structure
 
-The ballot service handles Gov.gr PDF signature verification:
-
-```bash
-cd ballot_service
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+```
+agoraxdemo/
+├── server/
+│   ├── routers/          # 12 domain-specific routers
+│   ├── storage/          # 9 domain repositories
+│   ├── utils/            # 19 utility modules
+│   └── index.ts          # Express application entry point
+├── client/
+│   ├── src/
+│   │   ├── components/   # 107 TSX components
+│   │   ├── pages/        # Page components
+│   │   └── i18n/         # en/el translations
+│   └── vite.config.ts
+├── tests/
+│   ├── unit/             # Unit tests
+│   ├── integration/      # Integration tests
+│   └── e2e/              # Playwright E2E tests
+├── docs/                 # Documentation
+└── scripts/              # Utility scripts
 ```
 
-## Code Style
+## Making Changes
 
-- **TypeScript**: Strict mode enabled. Run `npm run check` before committing
-- **Formatting**: Follow existing patterns in the codebase
-- **Greek text**: Use Greek for user-facing strings (i18n via `t()` helper)
-- **English**: Use English for code comments, variable names, and documentation
+### 1. Fork and Clone
 
-## Schema Changes
+```bash
+git clone https://github.com/YOUR_USERNAME/agoraxdemo.git
+cd agoraxdemo
+git remote add upstream https://github.com/miltosdoc/agoraxdemo.git
+```
 
-When modifying the database schema:
+### 2. Create a Branch
 
-1. Edit `shared/schema.ts`
-2. Run `npx drizzle-kit generate` to create a migration
-3. Review the generated SQL in `migrations/`
-4. Test with `npm run db:push` against a development database
-5. Commit both the schema changes and the migration file
+```bash
+# Feature branch
+git checkout -b feature/your-feature-name
 
-**Important:** Always run `npm run check` after schema changes to verify TypeScript types.
+# Bug fix branch
+git checkout -b fix/your-bug-fix-name
 
-## Adding New Routes
+# Documentation branch
+git checkout -b docs/your-docs-name
+```
 
-New API routes go in `server/routes.ts`. Follow the existing patterns:
+### 3. Make Your Changes
+
+Follow our coding standards:
+
+- **TypeScript**: Strict mode enabled, no `any` types
+- **File size**: <400 lines per file
+- **JSDoc**: All public APIs must be documented
+- **Console.log**: Zero in production code
+- **Tests**: All changes must include tests
+
+### 4. Run Tests
+
+```bash
+# Unit and integration tests
+npm test
+
+# TypeScript compilation
+npx tsc --noEmit
+
+# Modularity check
+node scripts/check-modularity.cjs
+
+# E2E tests (requires running app)
+npx playwright test
+```
+
+### 5. Commit Your Changes
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```bash
+# Features
+git commit -m "feat: add new proposal status"
+
+# Bug fixes
+git commit -m "fix: resolve sortition bias issue"
+
+# Documentation
+git commit -m "docs: update API reference"
+
+# Refactoring
+git commit -m "refactor: split storage layer into domains"
+
+# Testing
+git commit -m "test: add E2E tests for voting"
+
+# Performance
+git commit -m "perf: optimize proposal list query"
+
+# Security
+git commit -m "security: fix XSS vulnerability in comments"
+```
+
+### 6. Push and Create Pull Request
+
+```bash
+git push origin feature/your-feature-name
+```
+
+Then create a PR on GitHub with:
+- Clear description of changes
+- Screenshots for UI changes
+- Test results
+- Any breaking changes noted
+
+## Code Review Process
+
+1. **Self-review**: Check your code against our standards
+2. **Automated checks**: CI must pass (lint, typecheck, tests)
+3. **Manual review**: At least one maintainer approval
+4. **Merge**: Squash merge to main branch
+
+## Coding Standards
+
+### TypeScript
 
 ```typescript
-app.post("/api/resource", requireAuth, async (req, res) => {
-  try {
-    const parsed = insertResourceSchema.parse(req.body);
-    const result = await storage.createResource(parsed);
-    res.json(result);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: formatValidationErrors(error.flatten()) });
-    }
-    res.status(500).json({ error: "Internal server error" });
+// ✅ Good: Typed parameters and return values
+async function getUser(id: number): Promise<User | null> {
+  return await userRepo.getUser(id);
+}
+
+// ❌ Bad: Using any
+async function getUser(id: any): Promise<any> {
+  return await userRepo.getUser(id);
+}
+```
+
+### JSDoc
+
+```typescript
+/**
+ * Get a user by ID.
+ *
+ * @param id - The user's unique identifier
+ * @returns The user object or null if not found
+ */
+async function getUser(id: number): Promise<User | null> {
+  // ...
+}
+```
+
+### Error Handling
+
+```typescript
+// ✅ Good: Specific error handling
+try {
+  await storage.createUser(user);
+} catch (error) {
+  if (error instanceof UniqueViolationError) {
+    throw new ConflictError('User already exists');
   }
+  logger.error('Failed to create user', { error });
+  throw new InternalError('Database error');
+}
+
+// ❌ Bad: Generic catch
+try {
+  await storage.createUser(user);
+} catch (error) {
+  console.error(error); // Never use console in production
+  throw error;
+}
+```
+
+### Logging
+
+```typescript
+// ✅ Good: Structured logging
+import { logger } from '../utils/logger';
+
+logger.info('User created', { userId: user.id, email: user.email });
+logger.warn('Rate limit approaching', { userId: user.id, count: 95 });
+logger.error('Database connection failed', { error: error.message });
+
+// ❌ Bad: Console logging
+console.log('User created:', user); // Never use console in production
+```
+
+## Testing Guidelines
+
+### Unit Tests
+
+- Test pure functions and utilities
+- Mock external dependencies
+- Use descriptive test names
+
+```typescript
+describe('calculateDemocracyScore', () => {
+  it('should return 100 for perfect community', () => {
+    const score = calculateDemocracyScore(perfectCommunity);
+    expect(score).toBe(100);
+  });
 });
 ```
 
-## Adding New Frontend Pages
+### Integration Tests
 
-1. Create the page component in `client/src/pages/`
-2. Add the route in `client/src/App.tsx`
-3. Use TanStack Query for data fetching (`getQueryFn`, `apiRequest`)
-4. Use the `t()` helper for Greek text
-5. Wrap protected routes with `<ProtectedRoute>`
+- Test API endpoints
+- Test database operations
+- Use test database
 
-## Testing
-
-Run the full wired test suite before submitting changes:
-
-```bash
-npm run test:all
+```typescript
+describe('POST /api/proposals', () => {
+  it('should create a new proposal', async () => {
+    const response = await request(app)
+      .post('/api/proposals')
+      .send({ title: 'Test', description: 'Test proposal' });
+    
+    expect(response.status).toBe(201);
+    expect(response.body.title).toBe('Test');
+  });
+});
 ```
 
-For the TypeScript state-machine test directly:
-```bash
-npm run test:unit
+### E2E Tests
+
+- Test critical user flows
+- Use Playwright
+- Run against running application
+
+```typescript
+test('should create a proposal', async ({ page }) => {
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: /new proposal/i }).click();
+  await page.getByLabel('Title').fill('Test');
+  await page.getByRole('button', { name: /submit/i }).click();
+  await expect(page).toHaveURL(/\/proposals\/\d+/);
+});
 ```
 
-Run `npm run check:i18n` after touching user-facing translation keys.
+## Documentation
 
-## Pull Request Process
+### When to Update Docs
 
-1. Create a feature branch from `main`
-2. Make focused, atomic changes
-3. Add tests for new functionality
-4. Run `npm run check`, `npm run test:all`, and `npm run build`
-5. Update documentation if applicable
-6. Submit the PR with a clear description
+- Adding new features
+- Changing API endpoints
+- Modifying configuration
+- Fixing bugs with workarounds
 
-## Demopolis Specifications
+### Where to Update
 
-The Demopolis working group maintains the design background for this project. When implementing new features, prefer repository-visible sources first:
+- `docs/API.md` — API endpoint changes
+- `docs/ARCHITECTURE.md` — Architecture changes
+- `README.md` — High-level changes
+- `docs/SECURITY_AUDIT.md` — Security changes
+- `docs/PERFORMANCE_OPTIMIZATION.md` — Performance changes
 
-- `README.md` — current architecture and user-facing feature summary
-- `OPEN_QUESTIONS.md` — unresolved product/architecture decisions
-- `PHASE2_RESEARCH.md` — research notes and design rationale
+## Release Process
 
-Do not reference local-only paths in issues, PRs, or committed docs; they are not available to other contributors.
+1. **Version bump**: Update `package.json` version
+2. **Changelog**: Update `CHANGELOG.md`
+3. **Tag**: `git tag -a v1.2.3 -m "Release v1.2.3"`
+4. **Push**: `git push origin main --tags`
+5. **GitHub Release**: Create release with notes
 
-## Questions?
+## Getting Help
 
-Contact the maintainers or open an issue for discussion.
+- **Issues**: For bugs and feature requests
+- **Discussions**: For questions and ideas
+- **Discord**: For real-time chat (link in README)
+
+## Recognition
+
+Contributors are recognized in:
+- `CONTRIBUTORS.md`
+- Release notes
+- README contributors section
+
+Thank you for contributing to AgoraX! 🎉
